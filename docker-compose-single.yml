@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Redis - 存储作业队列和状态
+  redis:
+    image: redis:7-alpine
+    container_name: hermes-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  # Prometheus - 指标收集
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hermes-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    restart: always
+
+  # Grafana - 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hermes-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=hermes
+    depends_on:
+      - prometheus
+    restart: always
+
+  # Jaeger - 分布式追踪
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: hermes-jaeger
+    ports:
+      - "4317:4317"
+      - "16686:16686"
+    volumes:
+      - jaeger-data:/tmp/jaeger
+    restart: always
+
+  # Hermes Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheduler
+    container_name: hermes-scheduler
+    ports:
+      - "50051:50051"
+    environment:
+      - HERMES_SCHEDULER_REDIS_URL=redis://redis:6379/0
+      - HERMES_SCHEDULER_PROMETHEUS_ENABLED=true
+      - HERMES_SCHEDULER_TRACING_ENABLED=true
+      - HERMES_SCHEDULER_TRACING_ENDPOINT=http://jaeger:4317
+    depends_on:
+      - redis
+      - prometheus
+      - jaeger
+    restart: always
+
+  # Hermes Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    container_name: hermes-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - HERMES_GATEWAY_UPSTREAM_SCHEDULER_ADDR=localhost:50051
+      - HERMES_GATEWAY_RATE_LIMIT_ENABLED=false
+      - HERMES_GATEWAY_AUTH_ENABLED=false
+    depends_on:
+      - scheduler
+    restart: always
+
+  # Hermes Checkpoint Service
+  checkpoint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.checkpoint
+    container_name: hermes-checkpoint
+    ports:
+      - "50052:50052"
+    environment:
+      - HERMES_CHECKPOINT_STORAGE_BACKEND=memory
+      - HERMES_CHECKPOINT_REDIS_URL=redis://redis:6379/1
+    volumes:
+      - checkpoint-data:/data/checkpoints
+    depends_on:
+      - redis
+    restart: always
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  jaeger-data:
+  checkpoint-data:
+
+networks:
+  default:
+    name: hermes-network

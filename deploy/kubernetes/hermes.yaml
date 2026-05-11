@@ -1,0 +1,218 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hermes
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: hermes
+data:
+  gateway.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      workers: 4
+    auth:
+      enabled: true
+    rate_limit:
+      enabled: true
+      rps: 100
+    upstream:
+      scheduler_addr: "scheduler:50051"
+      checkpoint_addr: "checkpoint:50052"
+  scheduler.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 50051
+    algorithm:
+      algorithm: "mcts"
+      carbon_aware: true
+  checkpoint.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 50052
+    storage:
+      backend: "memory"
+      delta_enabled: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-gateway
+  namespace: hermes
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes-gateway
+  template:
+    metadata:
+      labels:
+        app: hermes-gateway
+    spec:
+      containers:
+      - name: gateway
+        image: hermes-cosmos/gateway:latest
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /v1/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-gateway
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-scheduler
+  namespace: hermes
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes-scheduler
+  template:
+    metadata:
+      labels:
+        app: hermes-scheduler
+    spec:
+      containers:
+      - name: scheduler
+        image: hermes-cosmos/scheduler:latest
+        ports:
+        - containerPort: 50051
+        - containerPort: 9090
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-scheduler
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-checkpoint
+  namespace: hermes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes-checkpoint
+  template:
+    metadata:
+      labels:
+        app: hermes-checkpoint
+    spec:
+      containers:
+      - name: checkpoint
+        image: hermes-cosmos/checkpoint:latest
+        ports:
+        - containerPort: 50052
+        - containerPort: 9090
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkpoint
+  namespace: hermes
+spec:
+  selector:
+    app: hermes-checkpoint
+  ports:
+  - name: grpc
+    port: 50052
+    targetPort: 50052
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hermes-agent
+  namespace: hermes
+spec:
+  selector:
+    matchLabels:
+      app: hermes-agent
+  template:
+    metadata:
+      labels:
+        app: hermes-agent
+    spec:
+      hostPID: true
+      containers:
+      - name: agent
+        image: hermes-cosmos/agent:latest
+        ports:
+        - containerPort: 50053
+        - containerPort: 9090
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: dev
+          mountPath: /dev
+          readOnly: true
+      volumes:
+      - name: dev
+        hostPath:
+          path: /dev

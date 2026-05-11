@@ -1,0 +1,106 @@
+[project]
+name = "hermes-cosmos"
+version = "2.0.0"
+description = "Hermes - Global AI Training Scheduling and Fault-Tolerant Computing System (Python Edition)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Cloud Architecture Team", email = "hermes@example.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing"
+]
+dependencies = [
+    # FastAPI + ASGI
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    
+    # Pydantic
+    "pydantic>=2.6.0",
+    
+    # Async HTTP
+    "httpx>=0.27.0",
+    
+    # Redis
+    "redis>=5.0.0",
+    "redisjson>=0.2.0",
+    
+    # Kubernetes
+    "kubernetes>=29.0.0",
+    
+    # Raft Consensus
+    "pysyncobj>=0.3.12",
+    
+    # ML/AI
+    "numpy>=1.26.0",
+    "scikit-learn>=1.4.0",
+    "torch>=2.2.0",
+    
+    # Monitoring
+    "prometheus-client>=0.20.0",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-exporter-prometheus>=1.22.0",
+    
+    # GPU
+    "pynvml>=11.5.0",
+    
+    # Utils
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0.0",
+    
+    # Async
+    "celery>=5.4.0",
+    "aiohttp>=3.9.0"
+]
+
+[project.scripts]
+hermes-scheduler = "hermes.scheduler.main:main"
+hermes-gateway = "hermes.gateway.main:main"
+hermes-checkpoint = "hermes.checkpoint.server:main"
+hermes-fault-prediction = "hermes.fault_prediction.predictor:main"
+
+[project.urls]
+"Homepage" = "https://github.com/example/hermes-cosmos"
+"Documentation" = "https://hermes-cosmos.readthedocs.io"
+"Repository" = "https://github.com/example/hermes-cosmos.git"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203", "W503"]

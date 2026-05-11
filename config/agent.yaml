@@ -1,0 +1,27 @@
+server:
+  host: "0.0.0.0"
+  port: 50053
+  workers: 2
+  timeout: 30
+
+region: "us-east"
+
+fault_prediction:
+  enabled: true
+  model_path: "/var/lib/hermes/models/fault_predictor.onnx"
+  prediction_window: 30
+  confidence_threshold: 0.85
+
+prometheus:
+  enabled: true
+  port: 9092
+  path: "/metrics"
+
+tracing:
+  enabled: true
+  service_name: "hermes-agent"
+  exporter: "otlp"
+  endpoint: "http://jaeger:4317"
+  sample_rate: 1.0
+
+log_level: "INFO"

@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hermes-postgres
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes
+      POSTGRES_DB: hermes
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - hermes-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: hermes-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - hermes-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.13
+    container_name: hermes-etcd
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    environment:
+      - ETCD_NAME=hermes-etcd
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_INITIAL_CLUSTER=hermes-etcd=http://etcd:2380
+    volumes:
+      - etcd-data:/etcd-data
+    networks:
+      - hermes-net
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: hermes-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - hermes-net
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: hermes-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=hermes2026
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - hermes-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: hermes-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - hermes-net
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    container_name: hermes-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - redis
+      - etcd
+    networks:
+      - hermes-net
+    environment:
+      - HERMES_GATEWAY_SERVER__HOST=0.0.0.0
+      - HERMES_GATEWAY_UPSTREAM__SCHEDULER_ADDR=scheduler:50051
+      - HERMES_GATEWAY_UPSTREAM__CHECKPOINT_ADDR=checkpoint:50052
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheduler
+    container_name: hermes-scheduler
+    ports:
+      - "50051:50051"
+      - "9091:9090"
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - postgres
+      - redis
+      - etcd
+    networks:
+      - hermes-net
+    environment:
+      - HERMES_SCHEDULER_SERVER__HOST=0.0.0.0
+      - HERMES_SCHEDULER_DATABASE__URL=postgresql+asyncpg://hermes:hermes@postgres:5432/hermes
+      - HERMES_SCHEDULER_REDIS__URL=redis://redis:6379/0
+
+  checkpoint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.checkpoint
+    container_name: hermes-checkpoint
+    ports:
+      - "50052:50052"
+      - "9092:9090"
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - hermes-net
+    environment:
+      - HERMES_CHECKPOINT_SERVER__HOST=0.0.0.0
+      - HERMES_CHECKPOINT_REDIS__URL=redis://redis:6379/1
+
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+    container_name: hermes-agent
+    ports:
+      - "50053:50053"
+      - "9093:9090"
+    volumes:
+      - ./config:/app/config
+    networks:
+      - hermes-net
+    environment:
+      - HERMES_AGENT_SERVER__HOST=0.0.0.0
+      - HERMES_AGENT_REGION=us-east
+
+networks:
+  hermes-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  etcd-data:
+  prometheus-data:
+  grafana-data:

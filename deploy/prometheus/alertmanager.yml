@@ -1,0 +1,96 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'dingding'
+
+receivers:
+- name: 'dingding'
+  webhook_configs:
+  - url: 'https://oapi.dingtalk.com/robot/send?access_token=YOUR_ROBOT_TOKEN'
+    send_resolved: true
+    http_config:
+      headers:
+        Content-Type: application/json
+    body: |-
+      {
+        "msgtype": "text",
+        "text": {
+          "content": "🚨 Hermes告警\n\n告警名称: {{ .CommonLabels.alertname }}\n级别: {{ .CommonLabels.severity }}\n描述: {{ .CommonAnnotations.description }}\n时间: {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n详情: {{ .CommonAnnotations.summary }}"
+        }
+      }
+
+inhibit_rules:
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal: ['alertname', 'dev', 'instance']
+
+# 告警规则
+groups:
+- name: hermes-alerts
+  rules:
+  # 调度延迟告警
+  - alert: SchedulerLatencyHigh
+    expr: hermes_scheduler_scheduling_latency_seconds > 1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: 调度延迟过高
+      description: 调度延迟超过1秒，当前值 {{ $value }}秒
+
+  # Pod重启告警
+  - alert: PodRestarting
+    expr: increase(kube_pod_container_status_restarts_total[5m]) > 3
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Pod频繁重启
+      description: Pod在5分钟内重启超过3次
+
+  # Checkpoint失败告警
+  - alert: CheckpointFailed
+    expr: hermes_checkpoint_failures_total > 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: Checkpoint失败
+      description: Checkpoint操作失败，失败次数 {{ $value }}
+
+  # 磁盘使用率告警
+  - alert: DiskUsageHigh
+    expr: (node_filesystem_used_bytes / node_filesystem_size_bytes) * 100 > 80
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: 磁盘使用率过高
+      description: 磁盘使用率超过80%，当前值 {{ $value | humanizePercentage }}
+
+  # GPU不可用告警
+  - alert: GPUUnavailable
+    expr: hermes_cluster_available_gpus < 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: 可用GPU不足
+      description: 可用GPU数量小于10，当前值 {{ $value }}
+
+  # 服务不可用告警
+  - alert: ServiceUnavailable
+    expr: probe_success == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: 服务不可用
+      description: {{ $labels.instance }} 服务不可达

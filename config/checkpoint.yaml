@@ -1,0 +1,42 @@
+server:
+  host: "0.0.0.0"
+  port: 50052
+  workers: 4
+  timeout: 30
+
+storage:
+  backend: "memory"
+  pmem_path: "/mnt/pmem"
+  s3_bucket: "hermes-checkpoints"
+  s3_region: "us-east-1"
+  compression: true
+  delta_enabled: true
+
+# 跨Region Checkpoint 复制配置
+replication:
+  enabled: true
+  mode: "async"  # async | sync | semi_sync
+  target_regions:
+    - eu-west      # 法兰克福
+    - eu-central   # 伦敦
+  replication_delay_target_seconds: 300  # 5分钟
+  retention_period_hours: 168  # 7天
+  consistency_check: true
+
+redis:
+  url: "redis://redis:6379/1"
+  max_connections: 50
+
+prometheus:
+  enabled: true
+  port: 9091
+  path: "/metrics"
+
+tracing:
+  enabled: true
+  service_name: "hermes-checkpoint"
+  exporter: "otlp"
+  endpoint: "http://jaeger:4317"
+  sample_rate: 1.0
+
+log_level: "INFO"

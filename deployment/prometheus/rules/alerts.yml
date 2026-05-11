@@ -1,0 +1,56 @@
+groups:
+- name: hermes-alerts
+  rules:
+  - alert: SchedulerUnavailable
+    expr: up{job="hermes-scheduler"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "调度器服务不可用"
+      description: "Hermes调度器服务已停止响应"
+
+  - alert: GatewayUnavailable
+    expr: up{job="hermes-gateway"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "API网关不可用"
+      description: "Hermes API网关已停止响应"
+
+  - alert: CheckpointServiceUnavailable
+    expr: up{job="hermes-checkpoint"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Checkpoint服务不可用"
+      description: "Hermes Checkpoint服务已停止响应"
+
+  - alert: SchedulingLatencyHigh
+    expr: hermes_scheduling_latency_seconds > 0.5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "调度延迟过高"
+      description: "调度延迟超过500ms"
+
+  - alert: RecoveryTimeExceeded
+    expr: hermes_recovery_time_seconds > 5
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "故障恢复时间超过阈值"
+      description: "故障恢复时间超过5秒"
+
+  - alert: JobFailureRateHigh
+    expr: rate(hermes_job_failures_total[5m]) > 0.1
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "作业失败率过高"
+      description: "作业失败率超过10%"

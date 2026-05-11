@@ -1,0 +1,31 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  timeout: 30
+
+auth:
+  enabled: true
+  spiffe_host: "unix:///tmp/spire-agent/public/api.sock"
+  jwks_url: "http://spire-server:8081/jwks"
+  token_ttl: 3600
+  admin_roles:
+    - admin
+
+rate_limit:
+  enabled: true
+  rps: 100
+  burst: 200
+  per_tenant: true
+
+tls:
+  enabled: false
+  cert_file: "/etc/hermes/tls/cert.pem"
+  key_file: "/etc/hermes/tls/key.pem"
+
+upstream:
+  scheduler_addr: "scheduler:50051"
+  checkpoint_addr: "checkpoint:50052"
+  agent_addr: "agent:50053"
+
+log_level: "INFO"
