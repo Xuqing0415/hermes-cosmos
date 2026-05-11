@@ -1,0 +1,89 @@
+# LLM Inference Service Job Configuration
+# 用于在 Hermes 上运行 LLM 推理服务
+
+name: llama-2-13b-inference
+tenant_id: cv-team
+user_id: hermes-tester
+
+# 作业类型 - 持续运行服务
+job_type: INFERENCE_SERVICE
+
+# 优先级
+priority: HIGH
+
+# 资源需求
+requirements:
+  gpu_count: 4
+  gpu_type: nvidia-h100
+  memory_gb: 256
+  cpu_cores: 16
+  storage_gb: 200
+  max_duration_hours: 168  # 7天 max
+
+# 调度约束
+constraints:
+  regions:
+    - us-east
+    - eu-west
+  carbon_aware: true
+  data_locality: false
+
+# 推理服务配置
+inference_config:
+  model: llama-2-13b
+  model_path: /models/llama-2-13b
+  max_batch_size: 32
+  max_sequence_length: 4096
+  tensor_parallel: 2
+  quantization: fp16
+
+# 镜像
+image: hermes-cosmos/inference:latest
+
+# 启动命令
+command: |
+  python -m vllm.entrypoints.api_server \
+    --model /models/llama-2-13b \
+    --tensor-parallel-size 2 \
+    --max-num-batched-tokens 16384 \
+    --port 8000
+
+# 环境变量
+environment:
+  MODEL_NAME: llama-2-13b
+  PORT: "8000"
+  TENSOR_PARALLEL_SIZE: "2"
+  GPU_MEMORY_UTILIZATION: "0.9"
+
+# 健康检查
+health_check:
+  enabled: true
+  endpoint: /health
+  interval_seconds: 30
+
+# 自动扩缩容
+autoscaling:
+  enabled: true
+  min_replicas: 1
+  max_replicas: 4
+  target_gpu_utilization: 70
+  metrics:
+    - type: GPU_UTILIZATION
+      target: 70
+    - type: REQUEST_RATE
+      target: 100
+
+# Checkpoint 配置
+checkpoint_enabled: true
+checkpoint_interval_minutes: 30
+
+# 监控
+monitoring:
+  prometheus_metrics: true
+  log_level: INFO
+
+# SLA 目标
+sla:
+  availability: 99.9
+  p99_latency_ms: 100
+  recovery_time_seconds: 5

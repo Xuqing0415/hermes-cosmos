@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'hermes-gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'hermes-scheduler'
+    static_configs:
+      - targets: ['scheduler:9090']
+    metrics_path: '/metrics'
+
+  - job_name: 'hermes-checkpoint'
+    static_configs:
+      - targets: ['checkpoint:9090']
+    metrics_path: '/metrics'
+
+  - job_name: 'hermes-agent'
+    static_configs:
+      - targets: ['agent:9090']
+    metrics_path: '/metrics'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']

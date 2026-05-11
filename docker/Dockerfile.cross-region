@@ -1,0 +1,16 @@
+# Hermes Cross-Region Training Docker Image
+
+FROM python:3.10-slim
+
+# 安装依赖
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install redis
+
+# 创建工作目录
+WORKDIR /app
+
+# 复制训练脚本
+COPY examples/cross_region_train.py .
+
+# 运行脚本
+CMD ["python", "cross_region_train.py"]

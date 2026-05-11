@@ -1,0 +1,71 @@
+server:
+  host: "0.0.0.0"
+  port: 50051
+  workers: 4
+  timeout: 30
+
+database:
+  url: "postgresql+asyncpg://hermes:hermes@postgres:5432/hermes"
+  pool_size: 20
+  max_overflow: 10
+  echo: false
+
+redis:
+  url: "redis://redis:6379/0"
+  max_connections: 50
+
+etcd:
+  endpoints:
+    - "etcd:2379"
+  prefix: "/hermes/"
+
+prometheus:
+  enabled: true
+  port: 9090
+  path: "/metrics"
+
+tracing:
+  enabled: true
+  service_name: "hermes-scheduler"
+  exporter: "otlp"
+  endpoint: "http://jaeger:4317"
+  sample_rate: 1.0
+
+algorithm:
+  algorithm: "mcts"
+  mcts_iterations: 1000
+  mcts_exploration: 1.414
+  placement_strategy: "cost_aware"
+  carbon_aware: true
+
+raft:
+  election_timeout: 5000
+  heartbeat_interval: 1000
+  snapshot_threshold: 10000
+  data_dir: "/var/lib/hermes/raft"
+
+# 安全策略
+security:
+  # TEE 强制配置 - 生产作业必须启用
+  tee:
+    required: true  # 强制所有生产作业启用TEE
+    allowed_types:
+      - "amd-sev"    # AMD SEV
+      - "intel-sgx"  # Intel SGX
+    fallback_allowed: false  # 不允许无TEE的回退
+    exemptions:  # 豁免列表 (需要单独审批)
+      - tenant_id: "internal-test"
+        reason: "仅用于测试环境"
+
+  # 审计日志配置
+  audit:
+    enabled: true
+    send_to_siems:
+      - name: "security-siem"
+        type: "kafka"
+        endpoint: "kafka.security.internal:9092"
+        topic: "hermes-audit-logs"
+    local_retention_days: 90
+    min_level: "INFO"  # INFO | WARNING | ERROR
+
+log_level: "INFO"

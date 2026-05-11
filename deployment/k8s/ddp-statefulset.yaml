@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ddp-train
+  labels:
+    app: ddp-train
+spec:
+  replicas: 4
+  serviceName: ddp-train
+  selector:
+    matchLabels:
+      app: ddp-train
+  template:
+    metadata:
+      labels:
+        app: ddp-train
+        hermes-job: ddp-job
+    spec:
+      containers:
+      - name: trainer
+        image: hermes-ddp:latest
+        command: ["python", "/app/ddp_train.py"]
+        env:
+        - name: RANK
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WORLD_SIZE
+          value: "4"
+        - name: MASTER_ADDR
+          value: "ddp-train-0.ddp-train.default.svc.cluster.local"
+        - name: MASTER_PORT
+          value: "29500"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        volumeMounts:
+        - name: shared-storage
+          mountPath: /shared/checkpoints
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: shared-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddp-train
+spec:
+  clusterIP: None
+  selector:
+    app: ddp-train
+  ports:
+  - port: 29500
+    name: ddp
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
