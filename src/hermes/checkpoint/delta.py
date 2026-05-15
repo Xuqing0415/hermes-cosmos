@@ -107,14 +107,32 @@ class DeltaEngine:
         if self.compression:
             delta_data = zlib.decompress(delta_data)
 
+        base_blocks = self._split_into_blocks(base_data)
+        delta_blocks = self._split_into_blocks(delta_data)
+
+        previous_hashes = self._block_hashes.get(checkpoint_id, [])
+        
+        result_blocks = []
+        delta_idx = 0
+        
+        for i, base_block in enumerate(base_blocks):
+            if i < len(previous_hashes) and delta_idx < len(delta_blocks):
+                result_blocks.append(delta_blocks[delta_idx])
+                delta_idx += 1
+            else:
+                result_blocks.append(base_block)
+        
+        result = b"".join(result_blocks)
+
         logger.info(
             "Delta applied",
             checkpoint_id=str(checkpoint_id),
             base_size=len(base_data),
             delta_size=len(delta_data),
+            result_size=len(result),
         )
 
-        return delta_data
+        return result
 
     def clear_state(self, checkpoint_id: UUID) -> None:
         self._previous_state.pop(checkpoint_id, None)

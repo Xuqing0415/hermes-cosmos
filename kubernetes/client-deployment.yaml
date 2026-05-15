@@ -1,0 +1,57 @@
+# Hermes Federated Learning - Kubernetes Client Deployment
+# Deployment for simulated edge clients
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-client
+  labels:
+    app: hermes
+    component: client
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      app: hermes
+      component: client
+  template:
+    metadata:
+      labels:
+        app: hermes
+        component: client
+    spec:
+      containers:
+      - name: client
+        image: hermes-federated:latest
+        imagePullPolicy: IfNotPresent
+        command: ["python", "run_client.py"]
+        env:
+        - name: SERVER_URL
+          value: "http://hermes-server:8000"
+        - name: CLIENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NUM_LOCAL_EPOCHS
+          value: "1"
+        - name: BATCH_SIZE
+          value: "32"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-client
+  labels:
+    app: hermes
+spec:
+  clusterIP: None
+  selector:
+    app: hermes
+    component: client

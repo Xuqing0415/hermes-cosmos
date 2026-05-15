@@ -1,0 +1,6 @@
+Quadratic Fit Parameters:
+  Coefficient (a): -0.020115
+  Baseline (b): 0.899607
+  R-squared: 0.043139
+
+Model: error = -0.0201 * alpha^2 + 0.8996

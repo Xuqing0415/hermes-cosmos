@@ -1,0 +1,70 @@
+# Hermes Federated Learning - ConfigMap
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: hermes
+data:
+  config.yaml: |
+    federated:
+      num_rounds: 100
+      clients_per_round: 10
+      local_epochs: 1
+      min_clients: 5
+      timeout_seconds: 300
+    
+    defense:
+      type: "krum"
+      tolerance: 0.3
+      Byzantine_clients: 3
+    
+    attack:
+      enabled: false
+      type: "gradient_scale"
+      intensity: 5.0
+      start_round: 20
+    
+    model:
+      input_dim: 784
+      hidden_dim: 256
+      output_dim: 10
+      learning_rate: 0.01
+    
+    data:
+      num_clients: 50
+      non_iid_alpha: 0.5
+      samples_per_client: 500
+    
+    monitoring:
+      prometheus_port: 9090
+      metrics_path: "/metrics"
+      export_interval: 10
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-client-config
+  namespace: hermes
+data:
+  client_config.yaml: |
+    client:
+      local_epochs: 1
+      batch_size: 32
+      learning_rate: 0.01
+      optimizer: "adam"
+    
+    connection:
+      server_url: "http://hermes-server:8000"
+      heartbeat_interval: 30
+      reconnect_delay: 5
+      max_retries: 3
+    
+    training:
+      max_training_time: 600
+      early_stopping_patience: 5
+    
+    device:
+      compute_speed: 1.0
+      memory_limit_mb: 1024
+      battery_threshold: 20

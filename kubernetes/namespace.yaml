@@ -1,0 +1,16 @@
+# Hermes Federated Learning - Kubernetes Namespace
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hermes
+  labels:
+    app: hermes
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app: prometheus

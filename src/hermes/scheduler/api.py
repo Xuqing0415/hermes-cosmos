@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from hermes.core.config import Region
-from hermes.core.models import Job, JobStatus
+from hermes.core.models import Job, JobStatus, InferenceService
 
 router = APIRouter()
 
@@ -98,3 +98,51 @@ async def get_job_placement(job_id: UUID) -> PlacementResponse:
         node_ids=["node-1", "node-2", "node-3", "node-4"],
         scheduled_at=datetime.utcnow(),
     )
+
+
+class InferencePlacementResponse(BaseModel):
+    service_id: UUID
+    region: Region
+    gpu_count: int
+    replicas: int
+    node_ids: list[str]
+    endpoint: str
+    scheduled_at: datetime
+
+
+@router.post("/inference/{service_id}/schedule")
+async def schedule_inference_service(service_id: UUID) -> InferencePlacementResponse:
+    return InferencePlacementResponse(
+        service_id=service_id,
+        region=Region.US_EAST,
+        gpu_count=4,
+        replicas=2,
+        node_ids=["node-10", "node-11"],
+        endpoint=f"http://inference-{service_id}.hermes.svc.cluster.local:8000",
+        scheduled_at=datetime.utcnow(),
+    )
+
+
+@router.get("/inference/{service_id}/status")
+async def get_inference_service_status(service_id: UUID) -> dict:
+    return {
+        "service_id": str(service_id),
+        "status": "running",
+        "replicas": 2,
+        "available_replicas": 2,
+        "region": Region.US_EAST.value,
+        "last_heartbeat": datetime.utcnow().isoformat(),
+    }
+
+
+@router.post("/inference/{service_id}/scale")
+async def scale_inference_service(
+    service_id: UUID,
+    replicas: int = Query(..., ge=1),
+) -> dict:
+    return {
+        "service_id": str(service_id),
+        "status": "scaling",
+        "target_replicas": replicas,
+        "started_at": datetime.utcnow().isoformat(),
+    }

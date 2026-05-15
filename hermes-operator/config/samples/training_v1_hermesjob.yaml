@@ -1,0 +1,23 @@
+apiVersion: training.hermes.io/v1
+kind: HermesJob
+metadata:
+  name: example-hermesjob
+spec:
+  modelName: llama-2-7b
+  numGPUs: 8
+  gpuType: "A100"
+  checkpointInterval: 100
+  priority: "high"
+  maxDuration: "72h"
+  dataResidency: "EU"
+  restartPolicy: "OnFailure"
+---
+apiVersion: training.hermes.io/v1
+kind: HermesCheckpoint
+metadata:
+  name: example-checkpoint
+spec:
+  jobName: example-hermesjob
+  step: 1000
+  storageType: "redis"
+  region: "eu-west"
