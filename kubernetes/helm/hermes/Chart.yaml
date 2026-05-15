@@ -1,0 +1,14 @@
+# Helm Chart metadata
+apiVersion: v2
+name: hermes
+description: Hermes Federated Learning - Production Deployment
+type: application
+version: 1.0.0
+appVersion: "1.0"
+keywords:
+  - federated-learning
+  - distributed-ml
+  - privacy-preserving
+maintainers:
+  - name: Hermes Team
+    email: team@hermes-ml.org

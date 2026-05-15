@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  parameter-server:
+    build: .
+    container_name: hermes-ps
+    networks:
+      hermes-net:
+        ipv4_address: 172.20.0.10
+    command: >
+      python -m hermes_unified.launcher --mode ps
+      --bind 0.0.0.0 --port 8888
+    ports:
+      - "8888:8888"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  worker-1:
+    build: .
+    container_name: hermes-worker1
+    networks:
+      - hermes-net
+    command: >
+      python -m hermes_unified.launcher --mode worker
+      --server-ip 172.20.0.10 --port 8888 --worker-id 1
+    depends_on:
+      - parameter-server
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  worker-2:
+    build: .
+    container_name: hermes-worker2
+    networks:
+      - hermes-net
+    command: >
+      python -m hermes_unified.launcher --mode worker
+      --server-ip 172.20.0.10 --port 8888 --worker-id 2
+    depends_on:
+      - parameter-server
+    environment:
+      - PYTHONUNBUFFERED=1
+
+networks:
+  hermes-net:
+    external: true

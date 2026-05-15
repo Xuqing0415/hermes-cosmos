@@ -24,7 +24,7 @@ from starlette.responses import Response
 
 from hermes.core.config import GatewayConfig
 from hermes.core.exceptions import HermesError, RateLimitError
-from hermes.gateway.api import jobs, checkpoints, resources, health
+from hermes.gateway.api import jobs, checkpoints, resources, health, inference
 from hermes.gateway.middleware.auth import AuthMiddleware
 from hermes.gateway.middleware.logging import LoggingMiddleware
 from hermes.gateway.middleware.rate_limit import RateLimitMiddleware
@@ -145,6 +145,7 @@ class Gateway:
         self.app.include_router(jobs.router, prefix="/v1/jobs", tags=["Jobs"])
         self.app.include_router(checkpoints.router, prefix="/v1/checkpoints", tags=["Checkpoints"])
         self.app.include_router(resources.router, prefix="/v1/resources", tags=["Resources"])
+        self.app.include_router(inference.router, prefix="/v1/inference", tags=["Inference"])
         self.app.include_router(health.router, prefix="/v1", tags=["Health"])
 
         @self.app.get("/metrics")

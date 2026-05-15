@@ -185,3 +185,106 @@ class User(BaseModel):
     email: str
     roles: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class JobType(str, Enum):
+    TRAINING = "training"
+    INFERENCE_SERVICE = "inference_service"
+    BATCH_INFERENCE = "batch_inference"
+
+
+class InferenceEngine(str, Enum):
+    VLLM = "vllm"
+    TGI = "tgi"
+    TRITON = "triton"
+    CUSTOM = "custom"
+
+
+class InferenceConfig(BaseModel):
+    model: str = Field(..., description="Model name or path")
+    model_path: Optional[str] = Field(None, description="Path to model weights")
+    max_batch_size: int = Field(default=32, ge=1, description="Maximum batch size")
+    max_sequence_length: int = Field(default=4096, ge=1, description="Maximum sequence length")
+    tensor_parallel: int = Field(default=1, ge=1, description="Tensor parallelism size")
+    pipeline_parallel: int = Field(default=1, ge=1, description="Pipeline parallelism size")
+    quantization: Optional[str] = Field(None, description="Quantization type: fp16, int8, int4")
+    engine: InferenceEngine = Field(default=InferenceEngine.VLLM, description="Inference engine")
+    kv_cache_dtype: Optional[str] = Field(None, description="KV cache data type")
+
+
+class HealthCheckConfig(BaseModel):
+    enabled: bool = Field(default=True, description="Enable health check")
+    endpoint: str = Field(default="/health", description="Health check endpoint")
+    interval_seconds: int = Field(default=30, ge=5, description="Health check interval")
+    timeout_seconds: int = Field(default=5, ge=1, description="Health check timeout")
+    unhealthy_threshold: int = Field(default=3, ge=1, description="Unhealthy threshold")
+
+
+class AutoscalingConfig(BaseModel):
+    enabled: bool = Field(default=False, description="Enable autoscaling")
+    min_replicas: int = Field(default=1, ge=1, description="Minimum replicas")
+    max_replicas: int = Field(default=10, ge=1, description="Maximum replicas")
+    target_gpu_utilization: float = Field(default=70.0, ge=10.0, le=100.0, description="Target GPU utilization")
+    target_request_rate: Optional[float] = Field(None, description="Target requests per second")
+    scale_up_cooldown_seconds: int = Field(default=60, ge=10, description="Scale up cooldown")
+    scale_down_cooldown_seconds: int = Field(default=300, ge=60, description="Scale down cooldown")
+
+
+class InferenceService(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    tenant_id: str
+    user_id: str
+    job_id: Optional[UUID] = None
+    status: JobStatus = JobStatus.PENDING
+    priority: JobPriority = JobPriority.NORMAL
+    requirements: JobRequirements
+    constraints: PlacementConstraints = Field(default_factory=PlacementConstraints)
+    inference_config: InferenceConfig
+    health_check: HealthCheckConfig = Field(default_factory=HealthCheckConfig)
+    autoscaling: AutoscalingConfig = Field(default_factory=AutoscalingConfig)
+    image: str
+    command: Optional[str] = None
+    environment: dict[str, str] = Field(default_factory=dict)
+    volumes: list[str] = Field(default_factory=list)
+    endpoint: Optional[str] = None
+    replicas: int = Field(default=1, ge=1)
+    available_replicas: int = Field(default=0, ge=0)
+    region: Optional[Region] = None
+    sla_availability: float = Field(default=99.9, description="SLA availability target")
+    sla_latency_p99_ms: float = Field(default=100.0, description="SLA P99 latency target")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        use_enum_values = True
+
+
+class InferenceRequest(BaseModel):
+    prompt: str = Field(..., description="Input prompt")
+    max_tokens: int = Field(default=100, ge=1, description="Maximum tokens to generate")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    top_p: float = Field(default=1.0, ge=0.0, le=1.0, description="Top-p sampling")
+    top_k: int = Field(default=50, ge=1, description="Top-k sampling")
+    stop_sequences: Optional[list[str]] = Field(None, description="Stop sequences")
+    stream: bool = Field(default=False, description="Stream response")
+
+
+class InferenceResponse(BaseModel):
+    text: str
+    finish_reason: Optional[str] = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    latency_ms: float = 0.0
+
+
+class InferenceMetrics(BaseModel):
+    requests_total: int = 0
+    requests_per_second: float = 0.0
+    latency_p50_ms: float = 0.0
+    latency_p95_ms: float = 0.0
+    latency_p99_ms: float = 0.0
+    gpu_utilization: float = 0.0
+    error_rate: float = 0.0
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

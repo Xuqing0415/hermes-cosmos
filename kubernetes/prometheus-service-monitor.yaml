@@ -1,0 +1,90 @@
+# Hermes Federated Learning - Prometheus ServiceMonitor
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hermes-server-monitor
+  namespace: monitoring
+  labels:
+    team: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hermes
+      component: server
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+    - hermes
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hermes-client-monitor
+  namespace: monitoring
+  labels:
+    team: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hermes
+      component: client
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 15s
+  namespaceSelector:
+    matchNames:
+    - hermes
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hermes-alerts
+  namespace: monitoring
+  labels:
+    team: prometheus
+spec:
+  groups:
+  - name: hermes.rules
+    rules:
+    - alert: HermesAccuracyDrop
+      expr: hermes_global_accuracy < hermes_global_accuracy offset 3m * 0.95
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Hermes accuracy dropped significantly"
+        description: "Global accuracy dropped more than 5% in the last 3 minutes"
+    
+    - alert: HermesLowParticipation
+      expr: hermes_active_clients / hermes_total_clients < 0.5
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Low client participation rate"
+        description: "Less than 50% of clients are participating in federated rounds"
+    
+    - alert: HermesHighLatency
+      expr: hermes_round_duration_seconds > 120
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Federated round taking too long"
+        description: "Round duration exceeds 2 minutes"
+    
+    - alert: HermesServerDown
+      expr: up{job="hermes-server"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Hermes server is down"
+        description: "The Hermes server has been unreachable for more than 1 minute"

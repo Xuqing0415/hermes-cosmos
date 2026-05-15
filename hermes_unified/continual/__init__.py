@@ -1,0 +1,21 @@
+"""
+联邦连续学习模块
+
+防止灾难性遗忘，应对概念漂移
+"""
+
+from .drift_simulator import DriftSimulator, DataBuffer
+from .ewc_client import EWCClient
+from .replay_client import ReplayClient, GenerativeReplayClient
+from .fed_continual import FederatedContinualCoordinator
+from .evaluate import ContinualLearningEvaluator
+
+__all__ = [
+    "DriftSimulator",
+    "DataBuffer",
+    "EWCClient",
+    "ReplayClient",
+    "GenerativeReplayClient",
+    "FederatedContinualCoordinator",
+    "ContinualLearningEvaluator"
+]

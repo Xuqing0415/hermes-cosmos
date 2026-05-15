@@ -1,0 +1,101 @@
+# Helm Chart Template for Hermes Federated Learning
+
+apiVersion: v2
+name: hermes
+description: A Helm chart for Hermes Federated Learning
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
+{{- if .Values.monitoring.enabled }}
+{{- range .Values.server.config }}
+{{- end }}
+{{- end }}
+
+---
+# Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-server
+  labels:
+    app: {{ .Chart.Name }}
+    component: server
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      component: server
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        component: server
+    spec:
+      containers:
+      - name: server
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.server.service.port }}
+          name: http
+        - containerPort: {{ .Values.monitoring.prometheus.port }}
+          name: metrics
+        env:
+        - name: SERVER_PORT
+          value: "{{ .Values.server.service.port }}"
+        - name: NUM_ROUNDS
+          value: "{{ .Values.server.config.num_rounds }}"
+        - name: CLIENTS_PER_ROUND
+          value: "{{ .Values.server.config.clients_per_round }}"
+        - name: DEFENSE_TYPE
+          value: "{{ .Values.server.config.defense_type }}"
+        resources:
+          {{- toYaml .Values.server.resources | nindent 10 }}
+---
+# Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}-server
+spec:
+  type: {{ .Values.server.service.type }}
+  ports:
+  - port: {{ .Values.server.service.port }}
+    targetPort: {{ .Values.server.service.port }}
+  selector:
+    app: {{ .Chart.Name }}
+    component: server
+---
+# Client Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-client
+spec:
+  replicas: {{ .Values.client.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+      component: client
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        component: client
+    spec:
+      containers:
+      - name: client
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["python", "run_client.py"]
+        env:
+        - name: SERVER_URL
+          value: "{{ .Values.client.config.server_url }}"
+        - name: NUM_LOCAL_EPOCHS
+          value: "{{ .Values.client.config.local_epochs }}"
+        - name: BATCH_SIZE
+          value: "{{ .Values.client.config.batch_size }}"
+        resources:
+          {{- toYaml .Values.client.resources | nindent 10 }}

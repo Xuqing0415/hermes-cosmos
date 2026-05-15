@@ -1,0 +1,63 @@
+# Hermes Federated Learning - Helm Chart
+# Values file for parameterized deployment
+
+replicaCount: 1
+
+image:
+  repository: hermes-federated
+  tag: latest
+  pullPolicy: IfNotPresent
+
+server:
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+  config:
+    num_rounds: 100
+    clients_per_round: 10
+    local_epochs: 1
+    defense_type: krum
+
+client:
+  replicaCount: 20
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+  config:
+    local_epochs: 1
+    batch_size: 32
+    server_url: "http://hermes-server:8000"
+
+monitoring:
+  enabled: true
+  prometheus:
+    port: 9090
+  grafana:
+    enabled: true
+    adminPassword: "admin"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: hermes.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: hermes-tls
+      hosts:
+        - hermes.local

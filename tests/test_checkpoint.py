@@ -102,6 +102,62 @@ class TestDeltaEngine:
         delta2, is_delta2 = await engine.compute_delta(checkpoint_id, data2)
         assert is_delta2 is True
 
+    @pytest.mark.asyncio
+    async def test_delta_compression_decompression_consistency(self, engine: DeltaEngine) -> None:
+        """测试差分压缩/解压后数据一致"""
+        checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
+
+        base_data = b"abcdefghijklmnopqrstuvwxyz" * 100
+        delta_data = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ" * 100
+
+        await engine.compute_delta(checkpoint_id, base_data)
+        delta, _ = await engine.compute_delta(checkpoint_id, delta_data)
+
+        restored = await engine.apply_delta(checkpoint_id, base_data, delta)
+
+        assert restored == delta_data, "Delta decompression should produce original data"
+
+    @pytest.mark.asyncio
+    async def test_delta_with_partial_changes(self, engine: DeltaEngine) -> None:
+        """测试部分数据变化时的差分压缩"""
+        checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
+
+        base_data = b"a" * 8192
+        modified_data = b"a" * 4096 + b"b" * 4096
+
+        await engine.compute_delta(checkpoint_id, base_data)
+        delta, _ = await engine.compute_delta(checkpoint_id, modified_data)
+
+        restored = await engine.apply_delta(checkpoint_id, base_data, delta)
+
+        assert restored == modified_data, "Partial changes should be correctly restored"
+
+    @pytest.mark.asyncio
+    async def test_delta_with_same_data(self, engine: DeltaEngine) -> None:
+        """测试相同数据时的差分压缩"""
+        checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
+
+        data = b"test data" * 1000
+
+        await engine.compute_delta(checkpoint_id, data)
+        delta, is_delta = await engine.compute_delta(checkpoint_id, data)
+
+        restored = await engine.apply_delta(checkpoint_id, data, delta)
+
+        assert restored == data, "Same data should restore correctly"
+
+    @pytest.mark.asyncio
+    async def test_delta_disabled(self, engine: DeltaEngine) -> None:
+        """测试禁用delta时的行为"""
+        engine.enabled = False
+        checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
+
+        data = b"test data"
+        delta, is_delta = await engine.compute_delta(checkpoint_id, data)
+
+        assert is_delta is False
+        assert delta == data
+
     def test_split_into_blocks(self, engine: DeltaEngine) -> None:
         data = b"a" * 10000
         blocks = engine._split_into_blocks(data)
@@ -115,6 +171,21 @@ class TestDeltaEngine:
 
         assert len(hashes) == 3
         assert all(len(h) == 64 for h in hashes)
+
+    @pytest.mark.asyncio
+    async def test_clear_state(self, engine: DeltaEngine) -> None:
+        """测试清除状态"""
+        checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
+
+        data = b"test data"
+        await engine.compute_delta(checkpoint_id, data)
+
+        assert checkpoint_id in engine._previous_state
+
+        engine.clear_state(checkpoint_id)
+
+        assert checkpoint_id not in engine._previous_state
+        assert checkpoint_id not in engine._block_hashes
 
 
 class TestCheckpointCoordinator:

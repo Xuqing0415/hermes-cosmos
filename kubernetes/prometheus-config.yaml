@@ -1,0 +1,32 @@
+# Prometheus Configuration for Hermes Federated Learning
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  - job_name: 'hermes-server'
+    static_configs:
+      - targets: ['hermes-server:9090']
+    metrics_path: '/metrics'
+
+  - job_name: 'hermes-client'
+    static_configs:
+      - targets: ['hermes-client:9090']
+    metrics_path: '/metrics'
+
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token

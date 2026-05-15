@@ -1,0 +1,126 @@
+# Hermes Federated Learning - Docker Compose for Local Development
+
+version: '3.8'
+
+services:
+  # Hermes Federated Learning Server
+  hermes-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-server
+    ports:
+      - "8000:8000"
+      - "9090:9090"
+    environment:
+      - SERVER_PORT=8000
+      - METRICS_PORT=9090
+      - NUM_ROUNDS=100
+      - CLIENTS_PER_ROUND=10
+      - DEFENSE_TYPE=krum
+    volumes:
+      - ./config:/etc/hermes
+      - hermes-data:/app/data
+    networks:
+      - hermes-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Hermes Monitoring Dashboard
+  hermes-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-dashboard
+    command: python -m hermes_unified.monitoring.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - SERVER_URL=http://hermes-server:8000
+    depends_on:
+      - hermes-server
+    networks:
+      - hermes-net
+    restart: unless-stopped
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hermes-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./kubernetes/prometheus-config.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - hermes-net
+    restart: unless-stopped
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hermes-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - hermes-net
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Simulated Edge Client 1
+  hermes-client-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-client-1
+    command: python -c "from hermes_unified.federated.federated_simulator import FederatedSimulator; sim = FederatedSimulator(num_clients=1, attack_config={'type': 'none', 'malicious_ratio': 0}, defense_type='krum'); sim.run_federated_training(num_rounds=100)"
+    environment:
+      - SERVER_URL=http://hermes-server:8000
+      - CLIENT_ID=client-1
+    networks:
+      - hermes-net
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  # Simulated Edge Client 2
+  hermes-client-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-client-2
+    command: python -c "from hermes_unified.federated.federated_simulator import FederatedSimulator; sim = FederatedSimulator(num_clients=1, attack_config={'type': 'none', 'malicious_ratio': 0}, defense_type='krum'); sim.run_federated_training(num_rounds=100)"
+    environment:
+      - SERVER_URL=http://hermes-server:8000
+      - CLIENT_ID=client-2
+    networks:
+      - hermes-net
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+networks:
+  hermes-net:
+    driver: bridge
+
+volumes:
+  hermes-data:
+  prometheus-data:
+  grafana-data:
