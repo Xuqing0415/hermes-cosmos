@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.exe
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Virtual Environment
+venv/
+env/
+ENV/
+*.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Data files
+data/
+*.db
+*.sqlite
+*.csv
+*.jsonl
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Experiment files
+*.json
+results/
+reports/
+benchmark/
+chaos_engine/
+elastic_multiprocess/
+elastic_simulation/
+real_deep/
+real_tensor_parallel/
+*.md
+!README*
