@@ -1,7 +1,7 @@
 """
 Unified Entry Point for Federated Learning Experiments
 
-Supports running experiments in eight directions:
+Supports running experiments in nine directions:
 1. FedPEFT - Federated Parameter-Efficient Fine-Tuning for LLMs
 2. Federated Transfer Learning
 3. Federated Quantum Learning
@@ -10,6 +10,7 @@ Supports running experiments in eight directions:
 6. Federated Causal Representation Learning
 7. Federated Linear Mode Connectivity
 8. Topology-Aware Federated Learning
+9. Federated Online Learning
 """
 
 import argparse
@@ -668,6 +669,86 @@ def run_topology_aware_demo():
         traceback.print_exc()
 
 
+def run_online_learning_demo():
+    """Run federated online learning demonstration."""
+    print("\n" + "=" * 70)
+    print("  FEDERATED ONLINE LEARNING")
+    print("=" * 70)
+    
+    try:
+        import torch
+        
+        print("\n1. Checking torch installation...")
+        print(f"   ✓ torch version: {torch.__version__}")
+        
+        print("\n2. Testing Core Components Import:")
+        
+        try:
+            from hermes_unified.federated_online.drift_detector import (
+                CUSUMDetector, ADWINDetector
+            )
+            print("   ✓ Drift detectors imported")
+        except Exception as e:
+            print(f"   ✗ Drift detectors import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.federated_online.online_client import OnlineClient
+            print("   ✓ OnlineClient imported")
+        except Exception as e:
+            print(f"   ✗ OnlineClient import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.federated_online.online_server import OnlineServer
+            print("   ✓ OnlineServer imported")
+        except Exception as e:
+            print(f"   ✗ OnlineServer import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.federated_online.fomaml import FOMAMLClient, FOMAMLServer
+            print("   ✓ FOMAML components imported")
+        except Exception as e:
+            print(f"   ✗ FOMAML import failed: {e}")
+            return
+        
+        print("\n3. Testing Component Functionality:")
+        
+        try:
+            print("   Testing DriftDetector...")
+            detector = CUSUMDetector(threshold=5.0)
+            for i in range(100):
+                detector.update(0.1)
+            print("   ✓ CUSUM detector initialized")
+        except Exception as e:
+            print(f"   ✗ DriftDetector failed: {e}")
+        
+        try:
+            print("   Testing OnlineClient...")
+            model = torch.nn.Linear(10, 1)
+            client = OnlineClient(0, model, torch.nn.MSELoss())
+            print(f"   ✓ OnlineClient created")
+        except Exception as e:
+            print(f"   ✗ OnlineClient failed: {e}")
+        
+        try:
+            print("   Testing OnlineServer...")
+            server = OnlineServer(torch.nn.Linear(10, 1))
+            print(f"   ✓ OnlineServer created")
+        except Exception as e:
+            print(f"   ✗ OnlineServer failed: {e}")
+        
+        print("\n✓ Federated Online Learning demo completed!")
+        
+    except ImportError as e:
+        print(f"⚠️ Import error: {e}")
+    except Exception as e:
+        print(f"⚠️ Error in Online Learning demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -677,7 +758,7 @@ def main():
     
     parser.add_argument(
         '--direction', type=str, default='all',
-        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'all'],
+        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'online', 'all'],
         help='Which direction to run'
     )
     
@@ -710,6 +791,9 @@ def main():
     
     if args.direction == 'topology' or args.direction == 'all':
         run_topology_aware_demo()
+    
+    if args.direction == 'online' or args.direction == 'all':
+        run_online_learning_demo()
     
     print("\n" + "=" * 70)
     print("  ALL DEMONSTRATIONS COMPLETE")
