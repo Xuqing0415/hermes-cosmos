@@ -1,13 +1,14 @@
 """
 Unified Entry Point for Federated Learning Experiments
 
-Supports running experiments in six directions:
+Supports running experiments in seven directions:
 1. FedPEFT - Federated Parameter-Efficient Fine-Tuning for LLMs
 2. Federated Transfer Learning
 3. Federated Quantum Learning
 4. Federated Multimodal Learning
 5. Federated Self-Supervised Learning (FedSimCLR)
 6. Federated Causal Representation Learning
+7. Federated Linear Mode Connectivity
 """
 
 import argparse
@@ -484,6 +485,111 @@ def run_causal_representation_demo():
         traceback.print_exc()
 
 
+def run_linear_connectivity_demo():
+    """Run federated linear mode connectivity demonstration."""
+    print("\n" + "=" * 70)
+    print("  FEDERATED LINEAR MODE CONNECTIVITY")
+    print("=" * 70)
+    
+    try:
+        import torch
+        
+        print("\n1. Checking torch installation...")
+        print(f"   ✓ torch version: {torch.__version__}")
+        
+        print("\n2. Testing Core Components Import:")
+        
+        try:
+            from hermes_unified.fed_linear_connectivity.connectivity_metrics import (
+                ConnectivityScore, InterpolationLossEvaluator
+            )
+            print("   ✓ Connectivity metrics imported")
+        except Exception as e:
+            print(f"   ✗ Connectivity metrics import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.fed_linear_connectivity.federated_lmc import (
+                FederatedLMC, LMCCoordinator, ClientModelSnapshot
+            )
+            print("   ✓ Federated LMC components imported")
+        except Exception as e:
+            print(f"   ✗ Federated LMC import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.fed_linear_connectivity.visualization import (
+                plot_interpolation_path, plot_connectivity_evolution
+            )
+            print("   ✓ Visualization tools imported")
+        except Exception as e:
+            print(f"   ✗ Visualization import failed: {e}")
+            return
+        
+        print("\n3. Testing Component Functionality:")
+        
+        try:
+            print("   Testing ConnectivityScore...")
+            scores = [0.9, 0.85, 0.7, 0.95]
+            connectivity_score = ConnectivityScore(threshold=0.1)
+            for s in scores:
+                connectivity_score.add_score(s)
+            avg_score = connectivity_score.get_average_score()
+            print(f"   ✓ Average connectivity score: {avg_score:.4f}")
+        except Exception as e:
+            print(f"   ✗ ConnectivityScore failed: {e}")
+        
+        try:
+            print("   Testing ClientModelSnapshot...")
+            model = torch.nn.Linear(10, 5)
+            state_dict = model.state_dict()
+            snapshot = ClientModelSnapshot(
+                client_id=0,
+                round_idx=10,
+                model_state_dict=state_dict,
+                sample_count=1000
+            )
+            print(f"   ✓ Snapshot created: client {snapshot.client_id}, round {snapshot.round_idx}")
+        except Exception as e:
+            print(f"   ✗ ClientModelSnapshot failed: {e}")
+        
+        try:
+            print("   Testing LMCCoordinator...")
+            coordinator = LMCCoordinator(
+                model_class=torch.nn.Linear,
+                loss_fn=torch.nn.CrossEntropyLoss(),
+                evaluation_rounds=[20, 50, 80],
+                sample_ratio=0.25
+            )
+            print(f"   ✓ Coordinator created with rounds {coordinator.evaluation_rounds}")
+        except Exception as e:
+            print(f"   ✗ LMCCoordinator failed: {e}")
+        
+        try:
+            print("   Testing interpolation evaluation...")
+            model1 = torch.nn.Linear(10, 5)
+            model2 = torch.nn.Linear(10, 5)
+            evaluator = InterpolationLossEvaluator(torch.nn.Linear, num_points=5)
+            losses = evaluator.evaluate_interpolation(
+                model1, model2,
+                [(torch.randn(2, 10), torch.randint(0, 5, (2,)))],
+                torch.nn.CrossEntropyLoss(),
+                device='cpu'
+            )
+            print(f"   ✓ Interpolation evaluated: {len(losses)} points")
+        except Exception as e:
+            print(f"   ✗ Interpolation evaluation failed: {e}")
+        
+        print("\n✓ Federated Linear Mode Connectivity demo completed!")
+        
+    except ImportError as e:
+        print(f"⚠️ Import error: {e}")
+    except Exception as e:
+        print(f"⚠️ Error in Linear Mode Connectivity demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -493,7 +599,7 @@ def main():
     
     parser.add_argument(
         '--direction', type=str, default='all',
-        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'all'],
+        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'all'],
         help='Which direction to run'
     )
     
@@ -520,6 +626,9 @@ def main():
     
     if args.direction == 'causal' or args.direction == 'all':
         run_causal_representation_demo()
+    
+    if args.direction == 'linearconnectivity' or args.direction == 'all':
+        run_linear_connectivity_demo()
     
     print("\n" + "=" * 70)
     print("  ALL DEMONSTRATIONS COMPLETE")
