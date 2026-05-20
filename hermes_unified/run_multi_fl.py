@@ -1,7 +1,7 @@
 """
 Unified Entry Point for Federated Learning Experiments
 
-Supports running experiments in seven directions:
+Supports running experiments in eight directions:
 1. FedPEFT - Federated Parameter-Efficient Fine-Tuning for LLMs
 2. Federated Transfer Learning
 3. Federated Quantum Learning
@@ -9,6 +9,7 @@ Supports running experiments in seven directions:
 5. Federated Self-Supervised Learning (FedSimCLR)
 6. Federated Causal Representation Learning
 7. Federated Linear Mode Connectivity
+8. Topology-Aware Federated Learning
 """
 
 import argparse
@@ -590,6 +591,83 @@ def run_linear_connectivity_demo():
         traceback.print_exc()
 
 
+def run_topology_aware_demo():
+    """Run topology-aware federated learning demonstration."""
+    print("\n" + "=" * 70)
+    print("  TOPOLOGY-AWARE FEDERATED LEARNING")
+    print("=" * 70)
+    
+    try:
+        import torch
+        
+        print("\n1. Checking torch installation...")
+        print(f"   ✓ torch version: {torch.__version__}")
+        
+        print("\n2. Testing Core Components Import:")
+        
+        try:
+            from hermes_unified.topology_aware.topology_discovery import NetworkTopology
+            print("   ✓ NetworkTopology imported")
+        except Exception as e:
+            print(f"   ✗ NetworkTopology import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.topology_aware.hierarchical_aggregator import (
+                HierarchicalAggregator, AggregationTree
+            )
+            print("   ✓ HierarchicalAggregator imported")
+        except Exception as e:
+            print(f"   ✗ HierarchicalAggregator import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.topology_aware.topology_scheduler import TopologyScheduler
+            print("   ✓ TopologyScheduler imported")
+        except Exception as e:
+            print(f"   ✗ TopologyScheduler import failed: {e}")
+            return
+        
+        print("\n3. Testing Component Functionality:")
+        
+        try:
+            print("   Testing NetworkTopology...")
+            topology = NetworkTopology('small_world')
+            topology.generate_random_topology(20)
+            info = topology.get_topology_info()
+            print(f"   ✓ Topology: {info['num_nodes']} nodes, {info['num_edges']} edges")
+        except Exception as e:
+            print(f"   ✗ NetworkTopology failed: {e}")
+        
+        try:
+            print("   Testing AggregationTree...")
+            tree = AggregationTree()
+            tree.add_node(-1)
+            tree.add_node(0)
+            tree.add_edge(-1, 0)
+            print(f"   ✓ Tree: {tree.get_num_nodes()} nodes")
+        except Exception as e:
+            print(f"   ✗ AggregationTree failed: {e}")
+        
+        try:
+            print("   Testing TopologyScheduler...")
+            scheduler = TopologyScheduler(topology, server_id=-1)
+            scheduler.set_strategy('min_cost')
+            selected = scheduler.select_participants(list(range(20)), 5, 0)
+            print(f"   ✓ Selected {len(selected)} clients")
+        except Exception as e:
+            print(f"   ✗ TopologyScheduler failed: {e}")
+        
+        print("\n✓ Topology-Aware Federated Learning demo completed!")
+        
+    except ImportError as e:
+        print(f"⚠️ Import error: {e}")
+    except Exception as e:
+        print(f"⚠️ Error in Topology-Aware FL demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -599,7 +677,7 @@ def main():
     
     parser.add_argument(
         '--direction', type=str, default='all',
-        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'all'],
+        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'all'],
         help='Which direction to run'
     )
     
@@ -629,6 +707,9 @@ def main():
     
     if args.direction == 'linearconnectivity' or args.direction == 'all':
         run_linear_connectivity_demo()
+    
+    if args.direction == 'topology' or args.direction == 'all':
+        run_topology_aware_demo()
     
     print("\n" + "=" * 70)
     print("  ALL DEMONSTRATIONS COMPLETE")
