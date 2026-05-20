@@ -1,7 +1,7 @@
 """
 Unified Entry Point for Federated Learning Experiments
 
-Supports running experiments in nine directions:
+Supports running experiments in ten directions:
 1. FedPEFT - Federated Parameter-Efficient Fine-Tuning for LLMs
 2. Federated Transfer Learning
 3. Federated Quantum Learning
@@ -11,6 +11,7 @@ Supports running experiments in nine directions:
 7. Federated Linear Mode Connectivity
 8. Topology-Aware Federated Learning
 9. Federated Online Learning
+10. Federated Shapley Value Learning
 """
 
 import argparse
@@ -749,6 +750,78 @@ def run_online_learning_demo():
         traceback.print_exc()
 
 
+def run_shapley_demo():
+    """Run federated Shapley value learning demonstration."""
+    print("\n" + "=" * 70)
+    print("  FEDERATED SHAPLEY VALUE LEARNING")
+    print("=" * 70)
+    
+    try:
+        import torch
+        
+        print("\n1. Checking torch installation...")
+        print(f"   ✓ torch version: {torch.__version__}")
+        
+        print("\n2. Testing Core Components Import:")
+        
+        try:
+            from hermes_unified.shapley.shapley_estimator import (
+                MonteCarloShapleyEstimator, ShapleyValue
+            )
+            print("   ✓ Shapley estimators imported")
+        except Exception as e:
+            print(f"   ✗ Shapley estimators import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.shapley.incentive_mechanism import (
+                TokenDistributor, ReputationSystem
+            )
+            print("   ✓ Incentive mechanisms imported")
+        except Exception as e:
+            print(f"   ✗ Incentive mechanisms import failed: {e}")
+            return
+        
+        print("\n3. Testing Component Functionality:")
+        
+        try:
+            print("   Testing MonteCarloShapleyEstimator...")
+            estimator = MonteCarloShapleyEstimator(num_clients=5, num_samples=100)
+            
+            def valuation_fn(subset):
+                return len(subset) * 0.2
+            
+            values = estimator.estimate([0, 1, 2, 3, 4], valuation_fn)
+            print(f"   ✓ Estimated {len(values)} Shapley values")
+        except Exception as e:
+            print(f"   ✗ MonteCarloShapleyEstimator failed: {e}")
+        
+        try:
+            print("   Testing TokenDistributor...")
+            distributor = TokenDistributor(total_tokens_per_round=100)
+            distributor.distribute({0: 0.5, 1: 0.3, 2: 0.2})
+            print(f"   ✓ Tokens distributed: {distributor.get_total_distributed()}")
+        except Exception as e:
+            print(f"   ✗ TokenDistributor failed: {e}")
+        
+        try:
+            print("   Testing ReputationSystem...")
+            reputation = ReputationSystem()
+            reputation.update_reputation(0, 0.8)
+            print(f"   ✓ Reputation updated: {reputation.get_reputation(0):.4f}")
+        except Exception as e:
+            print(f"   ✗ ReputationSystem failed: {e}")
+        
+        print("\n✓ Federated Shapley Value Learning demo completed!")
+        
+    except ImportError as e:
+        print(f"⚠️ Import error: {e}")
+    except Exception as e:
+        print(f"⚠️ Error in Shapley demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -758,7 +831,7 @@ def main():
     
     parser.add_argument(
         '--direction', type=str, default='all',
-        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'online', 'all'],
+        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'online', 'shapley', 'all'],
         help='Which direction to run'
     )
     
@@ -794,6 +867,9 @@ def main():
     
     if args.direction == 'online' or args.direction == 'all':
         run_online_learning_demo()
+    
+    if args.direction == 'shapley' or args.direction == 'all':
+        run_shapley_demo()
     
     print("\n" + "=" * 70)
     print("  ALL DEMONSTRATIONS COMPLETE")
