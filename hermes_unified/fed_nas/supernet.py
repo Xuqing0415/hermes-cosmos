@@ -8,7 +8,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import logging
 from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        '[%(asctime)s] %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    ))
+    logger.addHandler(handler)
 
 
 class MixedOp(nn.Module):
@@ -60,15 +71,22 @@ class MixedOp(nn.Module):
         Returns:
             Output tensor
         """
+        logger.debug(f"[MixedOp] Input shape: {x.shape}, discrete={discrete}")
+        logger.debug(f"[MixedOp] Alpha weights: {self.alpha.data.tolist()}")
+
         weights = F.softmax(self.alpha, dim=0)
+        logger.debug(f"[MixedOp] Softmax weights: {weights.tolist()}")
 
-        if discrete:
-            best_op_idx = int(torch.argmax(weights).item())
-            selected_op = list(self.ops.values())[best_op_idx]
-        else:
-            selected_op = list(self.ops.values())[int(torch.argmax(weights).item())]
+        best_op_idx = int(torch.argmax(weights).item())
+        op_name = self.op_names[best_op_idx]
+        logger.debug(f"[MixedOp] Selected operation: {op_name} (index={best_op_idx})")
 
-        return selected_op(x)
+        selected_op = list(self.ops.values())[best_op_idx]
+
+        x_out = selected_op(x)
+        logger.debug(f"[MixedOp] Output shape: {x_out.shape}")
+
+        return x_out
 
     def get_best_op(self) -> nn.Module:
         """Get the operation with highest weight."""
@@ -115,48 +133,79 @@ class SimpleSuperNet(nn.Module):
 
     def forward(self, x: torch.Tensor, discrete: bool = False) -> torch.Tensor:
         """Forward pass through the super network."""
-        x = F.relu(self.stem(x))
+        logger.info(f"[SuperNet] Input shape: {x.shape}, discrete={discrete}")
 
-        for cell in self.cells:
+        x = F.relu(self.stem(x))
+        logger.debug(f"[SuperNet] After stem: {x.shape}")
+
+        for i, cell in enumerate(self.cells):
+            logger.debug(f"[SuperNet] Cell {i} input shape: {x.shape}")
+
             x1 = cell['conv1'](x, discrete=discrete)
+            logger.debug(f"[SuperNet] Cell {i} conv1 output shape: {x1.shape}")
+
             x2 = cell['conv2'](x1, discrete=discrete)
+            logger.debug(f"[SuperNet] Cell {i} conv2 output shape: {x2.shape}")
+
             x = x2 + x
+            logger.debug(f"[SuperNet] Cell {i} residual add shape: {x.shape}")
 
         x = self.pool(x)
+        logger.debug(f"[SuperNet] After pool: {x.shape}")
+
         x = x.view(x.size(0), -1)
+        logger.debug(f"[SuperNet] After flatten: {x.shape}")
+
         x = self.classifier(x)
+        logger.info(f"[SuperNet] Final output shape: {x.shape}")
 
         return x
 
     def get_alphas(self) -> List[torch.Tensor]:
         """Get all architecture weights."""
         alphas = []
-        for cell in self.cells:
-            alphas.append(cell['conv1'].get_alpha())
-            alphas.append(cell['conv2'].get_alpha())
+        for i, cell in enumerate(self.cells):
+            alpha1 = cell['conv1'].get_alpha()
+            alpha2 = cell['conv2'].get_alpha()
+            logger.debug(f"[SuperNet] Cell {i} conv1 alpha shape: {alpha1.shape}, values: {alpha1.tolist()}")
+            logger.debug(f"[SuperNet] Cell {i} conv2 alpha shape: {alpha2.shape}, values: {alpha2.tolist()}")
+            alphas.append(alpha1)
+            alphas.append(alpha2)
+        logger.info(f"[SuperNet] get_alphas: returning {len(alphas)} alpha tensors")
         return alphas
 
     def set_alphas(self, alphas: List[torch.Tensor]):
         """Set all architecture weights."""
+        logger.info(f"[SuperNet] set_alphas: received {len(alphas)} alpha tensors")
         idx = 0
-        for cell in self.cells:
+        for i, cell in enumerate(self.cells):
             cell['conv1'].set_alpha(alphas[idx])
+            logger.debug(f"[SuperNet] Cell {i} conv1 alpha set, new values: {alphas[idx].tolist()}")
             idx += 1
             cell['conv2'].set_alpha(alphas[idx])
+            logger.debug(f"[SuperNet] Cell {i} conv2 alpha set, new values: {alphas[idx].tolist()}")
             idx += 1
 
     def get_arch_params(self) -> List[nn.Parameter]:
         """Get architecture parameters (alphas)."""
         params = []
-        for cell in self.cells:
-            params.append(cell['conv1'].alpha)
-            params.append(cell['conv2'].alpha)
+        for i, cell in enumerate(self.cells):
+            p1 = cell['conv1'].alpha
+            p2 = cell['conv2'].alpha
+            logger.debug(f"[SuperNet] Cell {i} arch params: conv1={p1.shape}, conv2={p2.shape}")
+            params.append(p1)
+            params.append(p2)
+        logger.info(f"[SuperNet] get_arch_params: returning {len(params)} parameters")
         return params
 
     def get_weight_params(self) -> List[nn.Parameter]:
         """Get weight parameters (excluding alphas)."""
         arch_params = set(self.get_arch_params())
-        return [p for p in self.parameters() if p not in arch_params]
+        weight_params = [p for p in self.parameters() if p not in arch_params]
+        logger.info(f"[SuperNet] get_weight_params: returning {len(weight_params)} parameters")
+        for i, p in enumerate(weight_params):
+            logger.debug(f"[SuperNet] Weight param {i}: shape={p.shape}, requires_grad={p.requires_grad}")
+        return weight_params
 
 
 class SimpleSubNet(nn.Module):
@@ -175,16 +224,31 @@ class SimpleSubNet(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the subnet."""
-        x = F.relu(self.stem(x))
+        logger.info(f"[SubNet] Input shape: {x.shape}")
 
-        for cell in self.cells:
+        x = F.relu(self.stem(x))
+        logger.debug(f"[SubNet] After stem: {x.shape}")
+
+        for i, cell in enumerate(self.cells):
+            logger.debug(f"[SubNet] Cell {i} input shape: {x.shape}")
+
             x1 = cell['conv1'].get_best_op()(x)
+            logger.debug(f"[SubNet] Cell {i} conv1 (best op) output shape: {x1.shape}")
+
             x2 = cell['conv2'].get_best_op()(x1)
+            logger.debug(f"[SubNet] Cell {i} conv2 (best op) output shape: {x2.shape}")
+
             x = x2 + x
+            logger.debug(f"[SubNet] Cell {i} residual add shape: {x.shape}")
 
         x = self.pool(x)
+        logger.debug(f"[SubNet] After pool: {x.shape}")
+
         x = x.view(x.size(0), -1)
+        logger.debug(f"[SubNet] After flatten: {x.shape}")
+
         x = self.classifier(x)
+        logger.info(f"[SubNet] Final output shape: {x.shape}")
 
         return x
 
