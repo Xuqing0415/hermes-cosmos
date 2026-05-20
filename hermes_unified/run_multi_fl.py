@@ -1,7 +1,7 @@
 """
 Unified Entry Point for Federated Learning Experiments
 
-Supports running experiments in ten directions:
+Supports running experiments in eleven directions:
 1. FedPEFT - Federated Parameter-Efficient Fine-Tuning for LLMs
 2. Federated Transfer Learning
 3. Federated Quantum Learning
@@ -12,6 +12,7 @@ Supports running experiments in ten directions:
 8. Topology-Aware Federated Learning
 9. Federated Online Learning
 10. Federated Shapley Value Learning
+11. Federated Neural Architecture Search (FedNAS)
 """
 
 import argparse
@@ -822,6 +823,75 @@ def run_shapley_demo():
         traceback.print_exc()
 
 
+def run_fednas_demo():
+    """Run federated neural architecture search demonstration."""
+    print("\n" + "=" * 70)
+    print("  FEDERATED NEURAL ARCHITECTURE SEARCH")
+    print("=" * 70)
+    
+    try:
+        import torch
+        
+        print("\n1. Checking torch installation...")
+        print(f"   ✓ torch version: {torch.__version__}")
+        
+        print("\n2. Testing Core Components Import:")
+        
+        try:
+            from hermes_unified.fed_nas.supernet import SuperNet, DartsSearchSpace
+            print("   ✓ SuperNet and SearchSpace imported")
+        except Exception as e:
+            print(f"   ✗ SuperNet import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.fed_nas.subnet_extractor import (
+                SubnetExtractor, ResourceEvaluator
+            )
+            print("   ✓ SubnetExtractor imported")
+        except Exception as e:
+            print(f"   ✗ SubnetExtractor import failed: {e}")
+            return
+        
+        try:
+            from hermes_unified.fed_nas.local_search import (
+                EvolutionarySearch, SearchFactory
+            )
+            print("   ✓ Local search imported")
+        except Exception as e:
+            print(f"   ✗ Local search import failed: {e}")
+            return
+        
+        print("\n3. Testing Component Functionality:")
+        
+        try:
+            print("   Testing SuperNet...")
+            search_space = DartsSearchSpace()
+            supernet = SuperNet(search_space, num_classes=10)
+            dummy_input = torch.randn(2, 3, 32, 32)
+            output = supernet(dummy_input)
+            print(f"   ✓ SuperNet created, output shape: {output.shape}")
+        except Exception as e:
+            print(f"   ✗ SuperNet failed: {e}")
+        
+        try:
+            print("   Testing ResourceEvaluator...")
+            evaluator = ResourceEvaluator()
+            resources = evaluator.evaluate(supernet, (3, 32, 32))
+            print(f"   ✓ Resource evaluation: FLOPs={resources['flops']:.2e}")
+        except Exception as e:
+            print(f"   ✗ ResourceEvaluator failed: {e}")
+        
+        print("\n✓ Federated Neural Architecture Search demo completed!")
+        
+    except ImportError as e:
+        print(f"⚠️ Import error: {e}")
+    except Exception as e:
+        print(f"⚠️ Error in FedNAS demo: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -831,7 +901,7 @@ def main():
     
     parser.add_argument(
         '--direction', type=str, default='all',
-        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'online', 'shapley', 'all'],
+        choices=['peft', 'transfer', 'quantum', 'multimodal', 'selfsupervised', 'causal', 'linearconnectivity', 'topology', 'online', 'shapley', 'fednas', 'all'],
         help='Which direction to run'
     )
     
@@ -870,6 +940,9 @@ def main():
     
     if args.direction == 'shapley' or args.direction == 'all':
         run_shapley_demo()
+    
+    if args.direction == 'fednas' or args.direction == 'all':
+        run_fednas_demo()
     
     print("\n" + "=" * 70)
     print("  ALL DEMONSTRATIONS COMPLETE")
