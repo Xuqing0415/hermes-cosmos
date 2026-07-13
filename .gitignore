@@ -46,7 +46,6 @@ Thumbs.db
 desktop.ini
 
 # Experiment files
-*.json
 results/
 reports/
 benchmark/
@@ -55,5 +54,3 @@ elastic_multiprocess/
 elastic_simulation/
 real_deep/
 real_tensor_parallel/
-*.md
-!README*

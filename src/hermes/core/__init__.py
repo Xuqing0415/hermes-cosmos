@@ -14,8 +14,11 @@ from hermes.core.exceptions import HermesError, SchedulerError, CheckpointError
 from hermes.core.models import (
     Job,
     JobStatus,
+    JobPriority,
     Resource,
+    ResourceRequest,
     Checkpoint,
+    CheckpointState,
     Region,
     GPUType,
 )
@@ -32,8 +35,11 @@ __all__ = [
     "CheckpointError",
     "Job",
     "JobStatus",
+    "JobPriority",
     "Resource",
+    "ResourceRequest",
     "Checkpoint",
+    "CheckpointState",
     "Region",
     "GPUType",
 ]

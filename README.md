@@ -18,16 +18,24 @@ Hermes 是一个全球跨Region、万卡级GPU、高容错、碳感知的AI训�
 ```
 hermes-cosmos/
 ├── src/hermes/
-│   ├── core/           # 核心类型和配置
-│   ├── gateway/        # 统一API网关
-│   ├── scheduler/      # 全球调度器
-│   ├── checkpoint/     # 分布式Checkpoint服务
-│   ├── agent/          # 本地集群Agent
-│   └── cli.py          # 命令行工具
-├── config/             # 配置文件
-├── docker/             # Docker配置
-├── deploy/             # 部署配置
-└── tests/              # 测试文件
+│   ├── core/            # 核心类型和配置
+│   ├── gateway/         # 统一API网关
+│   ├── scheduler/       # 全球调度器
+│   ├── checkpoint/      # 分布式Checkpoint服务
+│   ├── agent/           # 本地集群Agent
+│   ├── fault_prediction/# 故障预测模块
+│   └── cli.py           # 命令行工具
+├── config/              # 配置文件
+├── docker/              # Docker配置
+├── deploy/              # 部署配置
+│   ├── alibaba/         # 阿里云部署脚本
+│   ├── aws/             # AWS部署脚本
+│   ├── kubernetes/      # Kubernetes部署配置
+│   └── prometheus/      # Prometheus监控配置
+├── examples/            # 使用示例
+├── hermes-operator/     # Kubernetes Operator
+├── grafana/             # Grafana仪表盘配置
+└── tests/               # 测试文件
 ```
 
 ## 快速开始

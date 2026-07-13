@@ -39,13 +39,31 @@ class FaultPredictor:
     """故障预测器"""
     
     def __init__(self, model_path: str = "model.onnx"):
-        self.session = ort.InferenceSession(model_path)
-        self.input_name = self.session.get_inputs()[0].name
-        self.output_name = self.session.get_outputs()[0].name
+        self._model_path = model_path
+        self._session = None
+        self._input_name = None
+        self._output_name = None
         
         # 归一化参数（训练数据的均值和标准差）
         self.mean = np.array([70.0, 150.0, 80.0, 75.0, 0.5, 60.0], dtype=np.float32)
         self.std = np.array([10.0, 50.0, 20.0, 20.0, 1.0, 20.0], dtype=np.float32)
+        
+        self._load_model()
+    
+    def _load_model(self) -> None:
+        import os
+        if os.path.exists(self._model_path):
+            try:
+                self._session = ort.InferenceSession(self._model_path)
+                self._input_name = self._session.get_inputs()[0].name
+                self._output_name = self._session.get_outputs()[0].name
+                print(f"Loaded model from {self._model_path}")
+            except Exception as e:
+                print(f"Failed to load model: {e}, using mock predictions")
+                self._session = None
+        else:
+            print(f"Model file {self._model_path} not found, using mock predictions")
+            self._session = None
     
     def normalize(self, metrics: np.ndarray) -> np.ndarray:
         """归一化输入数据"""
@@ -53,21 +71,23 @@ class FaultPredictor:
     
     def predict(self, metrics: Dict[str, float]) -> float:
         """预测故障概率"""
-        # 提取特征
-        feature_order = ['temperature', 'power', 'utilization', 'memory_usage', 'ecc_errors', 'fan_speed']
-        input_data = np.array([metrics.get(f, 0.0) for f in feature_order], dtype=np.float32)
-        
-        # 归一化
-        input_data = self.normalize(input_data)
-        
-        # 添加时间步维度
-        input_data = input_data.reshape(1, 1, 6)
-        
-        # 推理
-        result = self.session.run([self.output_name], {self.input_name: input_data})
-        probability = float(result[0][0][0])
-        
-        return min(max(probability, 0.0), 1.0)
+        if self._session is not None:
+            feature_order = ['temperature', 'power', 'utilization', 'memory_usage', 'ecc_errors', 'fan_speed']
+            input_data = np.array([metrics.get(f, 0.0) for f in feature_order], dtype=np.float32)
+            
+            input_data = self.normalize(input_data)
+            input_data = input_data.reshape(1, 1, 6)
+            
+            result = self._session.run([self._output_name], {self._input_name: input_data})
+            probability = float(result[0][0][0])
+            
+            return min(max(probability, 0.0), 1.0)
+        else:
+            ecc_errors = metrics.get('ecc_errors', 0)
+            temperature = metrics.get('temperature', 0)
+            base_probability = min(ecc_errors * 0.1, 0.9)
+            temp_factor = max(min((temperature - 70) / 50, 0.3), -0.5)
+            return max(min(base_probability + temp_factor, 1.0), 0.0)
     
     def get_risk_level(self, probability: float) -> str:
         """根据概率返回风险等级"""

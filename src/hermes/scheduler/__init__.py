@@ -2,6 +2,6 @@
 Scheduler module initialization
 """
 
-from hermes.scheduler.main import GlobalScheduler, main
+from hermes.scheduler.global_service import GlobalSchedulerService, create_app, main
 
-__all__ = ["GlobalScheduler", "main"]
+__all__ = ["GlobalSchedulerService", "create_app", "main"]
