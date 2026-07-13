@@ -78,6 +78,8 @@ class DeltaEngine:
 
         for i, (block, hash_val) in enumerate(zip(current_blocks, current_hashes)):
             if i >= len(previous_hashes) or previous_hashes[i] != hash_val:
+                delta_blocks.append(i.to_bytes(4, 'big'))
+                delta_blocks.append(len(block).to_bytes(4, 'big'))
                 delta_blocks.append(block)
 
         delta_data = b"".join(delta_blocks)
@@ -108,20 +110,19 @@ class DeltaEngine:
             delta_data = zlib.decompress(delta_data)
 
         base_blocks = self._split_into_blocks(base_data)
-        delta_blocks = self._split_into_blocks(delta_data)
+        result_blocks = base_blocks.copy()
 
-        previous_hashes = self._block_hashes.get(checkpoint_id, [])
-        
-        result_blocks = []
-        delta_idx = 0
-        
-        for i, base_block in enumerate(base_blocks):
-            if i < len(previous_hashes) and delta_idx < len(delta_blocks):
-                result_blocks.append(delta_blocks[delta_idx])
-                delta_idx += 1
-            else:
-                result_blocks.append(base_block)
-        
+        offset = 0
+        while offset + 8 <= len(delta_data):
+            block_idx = int.from_bytes(delta_data[offset:offset+4], 'big')
+            block_size = int.from_bytes(delta_data[offset+4:offset+8], 'big')
+            offset += 8
+            
+            if block_idx < len(result_blocks) and offset + block_size <= len(delta_data):
+                result_blocks[block_idx] = delta_data[offset:offset+block_size]
+            
+            offset += block_size
+
         result = b"".join(result_blocks)
 
         logger.info(

@@ -13,8 +13,8 @@ import httpx
 from fastapi.testclient import TestClient
 
 from hermes.core.models import Job, JobStatus, JobPriority, JobRequirements, PlacementConstraints
-from hermes.core.config import Region, GPUType
-from hermes.scheduler.main import create_app, GlobalSchedulerService, SchedulerConfig
+from hermes.core.config import Region, GPUType, SchedulerConfig
+from hermes.scheduler.global_service import create_app, GlobalSchedulerService
 
 logger = structlog.get_logger()
 

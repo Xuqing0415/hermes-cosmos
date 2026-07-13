@@ -108,6 +108,7 @@ class TestModels:
             type=ResourceType.GPU,
             region=Region.US_EAST,
             total_capacity=100,
+            available_capacity=50,
             allocated_capacity=50,
             cost_per_hour=3.50,
         )

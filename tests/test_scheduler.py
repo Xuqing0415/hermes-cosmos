@@ -12,11 +12,12 @@ from hermes.scheduler.algorithms.mcts import (
     MCTSScheduler,
     MCTSNode,
     ClusterState,
-    PlacementResult,
+    PlacementDecision,
 )
 from hermes.scheduler.algorithms.placement import (
     PlacementEngine,
     NodeInfo,
+    PlacementResult,
 )
 
 
@@ -73,8 +74,8 @@ class TestMCTSScheduler:
         placement = await scheduler.schedule(sample_job, cluster_state)
 
         assert placement is not None
-        assert placement.job_id == sample_job.id
-        assert placement.region in [Region.US_EAST, Region.US_WEST]
+        assert str(placement.job_id) == str(sample_job.id)
+        assert placement.region in ['us-east', 'us-west']
         assert placement.gpu_count == 8
 
     def test_mcts_node_ucb1(self) -> None:
@@ -91,7 +92,7 @@ class TestMCTSScheduler:
         node = MCTSNode(state={}, untried_actions=[{"region": "us-east"}])
         child = node.expand({"region": "us-east"})
 
-        assert child in node.children
+        assert child in node.children.values()
         assert child.state == {"region": "us-east"}
 
 
@@ -178,6 +179,7 @@ class TestPlacementEngine:
             tenant_id="tenant-1",
             user_id="user-1",
             image="pytorch:latest",
+            requirements=JobRequirements(gpu_count=4),
             constraints=PlacementConstraints(carbon_aware=True),
         )
 

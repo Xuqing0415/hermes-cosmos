@@ -18,13 +18,20 @@ from kubernetes.client.rest import ApiException
 
 app = FastAPI(title="Hermes Scheduler - Proactive Migration", version="3.0")
 
-# 加载K8s配置
-try:
-    config.load_kube_config()
-except Exception:
-    config.load_incluster_config()
+v1 = None
 
-v1 = client.CoreV1Api()
+def _init_k8s():
+    global v1
+    try:
+        config.load_kube_config()
+        v1 = client.CoreV1Api()
+    except Exception:
+        try:
+            config.load_incluster_config()
+            v1 = client.CoreV1Api()
+        except Exception:
+            print("[SCHEDULER] Kubernetes config not found, running in standalone mode")
+            v1 = None
 
 # 作业状态存储
 jobs: Dict[str, dict] = {}
@@ -51,7 +58,25 @@ async def submit_job(job: JobRequest):
     job_id = str(uuid4())[:8]
     pod_name = f"hermes-job-{job_id}"
     
-    # 创建训练Pod（支持信号处理）
+    if v1 is None:
+        job_data = {
+            "job_id": job_id,
+            "name": job.name,
+            "tenant_id": job.tenant_id,
+            "user_id": job.user_id,
+            "status": "RUNNING",
+            "pod_name": pod_name,
+            "gpu_count": job.gpu_count,
+            "node_id": "local",
+            "created_at": time.time(),
+            "updated_at": time.time(),
+            "migrations": 0,
+            "last_migration_time": None,
+            "k8s_status": "standalone"
+        }
+        jobs[job_id] = job_data
+        return job_data
+    
     try:
         create_training_pod(pod_name, job.name, job.gpu_count, job_id)
     except Exception as e:
@@ -65,11 +90,12 @@ async def submit_job(job: JobRequest):
         "status": "RUNNING",
         "pod_name": pod_name,
         "gpu_count": job.gpu_count,
-        "node_id": None,  # 将由调度器填充
+        "node_id": None,
         "created_at": time.time(),
         "updated_at": time.time(),
         "migrations": 0,
-        "last_migration_time": None
+        "last_migration_time": None,
+        "k8s_status": "connected"
     }
     jobs[job_id] = job_data
     
@@ -276,12 +302,15 @@ async def get_job(job_id: str):
     
     job = jobs[job_id]
     
-    try:
-        pod = v1.read_namespaced_pod(name=job["pod_name"], namespace="default")
-        job["pod_status"] = pod.status.phase
-        job["node_id"] = pod.spec.node_name
-    except Exception:
-        job["pod_status"] = "UNKNOWN"
+    if v1 is not None:
+        try:
+            pod = v1.read_namespaced_pod(name=job["pod_name"], namespace="default")
+            job["pod_status"] = pod.status.phase
+            job["node_id"] = pod.spec.node_name
+        except Exception:
+            job["pod_status"] = "UNKNOWN"
+    else:
+        job["pod_status"] = "RUNNING"
     
     return job
 
@@ -295,10 +324,11 @@ async def delete_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     
     job = jobs[job_id]
-    try:
-        v1.delete_namespaced_pod(name=job["pod_name"], namespace="default")
-    except Exception:
-        pass
+    if v1 is not None:
+        try:
+            v1.delete_namespaced_pod(name=job["pod_name"], namespace="default")
+        except Exception:
+            pass
     
     del jobs[job_id]
     return {"message": "Job deleted", "job_id": job_id}

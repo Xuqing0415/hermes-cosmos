@@ -8,13 +8,19 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-import etcd3
 import structlog
 
 from hermes.core.config import Region
 from hermes.core.models import Job, Resource, ResourceType
 
 logger = structlog.get_logger()
+
+try:
+    import etcd3
+    HAS_ETCD = True
+except ImportError:
+    etcd3 = None
+    HAS_ETCD = False
 
 
 @dataclass
@@ -28,43 +34,67 @@ class NodeState:
     last_heartbeat: datetime
 
 
+@dataclass
+class Node:
+    id: str
+    region: str
+    gpu_count: int
+    gpu_type: str
+
+
+@dataclass
+class ClusterState:
+    nodes: list[Node]
+
+
 class ClusterManager:
     def __init__(self, etcd_endpoints: list[str] = None) -> None:
         self.etcd_endpoints = etcd_endpoints or ["localhost:2379"]
-        self._etcd: Optional[etcd3.Client] = None
+        self._etcd: Optional[Any] = None
         self._nodes: dict[str, NodeState] = {}
         self._resources: dict[str, Resource] = {}
 
     async def connect(self) -> None:
+        if not HAS_ETCD:
+            logger.info("etcd3 not available, running in standalone mode")
+            return
+
         logger.info("Connecting to etcd", endpoints=self.etcd_endpoints)
 
-        host, port = self.etcd_endpoints[0].split(":")
-        self._etcd = etcd3.client(host=host, port=int(port))
-
-        await self._load_cluster_state()
-        logger.info("Connected to etcd")
+        try:
+            host, port = self.etcd_endpoints[0].split(":")
+            self._etcd = etcd3.client(host=host, port=int(port))
+            await self._load_cluster_state()
+            logger.info("Connected to etcd")
+        except Exception as e:
+            logger.warning(f"Failed to connect to etcd: {e}, running in standalone mode")
+            self._etcd = None
 
     async def disconnect(self) -> None:
-        if self._etcd:
+        if self._etcd and HAS_ETCD:
             self._etcd.close()
         logger.info("Disconnected from etcd")
 
     async def _load_cluster_state(self) -> None:
-        assert self._etcd is not None
+        if self._etcd is None or not HAS_ETCD:
+            return
 
-        nodes_data = self._etcd.get_prefix("/hermes/nodes/")
-        for value, metadata in nodes_data:
-            node_id = metadata.key.decode().split("/")[-1]
-            node_state = NodeState(
-                id=node_id,
-                region=Region.US_EAST,
-                gpu_type="nvidia-h100",
-                total_gpus=8,
-                available_gpus=8,
-                status="ready",
-                last_heartbeat=datetime.utcnow(),
-            )
-            self._nodes[node_id] = node_state
+        try:
+            nodes_data = self._etcd.get_prefix("/hermes/nodes/")
+            for value, metadata in nodes_data:
+                node_id = metadata.key.decode().split("/")[-1]
+                node_state = NodeState(
+                    id=node_id,
+                    region=Region.US_EAST,
+                    gpu_type="nvidia-h100",
+                    total_gpus=8,
+                    available_gpus=8,
+                    status="ready",
+                    last_heartbeat=datetime.utcnow(),
+                )
+                self._nodes[node_id] = node_state
+        except Exception as e:
+            logger.warning(f"Failed to load cluster state: {e}")
 
     async def get_cluster_state(self) -> dict[str, Any]:
         total_gpus = sum(n.total_gpus for n in self._nodes.values())

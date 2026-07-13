@@ -6,7 +6,7 @@ import pytest
 from uuid import UUID
 from datetime import datetime
 
-from hermes.core.models import Job, ResourceRequest, JobPriority
+from hermes.core.models import Job, ResourceRequest, JobPriority, JobRequirements, PlacementConstraints
 from hermes.scheduler.algorithms.placement import PlacementAlgorithm
 from hermes.scheduler.resources.cluster import ClusterState, Node
 
@@ -29,58 +29,57 @@ class TestSchedulerReproducibility:
         """创建固定的作业请求"""
         return Job(
             id=UUID("00000000-0000-0000-0000-000000000001"),
+            name="test-job",
             tenant_id="tenant-1",
-            resource_request=ResourceRequest(gpu_count=4, gpu_type="A100"),
+            user_id="user-1",
+            image="pytorch:latest",
+            requirements=JobRequirements(gpu_count=4),
             priority=JobPriority.HIGH,
-            data_residency="us-west",
-            submitted_at=datetime(2024, 1, 1, 12, 0, 0),
+            constraints=PlacementConstraints(regions=["us-west"]),
         )
 
     def test_placement_reproducibility(self, cluster_state, job):
         """测试放置算法的决策可复现性"""
         algorithm = PlacementAlgorithm()
         
-        # 第一次运行
         result1 = algorithm.find_best_placement(job, cluster_state)
         
-        # 重置状态后第二次运行
         algorithm2 = PlacementAlgorithm()
         result2 = algorithm2.find_best_placement(job, cluster_state)
         
-        # 验证结果一致
-        assert result1 == result2, "Placement decisions should be reproducible"
-        
-        if result1 is not None:
-            assert result1.node_id == result2.node_id
-            assert result1.score == result2.score
+        assert result1 is not None and result2 is not None
+        assert result1.job_id == result2.job_id
+        assert result1.region == result2.region
+        assert result1.gpu_count == result2.gpu_count
+        assert result1.node_ids == result2.node_ids
+        assert result1.score == result2.score
 
     def test_multiple_jobs_reproducibility(self, cluster_state):
         """测试多个作业调度的可复现性"""
         jobs = [
             Job(
                 id=UUID(f"00000000-0000-0000-0000-{i:012d}"),
+                name=f"test-job-{i}",
                 tenant_id="tenant-1",
-                resource_request=ResourceRequest(gpu_count=2, gpu_type="A100"),
+                user_id="user-1",
+                image="pytorch:latest",
+                requirements=JobRequirements(gpu_count=2),
                 priority=JobPriority.NORMAL,
-                data_residency="us-west",
-                submitted_at=datetime(2024, 1, 1, 12, 0, i),
+                constraints=PlacementConstraints(regions=["us-west"]),
             )
             for i in range(5)
         ]
         
         algorithm1 = PlacementAlgorithm()
-        placements1 = []
-        
-        for job in jobs:
-            placement = algorithm1.find_best_placement(job, cluster_state)
-            placements1.append(placement)
+        placements1 = [algorithm1.find_best_placement(job, cluster_state) for job in jobs]
         
         algorithm2 = PlacementAlgorithm()
-        placements2 = []
-        
-        for job in jobs:
-            placement = algorithm2.find_best_placement(job, cluster_state)
-            placements2.append(placement)
+        placements2 = [algorithm2.find_best_placement(job, cluster_state) for job in jobs]
         
         for p1, p2 in zip(placements1, placements2):
-            assert p1 == p2, "Multiple job placements should be reproducible"
+            assert p1 is not None and p2 is not None
+            assert p1.job_id == p2.job_id
+            assert p1.region == p2.region
+            assert p1.gpu_count == p2.gpu_count
+            assert p1.node_ids == p2.node_ids
+            assert p1.score == p2.score

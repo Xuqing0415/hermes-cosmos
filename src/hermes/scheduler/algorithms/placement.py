@@ -40,6 +40,64 @@ class NodeInfo:
     labels: dict[str, str]
 
 
+class PlacementAlgorithm:
+    def __init__(
+        self,
+        carbon_aware: bool = True,
+        cost_weight: float = 0.4,
+        carbon_weight: float = 0.3,
+        locality_weight: float = 0.3,
+    ) -> None:
+        self.carbon_aware = carbon_aware
+        self.cost_weight = cost_weight
+        self.carbon_weight = carbon_weight
+        self.locality_weight = locality_weight
+
+    def find_best_placement(
+        self,
+        job,
+        cluster_state,
+    ):
+        if not cluster_state.nodes:
+            return None
+
+        best_node = None
+        best_score = -1.0
+
+        for node in cluster_state.nodes:
+            if node.gpu_count >= job.requirements.gpu_count:
+                if job.constraints.regions and node.region not in job.constraints.regions:
+                    continue
+
+                score = self._calculate_score(node, job)
+                if score > best_score:
+                    best_score = score
+                    best_node = node
+
+        if best_node:
+            return PlacementResult(
+                job_id=job.id,
+                region=best_node.region,
+                gpu_count=job.requirements.gpu_count,
+                node_ids=[best_node.id],
+                cost_per_hour=0.0,
+                carbon_intensity=0.0,
+                data_locality=True,
+                score=best_score,
+                scheduled_at=datetime.utcnow(),
+            )
+        return None
+
+    def _calculate_score(self, node, job) -> float:
+        score = 0.0
+        score += self.cost_weight * (1.0 / (node.gpu_count + 1))
+        if job.constraints.regions and node.region in job.constraints.regions:
+            score += self.locality_weight * 1.0
+        else:
+            score += self.locality_weight * 0.5
+        return score
+
+
 class PlacementEngine:
     def __init__(
         self,

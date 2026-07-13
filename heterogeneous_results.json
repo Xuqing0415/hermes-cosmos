@@ -1,0 +1,70 @@
+{
+  "config": {
+    "num_workers": 4,
+    "speed_distribution": "tiered",
+    "model_size_mb": 40.0,
+    "bandwidth_mb_s": 100.0
+  },
+  "static_sharding": {
+    "strategy": "static_sharding",
+    "throughput": 156.07852700890135,
+    "step_time": 1.6402,
+    "max_compute_time": 0.04,
+    "comm_time": 1.6002,
+    "worker_times": [
+      0.04,
+      0.04,
+      0.01,
+      0.01
+    ],
+    "idle_times": [
+      0.0,
+      0.0,
+      0.03,
+      0.03
+    ],
+    "avg_idle_time": 0.015,
+    "worker_speeds": [
+      0.5,
+      0.5,
+      2.0,
+      2.0
+    ]
+  },
+  "dynamic_load_balancing": {
+    "strategy": "dynamic_load_balancing",
+    "throughput": 158.37174054254692,
+    "step_time": 1.6164500000000002,
+    "max_compute_time": 0.01625,
+    "comm_time": 1.6002,
+    "worker_times": [
+      0.015625,
+      0.015625,
+      0.01625,
+      0.0159375
+    ],
+    "idle_times": [
+      0.0006250000000000006,
+      0.0006250000000000006,
+      0.0,
+      0.0003125000000000003
+    ],
+    "avg_idle_time": 0.00039062500000000035,
+    "allocated_batches": [
+      25,
+      25,
+      104,
+      102
+    ],
+    "worker_speeds": [
+      0.5,
+      0.5,
+      2.0,
+      2.0
+    ]
+  },
+  "improvement": {
+    "throughput": 1.4692690772990096,
+    "avg_idle_time": 97.39583333333333
+  }
+}

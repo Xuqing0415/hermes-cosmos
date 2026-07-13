@@ -30,6 +30,15 @@ class JobPriority(str, Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
+
 
 class ResourceType(str, Enum):
     GPU = "gpu"
@@ -81,6 +90,11 @@ class JobRequirements(BaseModel):
     checkpoint_interval_seconds: int = Field(default=300, ge=60)
 
 
+class ResourceRequest(BaseModel):
+    gpu_count: int = Field(default=1, ge=1)
+    gpu_type: str = Field(default="NVIDIA_H100")
+
+
 class PlacementConstraints(BaseModel):
     regions: Optional[list[Region]] = None
     data_locality: bool = Field(default=True, description="Require data locality")
@@ -115,9 +129,6 @@ class Job(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        use_enum_values = True
 
 
 class CheckpointState(str, Enum):
@@ -255,9 +266,6 @@ class InferenceService(BaseModel):
     sla_latency_p99_ms: float = Field(default=100.0, description="SLA P99 latency target")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        use_enum_values = True
 
 
 class InferenceRequest(BaseModel):
