@@ -26,16 +26,6 @@ jobs:
         pip install -r requirements.txt
         pip install z3-solver requests structlog
     
-    - name: Show Python version
+    - name: Run tests
       run: |
-        python --version
-        pip --version
-    
-    - name: List files
-      run: |
-        ls -la src/hermes/
-        ls -la tests/
-    
-    - name: Run single test
-      run: |
-        python -m pytest tests/test_self_rebirth.py::TestSelfAuditor::test_init -v --tb=short
+        python -m pytest tests/test_self_rebirth.py::TestSelfAuditor tests/test_self_rebirth.py::TestTrendAnalyzer tests/test_self_rebirth.py::TestArchitectureDesigner -v --tb=short
