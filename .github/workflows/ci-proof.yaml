@@ -27,6 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-ci.txt
 
-      - name: Test basic imports
+      - name: Run tests
         run: |
-          PYTHONPATH=src python -c "from hermes.ci.cli import main; print('CLI import successful')"
+          PYTHONPATH=src python -m pytest tests/test_self_rebirth.py::TestSelfAuditor tests/test_self_rebirth.py::TestTrendAnalyzer tests/test_self_rebirth.py::TestArchitectureDesigner -v --tb=short
