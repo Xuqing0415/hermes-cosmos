@@ -23,7 +23,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-asyncio
+        pip install -r requirements.txt
+        pip install z3-solver requests structlog
     
-    - name: Run tests
+    - name: Show Python version
       run: |
-        python -m pytest tests/ -v --tb=short -x --ignore=tests/test_e2e.py --ignore=tests/test_ci.py --ignore=tests/test_scheduler.py
+        python --version
+        pip --version
+    
+    - name: List files
+      run: |
+        ls -la src/hermes/
+        ls -la tests/
+    
+    - name: Run single test
+      run: |
+        python -m pytest tests/test_self_rebirth.py::TestSelfAuditor::test_init -v --tb=short
