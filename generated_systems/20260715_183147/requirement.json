@@ -1,0 +1,47 @@
+{
+  "name": "CounterService",
+  "description": "HTTP counter service with increment and get operations",
+  "entities": [
+    {
+      "name": "Counter",
+      "entity_type": "counter",
+      "description": "A thread-safe counter that supports increment and get operations",
+      "properties": {
+        "initial_value": 0
+      }
+    }
+  ],
+  "operations": [
+    {
+      "name": "increment",
+      "operation_type": "increment",
+      "endpoint": "/inc",
+      "method": "POST",
+      "parameters": [],
+      "returns": "int",
+      "description": "Increment the counter by 1"
+    },
+    {
+      "name": "get",
+      "operation_type": "get",
+      "endpoint": "/get",
+      "method": "GET",
+      "parameters": [],
+      "returns": "int",
+      "description": "Get the current counter value"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "No Lost Updates",
+      "constraint_type": "no_lost_updates",
+      "description": "Constraint: no lost updates",
+      "properties": {}
+    }
+  ],
+  "language": "python",
+  "framework": "flask",
+  "notes": [
+    "Built-in counter template"
+  ]
+}

@@ -1,5 +1,5 @@
 """
-半监督学习服务器
+
 """
 
 import numpy as np
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SemiSupervisedServer:
-    """半监督学习服务器"""
+    """"""
 
     def __init__(self, num_features: int, num_classes: int = 10):
         self.num_features = num_features
@@ -21,7 +21,7 @@ class SemiSupervisedServer:
 
     def aggregate(self, client_updates: List[Dict],
                 client_weights: Optional[List[float]] = None) -> Dict[str, np.ndarray]:
-        """聚合客户端更新"""
+        """"""
         if client_weights is None:
             client_weights = [1.0 / len(client_updates)] * len(client_updates)
 

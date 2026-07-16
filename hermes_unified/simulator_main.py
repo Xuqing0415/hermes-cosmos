@@ -2,11 +2,11 @@
 """
 Hermes Unified Simulator Main Entry
 
-统一的模拟框架入口，支持四种分析模式：
-1. heterogeneous - 异构 Worker 负载均衡
-2. overlap - 通信与计算重叠优化
-3. congestion - 网络拥塞与动态压缩
-4. protocol_switch - 自适应通信协议切换
+
+1. heterogeneous -  Worker 
+2. overlap - 
+3. congestion - 
+4. protocol_switch - 
 """
 
 import argparse
@@ -27,7 +27,7 @@ from hermes_unified.simulator import (
 
 
 def run_heterogeneous_analysis(args):
-    """运行异构负载均衡分析"""
+    """"""
     config = HeterogeneousConfig(
         num_workers=args.workers,
         speed_distribution=args.distribution,
@@ -40,7 +40,7 @@ def run_heterogeneous_analysis(args):
     simulator = HeterogeneousSimulator(config)
     results = simulator.run_comparison()
     
-    # 打印结果
+    # 
     print("=" * 80)
     print("Heterogeneous Worker Load Balancing Analysis")
     print("=" * 80)
@@ -59,18 +59,18 @@ def run_heterogeneous_analysis(args):
     print(f"Throughput Increase: {results['improvement']['throughput']:.1f}%")
     print(f"Idle Time Reduction: {results['improvement']['avg_idle_time']:.1f}%")
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
     
-    # 绘制图表
+    # 
     plot_results(results, 'heterogeneous', args.plot_dir)
 
 
 def run_overlap_analysis(args):
-    """运行通信与计算重叠分析"""
+    """"""
     config = OverlapConfig(
         num_workers=args.workers,
         model_size_mb=args.model_size,
@@ -81,7 +81,7 @@ def run_overlap_analysis(args):
     simulator = OverlapSimulator(config)
     results = simulator.run_overlap_study()
     
-    # 打印结果
+    # 
     print("=" * 80)
     print("Communication-Compute Overlap Analysis")
     print("=" * 80)
@@ -101,18 +101,18 @@ def run_overlap_analysis(args):
     print(f"Optimal Segments: {adaptive['segment_count']}")
     print(f"Throughput: {adaptive['throughput']:.2f} samples/sec")
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
     
-    # 绘制图表
+    # 
     plot_results(results, 'overlap', args.plot_dir)
 
 
 def run_congestion_analysis(args):
-    """运行网络拥塞分析"""
+    """"""
     config = CongestionConfig(
         num_workers=args.workers,
         model_size_mb=args.model_size,
@@ -124,7 +124,7 @@ def run_congestion_analysis(args):
     simulator = CongestionSimulator(config)
     results = simulator.run_comparison()
     
-    # 打印结果
+    # 
     print("=" * 80)
     print("Network Congestion Analysis")
     print("=" * 80)
@@ -141,18 +141,18 @@ def run_congestion_analysis(args):
     improvement = (stats['dynamic_avg_throughput'] - stats['static_avg_throughput']) / stats['static_avg_throughput'] * 100
     print(f"\nThroughput Improvement: {improvement:.1f}%")
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
     
-    # 绘制图表
+    # 
     plot_results(results, 'congestion', args.plot_dir)
 
 
 def run_protocol_switch_analysis(args):
-    """运行自适应协议切换分析"""
+    """"""
     config = ProtocolSwitchConfig(
         initial_workers=args.initial_workers,
         max_workers=args.max_workers,
@@ -166,7 +166,7 @@ def run_protocol_switch_analysis(args):
     simulator = ProtocolSwitchSimulator(config)
     results = simulator.run_simulation()
     
-    # 打印结果
+    # 
     print("=" * 80)
     print("Adaptive Protocol Switching Analysis")
     print("=" * 80)
@@ -190,13 +190,13 @@ def run_protocol_switch_analysis(args):
     for switch in results['switch_log']:
         print(f"Step {switch['step']}: {switch['from'].upper()} → {switch['to'].upper()}")
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
     
-    # 绘制图表
+    # 
     plot_results(results, 'protocol_switch', args.plot_dir)
 
 
@@ -204,7 +204,7 @@ def main():
     parser = argparse.ArgumentParser(description="Hermes Unified Simulator")
     subparsers = parser.add_subparsers(dest='analysis_type', help='Analysis type')
     
-    # 异构负载均衡
+    # 
     hetero_parser = subparsers.add_parser('heterogeneous', help='Heterogeneous worker load balancing')
     hetero_parser.add_argument('--workers', type=int, default=4)
     hetero_parser.add_argument('--distribution', type=str, default='tiered', choices=['random', 'uniform', 'tiered'])
@@ -215,7 +215,7 @@ def main():
     hetero_parser.add_argument('--output', type=str, default='')
     hetero_parser.add_argument('--plot-dir', type=str, default='results')
     
-    # 通信与计算重叠
+    # 
     overlap_parser = subparsers.add_parser('overlap', help='Communication-compute overlap')
     overlap_parser.add_argument('--workers', type=int, default=4)
     overlap_parser.add_argument('--model-size', type=float, default=40.0)
@@ -224,7 +224,7 @@ def main():
     overlap_parser.add_argument('--output', type=str, default='')
     overlap_parser.add_argument('--plot-dir', type=str, default='results')
     
-    # 网络拥塞
+    # 
     congestion_parser = subparsers.add_parser('congestion', help='Network congestion')
     congestion_parser.add_argument('--workers', type=int, default=4)
     congestion_parser.add_argument('--model-size', type=float, default=40.0)
@@ -234,7 +234,7 @@ def main():
     congestion_parser.add_argument('--output', type=str, default='')
     congestion_parser.add_argument('--plot-dir', type=str, default='results')
     
-    # 自适应协议切换
+    # 
     proto_parser = subparsers.add_parser('protocol-switch', help='Adaptive protocol switching')
     proto_parser.add_argument('--initial-workers', type=int, default=4)
     proto_parser.add_argument('--max-workers', type=int, default=32)

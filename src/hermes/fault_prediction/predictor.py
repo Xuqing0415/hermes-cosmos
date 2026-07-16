@@ -1,6 +1,6 @@
 """
-Hermes Fault Predictor - 基于LSTM的故障预测服务
-实时预测GPU节点故障概率，支持主动迁移
+Hermes Fault Predictor - LSTM
+GPU
 """
 
 import numpy as np
@@ -14,29 +14,29 @@ from typing import Dict, List
 app = FastAPI(title="Hermes Fault Predictor", version="2.0")
 
 class GPUMetrics(BaseModel):
-    """GPU指标数据"""
+    """GPU"""
     node_id: str
     gpu_id: str
-    temperature: float  # 温度 (C)
-    power: float        # 功耗 (W)
-    utilization: float  # 利用率 (%)
-    memory_usage: float # 内存使用 (%)
-    ecc_errors: int     # ECC错误数
-    fan_speed: float    # 风扇转速 (%)
+    temperature: float  #  (C)
+    power: float        #  (W)
+    utilization: float  #  (%)
+    memory_usage: float #  (%)
+    ecc_errors: int     # ECC
+    fan_speed: float    #  (%)
 
 class PredictionRequest(BaseModel):
-    """预测请求"""
+    """"""
     metrics: List[GPUMetrics]
 
 class PredictionResponse(BaseModel):
-    """预测响应"""
+    """"""
     node_id: str
     gpu_id: str
     fault_probability: float
     risk_level: str  # low, medium, high, critical
 
 class FaultPredictor:
-    """故障预测器"""
+    """"""
     
     def __init__(self, model_path: str = "model.onnx"):
         self._model_path = model_path
@@ -44,7 +44,7 @@ class FaultPredictor:
         self._input_name = None
         self._output_name = None
         
-        # 归一化参数（训练数据的均值和标准差）
+        # 
         self.mean = np.array([70.0, 150.0, 80.0, 75.0, 0.5, 60.0], dtype=np.float32)
         self.std = np.array([10.0, 50.0, 20.0, 20.0, 1.0, 20.0], dtype=np.float32)
         
@@ -66,11 +66,11 @@ class FaultPredictor:
             self._session = None
     
     def normalize(self, metrics: np.ndarray) -> np.ndarray:
-        """归一化输入数据"""
+        """"""
         return (metrics - self.mean) / self.std
     
     def predict(self, metrics: Dict[str, float]) -> float:
-        """预测故障概率"""
+        """"""
         if self._session is not None:
             feature_order = ['temperature', 'power', 'utilization', 'memory_usage', 'ecc_errors', 'fan_speed']
             input_data = np.array([metrics.get(f, 0.0) for f in feature_order], dtype=np.float32)
@@ -90,7 +90,7 @@ class FaultPredictor:
             return max(min(base_probability + temp_factor, 1.0), 0.0)
     
     def get_risk_level(self, probability: float) -> str:
-        """根据概率返回风险等级"""
+        """"""
         if probability >= 0.8:
             return "critical"
         elif probability >= 0.6:
@@ -100,19 +100,19 @@ class FaultPredictor:
         else:
             return "low"
 
-# 全局预测器实例
+# 
 predictor = FaultPredictor()
 
-# 节点状态缓存（模拟实时指标）
+# 
 node_metrics_cache = {}
 
 @app.post("/predict", response_model=List[PredictionResponse])
 async def predict_fault(request: PredictionRequest):
-    """预测GPU故障概率"""
+    """GPU"""
     results = []
     
     for metrics in request.metrics:
-        # 构建特征字典
+        # 
         feature_dict = {
             'temperature': metrics.temperature,
             'power': metrics.power,
@@ -122,11 +122,11 @@ async def predict_fault(request: PredictionRequest):
             'fan_speed': metrics.fan_speed
         }
         
-        # 预测
+        # 
         probability = predictor.predict(feature_dict)
         risk_level = predictor.get_risk_level(probability)
         
-        # 更新缓存
+        # 
         node_metrics_cache[metrics.node_id] = {
             'last_update': time.time(),
             'probability': probability,
@@ -144,7 +144,7 @@ async def predict_fault(request: PredictionRequest):
 
 @app.get("/nodes/{node_id}/risk")
 async def get_node_risk(node_id: str):
-    """获取节点风险状态"""
+    """"""
     if node_id not in node_metrics_cache:
         raise HTTPException(status_code=404, detail="Node not found")
     
@@ -152,12 +152,12 @@ async def get_node_risk(node_id: str):
 
 @app.get("/nodes")
 async def get_all_nodes():
-    """获取所有节点状态"""
+    """"""
     return {"nodes": node_metrics_cache}
 
 @app.post("/inject_fault")
 async def inject_fault(node_id: str, probability: float = 0.9):
-    """手动注入故障概率（用于测试）"""
+    """"""
     node_metrics_cache[node_id] = {
         'last_update': time.time(),
         'probability': probability,

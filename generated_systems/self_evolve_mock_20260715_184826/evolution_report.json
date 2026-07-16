@@ -1,0 +1,124 @@
+{
+  "timestamp": 1784112506.6360817,
+  "status": "success",
+  "message": "Mock evolution completed after 3 iterations",
+  "total_duration": 0.006859540939331055,
+  "iterations": 3,
+  "final_requirement": {
+    "name": "CounterService",
+    "description": "HTTP counter service with increment and get operations",
+    "entities": [
+      {
+        "name": "Counter",
+        "entity_type": "counter",
+        "description": "A thread-safe counter that supports increment and get operations",
+        "properties": {
+          "initial_value": 0
+        }
+      }
+    ],
+    "operations": [
+      {
+        "name": "increment",
+        "operation_type": "increment",
+        "endpoint": "/inc",
+        "method": "POST",
+        "parameters": [],
+        "returns": "int",
+        "description": "Increment the counter by 1. Precondition: Add mutex lock or atomic operation to prevent race conditions"
+      },
+      {
+        "name": "get",
+        "operation_type": "get",
+        "endpoint": "/get",
+        "method": "GET",
+        "parameters": [],
+        "returns": "int",
+        "description": "Get the current counter value"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "No Lost Updates",
+        "constraint_type": "no_lost_updates",
+        "description": "Constraint: no lost updates",
+        "properties": {}
+      }
+    ],
+    "language": "python",
+    "framework": "flask",
+    "notes": [
+      "Built-in counter template",
+      "Auto-refined: 1 changes applied based on counterexample analysis",
+      "Auto-refined: 1 changes applied based on counterexample analysis"
+    ]
+  },
+  "final_spec": {
+    "name": "CounterService",
+    "properties": [
+      "Increment",
+      "Get"
+    ],
+    "invariants": [
+      "TypeOK",
+      "NoLostUpdates"
+    ],
+    "temporal_properties": [
+      "Spec => []TypeOK",
+      "Spec => []NoLostUpdates"
+    ]
+  },
+  "evolution_steps": [
+    {
+      "iteration": 1,
+      "timestamp": 1784112506.6336732,
+      "requirement_name": "CounterService",
+      "spec_name": "CounterService",
+      "tlc_status": "failure",
+      "violation_type": "invariant_violation",
+      "changes_applied": 0,
+      "changes": [
+        {
+          "change_type": "add_precondition",
+          "description": "Suggested precondition: Add precondition 'value > 0' for decrement",
+          "target": "decrement",
+          "old_value": null,
+          "new_value": null,
+          "applied": false
+        }
+      ],
+      "duration": 0.0023899078369140625
+    },
+    {
+      "iteration": 2,
+      "timestamp": 1784112506.63496,
+      "requirement_name": "CounterService",
+      "spec_name": "CounterService",
+      "tlc_status": "failure",
+      "violation_type": "invariant_violation",
+      "changes_applied": 1,
+      "changes": [
+        {
+          "change_type": "add_precondition",
+          "description": "Added precondition to operation 'increment'",
+          "target": "increment",
+          "old_value": "Increment the counter by 1",
+          "new_value": "Increment the counter by 1. Precondition: Add mutex lock or atomic operation to prevent race conditions",
+          "applied": true
+        }
+      ],
+      "duration": 0.0012726783752441406
+    },
+    {
+      "iteration": 3,
+      "timestamp": 1784112506.6360714,
+      "requirement_name": "CounterService",
+      "spec_name": "CounterService",
+      "tlc_status": "success",
+      "violation_type": null,
+      "changes_applied": 0,
+      "changes": [],
+      "duration": 0.0010981559753417969
+    }
+  ]
+}

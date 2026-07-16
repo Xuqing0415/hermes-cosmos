@@ -1,0 +1,30 @@
+{
+  "id": "cert_20260715120951_1a21911c",
+  "created_at": "2026-07-15T12:09:51.961936",
+  "updated_at": "2026-07-15T12:09:51.961951",
+  "results": [
+    {
+      "id": "(not (= b 0))",
+      "smt_expression": "(not (= b 0))",
+      "status": "proven",
+      "model": null,
+      "certificate": "Mock proof: division by zero prevented",
+      "duration": 8.821487426757812e-06,
+      "error_message": null,
+      "target_info": {
+        "function_name": "divide",
+        "risk_score": 0.6542857142857144,
+        "priority": 6
+      },
+      "timestamp": "2026-07-15T12:09:51.961948"
+    }
+  ],
+  "tests": [],
+  "statistics": {
+    "total": 1,
+    "proven": 1,
+    "disproven": 0,
+    "unknown": 0,
+    "timeout": 0
+  }
+}

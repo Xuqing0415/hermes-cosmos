@@ -1,6 +1,6 @@
 #!/bin/bash
-# Hermes 自动清理配置脚本
-# 设置cron定时任务，每6小时清理一次
+# Hermes 
+# cron6
 
 set -e
 
@@ -16,89 +16,89 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_err() { echo -e "${RED}[ERR]${NC} $1"; }
 
 echo "=============================================="
-echo "⏰ Hermes 自动清理配置"
+echo "⏰ Hermes "
 echo "=============================================="
 echo ""
 
-# 获取脚本绝对路径
+# 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 CLEANUP_SCRIPT="$SCRIPT_DIR/cleanup.sh"
 LOG_FILE="/var/log/hermes/cleanup.log"
 
-# 1. 检查清理脚本是否存在
-log_info "1. 检查清理脚本..."
+# 1. 
+log_info "1. ..."
 if [ -f "$CLEANUP_SCRIPT" ]; then
-    log_ok "清理脚本存在: $CLEANUP_SCRIPT"
+    log_ok ": $CLEANUP_SCRIPT"
     chmod +x "$CLEANUP_SCRIPT"
 else
-    log_err "清理脚本不存在: $CLEANUP_SCRIPT"
+    log_err ": $CLEANUP_SCRIPT"
     exit 1
 fi
 
-# 2. 设置日志目录
-log_info "2. 设置日志目录..."
+# 2. 
+log_info "2. ..."
 mkdir -p /var/log/hermes
-log_ok "日志目录已创建"
+log_ok ""
 
-# 3. 设置cron任务
-log_info "3. 设置cron任务..."
+# 3. cron
+log_info "3. cron..."
 
-# 备份当前cron
+# cron
 crontab -l > /tmp/crontab_backup 2>/dev/null || true
 
-# 添加新的cron任务
+# cron
 CRON_JOB="0 */6 * * * $CLEANUP_SCRIPT >> $LOG_FILE 2>&1"
 
-# 检查是否已存在
+# 
 if crontab -l 2>/dev/null | grep -q "cleanup.sh"; then
-    log_warn "cron任务已存在，更新中..."
-    # 删除旧任务
+    log_warn "cron..."
+    # 
     crontab -l | grep -v "cleanup.sh" | crontab -
 fi
 
-# 添加新任务
+# 
 (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
 
-log_ok "cron任务已设置: 每6小时执行一次"
+log_ok "cron: 6"
 
-# 4. 测试清理脚本
-log_info "4. 测试清理脚本..."
+# 4. 
+log_info "4. ..."
 bash "$CLEANUP_SCRIPT" --dry-run 2>/dev/null || bash "$CLEANUP_SCRIPT"
-log_ok "清理脚本测试通过"
+log_ok ""
 
-# 5. 验证cron配置
-log_info "5. 验证cron配置..."
+# 5. cron
+log_info "5. cron..."
 crontab -l | grep cleanup.sh
 if [ $? -eq 0 ]; then
-    log_ok "cron配置验证通过"
+    log_ok "cron"
 else
-    log_err "cron配置失败"
+    log_err "cron"
     exit 1
 fi
 
 echo ""
 echo "=============================================="
-echo "✅ 自动清理配置完成!"
+echo " !"
 echo "=============================================="
 echo ""
-echo "📋 配置详情:"
+echo " :"
 echo ""
-echo "  📁 清理脚本: $CLEANUP_SCRIPT"
-echo "  📝 日志文件: $LOG_FILE"
-echo "  ⏰ 执行频率: 每6小时"
-echo "  🗑️ 清理规则:"
-echo "    - 删除超过24小时的Checkpoint"
-echo "    - 压缩日志文件"
-echo "    - 保留最近3个版本"
+echo "   : $CLEANUP_SCRIPT"
+echo "   : $LOG_FILE"
+echo "  ⏰ : 6"
+echo "   :"
+echo "    - 24Checkpoint"
+echo "    - "
+echo "    - 3"
 echo ""
-echo "💡 手动执行命令:"
+echo " :"
 echo ""
-echo "  # 立即执行清理"
+echo "  # "
 echo "  bash $CLEANUP_SCRIPT"
 echo ""
-echo "  # 查看清理日志"
+echo "  # "
 echo "  cat $LOG_FILE"
 echo ""
-echo "  # 查看cron任务"
+echo "  # cron"
 echo "  crontab -l"
 echo ""

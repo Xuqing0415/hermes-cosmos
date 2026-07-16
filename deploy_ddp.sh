@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hermes DDP分布式训练部署脚本
+# Hermes DDP
 
 set -e
 
@@ -15,38 +15,38 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_err() { echo -e "${RED}[ERR]${NC} $1"; }
 
 echo "=============================================="
-echo "🚀 Hermes DDP分布式训练部署"
+echo " Hermes DDP"
 echo "=============================================="
 echo ""
 
-# 检查kubectl
-log_info "1. 检查kubectl..."
+# kubectl
+log_info "1. kubectl..."
 if ! command -v kubectl &> /dev/null; then
-    log_err "kubectl未安装"
+    log_err "kubectl"
     exit 1
 fi
-log_ok "kubectl已就绪"
+log_ok "kubectl"
 
-# 检查集群
-log_info "2. 检查K8s集群..."
+# 
+log_info "2. K8s..."
 if ! kubectl cluster-info &> /dev/null; then
-    log_err "无法连接K8s集群"
+    log_err "K8s"
     exit 1
 fi
-log_ok "K8s集群连接正常"
+log_ok "K8s"
 
-# 检查Redis
-log_info "3. 检查Redis服务..."
+# Redis
+log_info "3. Redis..."
 if ! kubectl get svc redis-service &> /dev/null; then
-    log_warn "Redis服务不存在，创建中..."
+    log_warn "Redis..."
     kubectl create deployment redis --image=redis:7-alpine
     kubectl expose deployment redis --port=6379 --name=redis-service
     kubectl wait --for=condition=ready pod -l app=redis --timeout=60s
 fi
-log_ok "Redis服务就绪"
+log_ok "Redis"
 
-# 创建共享存储PVC
-log_info "4. 创建共享存储..."
+# PVC
+log_info "4. ..."
 if ! kubectl get pvc shared-pvc &> /dev/null; then
     cat > /tmp/pvc.yaml << EOF
 apiVersion: v1
@@ -62,60 +62,60 @@ spec:
 EOF
     kubectl apply -f /tmp/pvc.yaml
 fi
-log_ok "共享存储就绪"
+log_ok ""
 
-# 构建DDP镜像
-log_info "5. 构建DDP训练镜像..."
+# DDP
+log_info "5. DDP..."
 docker build -t hermes-ddp:latest -f docker/Dockerfile.ddp .
 
-# 加载到Kind集群
+# Kind
 kind load docker-image hermes-ddp:latest --name hermes
 
-log_ok "DDP镜像构建并加载完成"
+log_ok "DDP"
 
-# 启动DDP调度器
-log_info "6. 启动DDP调度器..."
+# DDP
+log_info "6. DDP..."
 python -m uvicorn hermes.scheduler.ddp_scheduler:app --host 0.0.0.0 --port 8001 &
 DDP_PID=$!
-echo "DDP调度器PID: $DDP_PID"
+echo "DDPPID: $DDP_PID"
 
-# 等待调度器启动
+# 
 sleep 5
 
-# 提交DDP作业
-log_info "7. 提交DDP训练作业..."
+# DDP
+log_info "7. DDP..."
 JOB_RESP=$(curl -s -X POST http://localhost:8001/ddp/jobs \
   -H "Content-Type: application/json" \
   -d '{"name":"ddp-test-job","tenant_id":"test","user_id":"test","num_replicas":4}')
 
 JOB_ID=$(echo $JOB_RESP | python3 -c "import sys,json; print(json.load(sys.stdin).get('job_id', 'N/A'))")
 
-log_ok "DDP作业提交成功，作业ID: $JOB_ID"
+log_ok "DDPID: $JOB_ID"
 
 echo ""
 echo "=============================================="
-echo "✅ Hermes DDP部署完成!"
+echo " Hermes DDP!"
 echo "=============================================="
 echo ""
-echo "📋 部署信息:"
+echo " :"
 echo ""
-echo "  作业ID: $JOB_ID"
-echo "  副本数: 4"
+echo "  ID: $JOB_ID"
+echo "  : 4"
 echo "  StatefulSet: ddp-$JOB_ID"
 echo ""
-echo "💡 验证命令:"
+echo " :"
 echo ""
-echo "  # 查看Pod状态"
+echo "  # Pod"
 echo "  kubectl get pods -l hermes-job=$JOB_ID -w"
 echo ""
-echo "  # 查看训练日志"
+echo "  # "
 echo "  kubectl logs ddp-$JOB_ID-0 -f"
 echo ""
-echo "  # 模拟故障（删除一个Pod）"
+echo "  # Pod"
 echo "  kubectl delete pod ddp-$JOB_ID-1"
 echo ""
-echo "  # 查看作业状态"
+echo "  # "
 echo "  curl http://localhost:8001/ddp/jobs/$JOB_ID"
 echo ""
-echo "⚡ 预期恢复时间: < 30秒"
+echo " : < 30"
 echo ""

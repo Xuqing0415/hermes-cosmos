@@ -12,11 +12,11 @@ from hermes.scheduler.resources.cluster import ClusterState, Node
 
 
 class TestSchedulerReproducibility:
-    """测试调度决策的可复现性"""
+    """"""
 
     @pytest.fixture
     def cluster_state(self):
-        """创建固定的集群状态"""
+        """"""
         nodes = [
             Node(id="node-1", region="us-west", gpu_count=4, gpu_type="A100"),
             Node(id="node-2", region="us-west", gpu_count=4, gpu_type="A100"),
@@ -26,7 +26,7 @@ class TestSchedulerReproducibility:
 
     @pytest.fixture
     def job(self):
-        """创建固定的作业请求"""
+        """"""
         return Job(
             id=UUID("00000000-0000-0000-0000-000000000001"),
             name="test-job",
@@ -39,7 +39,7 @@ class TestSchedulerReproducibility:
         )
 
     def test_placement_reproducibility(self, cluster_state, job):
-        """测试放置算法的决策可复现性"""
+        """"""
         algorithm = PlacementAlgorithm()
         
         result1 = algorithm.find_best_placement(job, cluster_state)
@@ -55,7 +55,7 @@ class TestSchedulerReproducibility:
         assert result1.score == result2.score
 
     def test_multiple_jobs_reproducibility(self, cluster_state):
-        """测试多个作业调度的可复现性"""
+        """"""
         jobs = [
             Job(
                 id=UUID(f"00000000-0000-0000-0000-{i:012d}"),

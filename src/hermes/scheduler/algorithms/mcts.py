@@ -1,5 +1,5 @@
 """
-Hermes MCTS调度器 - 基于numpy加速的蒙特卡洛树搜索
+Hermes MCTS - numpy
 """
 
 import numpy as np
@@ -12,7 +12,7 @@ from uuid import uuid4
 
 @dataclass
 class ClusterState:
-    """集群状态"""
+    """"""
     gpu_count: int = 0
     available_gpus: int = 0
     regions: Dict[str, Any] = None
@@ -39,7 +39,7 @@ class ClusterState:
 
 @dataclass
 class JobRequest:
-    """作业请求"""
+    """"""
     job_id: str
     gpu_count: int
     gpu_type: str = "nvidia-h100"
@@ -50,7 +50,7 @@ class JobRequest:
 
 @dataclass
 class PlacementDecision:
-    """放置决策"""
+    """"""
     region: str
     gpu_count: int
     score: float
@@ -59,7 +59,7 @@ class PlacementDecision:
     job_id: str = ""
 
 class MCTSNode:
-    """MCTS节点"""
+    """MCTS"""
     
     def __init__(self, state: Any, job_request: JobRequest = None, parent: Optional['MCTSNode'] = None, untried_actions: List[Any] = None):
         self.state = state
@@ -76,7 +76,7 @@ class MCTSNode:
         return len(self.children) == 0
     
     def ucb1(self, exploration_weight: float = 1.414, total_visits: int = None) -> float:
-        """UCB1公式"""
+        """UCB1"""
         if self.visits == 0:
             return float('inf')
         if total_visits is None:
@@ -86,7 +86,7 @@ class MCTSNode:
         return exploitation + exploration
     
     def expand(self, action: Any = None):
-        """扩展节点"""
+        """"""
         if action is not None:
             child = MCTSNode(state=action, parent=self)
             child.action = action
@@ -126,7 +126,7 @@ class MCTSNode:
                 self.children[region] = child
 
 def evaluate(state: ClusterState, job_request: JobRequest) -> float:
-    """评估函数 - 计算放置质量"""
+    """ - """
     score = 0.0
     
     total_gpus = state.gpu_count if state.gpu_count > 0 else state.total_gpus
@@ -144,34 +144,34 @@ def evaluate(state: ClusterState, job_request: JobRequest) -> float:
 
 def mcts_search(job_request: JobRequest, cluster_state: ClusterState, 
                 iterations: int = 1000) -> PlacementDecision:
-    """执行MCTS搜索"""
+    """MCTS"""
     root = MCTSNode(cluster_state, job_request)
     best_decision = None
     best_score = float('-inf')
     
     for _ in range(iterations):
-        # 1. 选择
+        # 1. 
         node = root
         while not node.is_leaf:
             total_visits = sum(child.visits for child in node.children.values())
             node = max(node.children.values(), key=lambda c: c.ucb1(total_visits))
         
-        # 2. 扩展
+        # 2. 
         if node.visits > 0:
             node.expand()
             if node.children:
                 node = next(iter(node.children.values()))
         
-        # 3. 模拟
+        # 3. 
         reward = evaluate(node.state, job_request)
         
-        # 4. 回溯
+        # 4. 
         while node is not None:
             node.visits += 1
             node.value += reward
             node = node.parent
     
-    # 选择访问次数最多的子节点
+    # 
     if root.children:
         best_region = max(root.children.keys(), 
                          key=lambda r: root.children[r].visits)
@@ -189,7 +189,7 @@ def mcts_search(job_request: JobRequest, cluster_state: ClusterState,
     return best_decision
 
 async def global_schedule(job_request: JobRequest, cluster_state: ClusterState) -> PlacementDecision:
-    """异步调度函数"""
+    """"""
     loop = asyncio.get_running_loop()
     
     with ProcessPoolExecutor() as pool:
@@ -203,9 +203,9 @@ async def global_schedule(job_request: JobRequest, cluster_state: ClusterState) 
     
     return decision
 
-# 示例用法
+# 
 async def main():
-    # 创建集群状态
+    # 
     cluster = ClusterState(
         gpu_count=1000,
         available_gpus=720,
@@ -224,7 +224,7 @@ async def main():
         network_latency={}
     )
     
-    # 创建作业请求
+    # 
     job = JobRequest(
         job_id=str(uuid4()),
         gpu_count=8,
@@ -233,22 +233,22 @@ async def main():
         priority=3
     )
     
-    # 执行调度
+    # 
     decision = await global_schedule(job, cluster)
     
-    print(f"调度决策: {decision.region}")
-    print(f"分数: {decision.score:.4f}")
-    print(f"碳成本: {decision.carbon_cost}")
+    print(f": {decision.region}")
+    print(f": {decision.score:.4f}")
+    print(f": {decision.carbon_cost}")
 
 class MCTSScheduler:
-    """MCTS调度器"""
+    """MCTS"""
     
     def __init__(self, iterations: int = 1000, exploration_constant: float = 1.414):
         self.iterations = iterations
         self.exploration_constant = exploration_constant
     
     async def schedule(self, job, cluster_state) -> PlacementDecision:
-        """执行调度"""
+        """"""
         if hasattr(job, 'requirements') and hasattr(job, 'constraints'):
             job_request = JobRequest(
                 job_id=str(job.id),
@@ -284,7 +284,7 @@ class MCTSScheduler:
         return decision
     
     def sync_schedule(self, job_request: JobRequest, cluster_state: ClusterState) -> PlacementDecision:
-        """同步调度"""
+        """"""
         return mcts_search(job_request, cluster_state, self.iterations)
 
 

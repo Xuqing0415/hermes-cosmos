@@ -2,7 +2,7 @@
 """
 Protocol Switch Module
 
-实现思路二：自适应通信协议切换
+
 """
 
 import math
@@ -14,29 +14,29 @@ from .core import SimulationConfig
 
 @dataclass
 class ProtocolSwitchConfig(SimulationConfig):
-    """自适应协议切换配置"""
+    """"""
     initial_workers: int = 4
     max_workers: int = 32
     min_workers: int = 4
-    switch_interval: int = 10  # 每多少步评估一次并可能切换
-    worker_change_interval: int = 20  # 每多少步改变worker数量
-    worker_change_amount: int = 4  # 每次worker数量变化量
+    switch_interval: int = 10  # 
+    worker_change_interval: int = 20  # worker
+    worker_change_amount: int = 4  # worker
     simulation_steps: int = 100
-    switch_overhead: float = 0.1  # 切换开销（秒）
+    switch_overhead: float = 0.1  # 
 
 
 class ProtocolSwitchSimulator:
-    """自适应通信协议模拟器"""
+    """"""
     
     def __init__(self, config: ProtocolSwitchConfig):
         self.config = config
         self.current_workers = config.initial_workers
-        self.current_protocol = 'ddp'  # 初始协议
+        self.current_protocol = 'ddp'  # 
         self.switch_count = 0
         self.total_switch_overhead = 0.0
     
     def compute_ps_comm_time(self) -> float:
-        """计算PS模式通信时间"""
+        """PS"""
         msg_size_send = self.config.model_size_mb * self.config.compression_ratio
         msg_size_recv = self.config.model_size_mb
         
@@ -47,7 +47,7 @@ class ProtocolSwitchSimulator:
         return upload_time + download_time + base_latency
     
     def compute_ddp_comm_time(self) -> float:
-        """计算DDP模式通信时间"""
+        """DDP"""
         if self.current_workers <= 1:
             return 0.0
         
@@ -58,7 +58,7 @@ class ProtocolSwitchSimulator:
         return comm_time + base_latency
     
     def compute_gossip_comm_time(self) -> float:
-        """计算Gossip模式通信时间"""
+        """Gossip"""
         k = max(2, int(math.log2(self.current_workers)))
         msg_size = self.config.model_size_mb * self.config.compression_ratio
         
@@ -68,7 +68,7 @@ class ProtocolSwitchSimulator:
         return comm_time + base_latency
     
     def evaluate_protocol(self, protocol: str) -> Dict:
-        """评估指定协议的性能"""
+        """"""
         if protocol == 'ps':
             comm_time = self.compute_ps_comm_time()
         elif protocol == 'ddp':
@@ -89,31 +89,31 @@ class ProtocolSwitchSimulator:
         }
     
     def select_best_protocol(self) -> str:
-        """选择当前条件下最优的协议"""
+        """"""
         protocols = ['ps', 'ddp', 'gossip']
         throughputs = {p: self.evaluate_protocol(p)['throughput'] for p in protocols}
         
-        # 选择吞吐量最高的协议
+        # 
         best_protocol = max(throughputs, key=throughputs.get)
         return best_protocol, throughputs
     
     def simulate_adaptive_switching(self) -> List[Dict]:
-        """模拟自适应协议切换"""
+        """"""
         results = []
         protocol_counts = {'ps': 0, 'ddp': 0, 'gossip': 0}
         switch_log = []
         
         for step in range(self.config.simulation_steps):
-            # 周期性改变worker数量（模拟弹性伸缩）
+            # worker
             if step > 0 and step % self.config.worker_change_interval == 0:
                 if self.current_workers >= self.config.max_workers:
-                    # 减少worker
+                    # worker
                     self.current_workers = max(self.config.min_workers, self.current_workers - self.config.worker_change_amount)
                 else:
-                    # 增加worker
+                    # worker
                     self.current_workers = min(self.config.max_workers, self.current_workers + self.config.worker_change_amount)
             
-            # 周期性评估并可能切换协议
+            # 
             switch_made = False
             overhead = 0.0
             
@@ -121,7 +121,7 @@ class ProtocolSwitchSimulator:
                 best_protocol, all_throughputs = self.select_best_protocol()
                 
                 if best_protocol != self.current_protocol:
-                    # 记录切换
+                    # 
                     switch_log.append({
                         'step': step,
                         'from': self.current_protocol,
@@ -136,11 +136,11 @@ class ProtocolSwitchSimulator:
                     
                     self.current_protocol = best_protocol
             
-            # 计算当前协议的吞吐量
+            # 
             current_result = self.evaluate_protocol(self.current_protocol)
             protocol_counts[self.current_protocol] += 1
             
-            # 添加切换开销
+            # 
             step_time_with_overhead = current_result['step_time'] + (overhead if switch_made else 0)
             throughput_with_overhead = self.current_workers * self.config.batch_size_per_worker / step_time_with_overhead
             
@@ -157,10 +157,10 @@ class ProtocolSwitchSimulator:
         return results, protocol_counts, switch_log
     
     def run_simulation(self) -> Dict:
-        """运行完整模拟"""
+        """"""
         results, protocol_counts, switch_log = self.simulate_adaptive_switching()
         
-        # 计算统计数据
+        # 
         throughputs = [r['throughput'] for r in results]
         workers_list = [r['num_workers'] for r in results]
         

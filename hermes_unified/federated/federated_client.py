@@ -56,7 +56,7 @@ class FederatedClient:
         try:
             self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.conn.connect((self.server_host, self.server_port))
-            print(f"✅ Client {self.client_id} connected to server")
+            print(f" Client {self.client_id} connected to server")
             
             # Register with server
             message = {
@@ -72,11 +72,11 @@ class FederatedClient:
                 data = pickle.loads(response)
                 if data.get('type') == 'model':
                     self.local_model = data.get('data')
-                    print(f"📥 Client {self.client_id} received initial model")
+                    print(f" Client {self.client_id} received initial model")
                     return True
             
         except Exception as e:
-            print(f"❌ Client {self.client_id} failed to connect: {e}")
+            print(f" Client {self.client_id} failed to connect: {e}")
             return False
         
         return False
@@ -154,11 +154,11 @@ class FederatedClient:
     def train(self, local_epochs: int = 1) -> np.ndarray:
         """Train locally and return update."""
         if self.local_model is None:
-            print(f"⚠️ Client {self.client_id} has no model")
+            print(f" Client {self.client_id} has no model")
             return np.zeros_like(self.local_model) if self.local_model is not None else np.array([])
         
         if self.is_malicious:
-            print(f"⚔️ Client {self.client_id} performing {self.attack_type} attack")
+            print(f" Client {self.client_id} performing {self.attack_type} attack")
             return self._train_malicious(self.local_model, local_epochs)
         else:
             return self._train_honest(self.local_model, local_epochs)
@@ -172,7 +172,7 @@ class FederatedClient:
                 'data': update
             }
             self.conn.send(pickle.dumps(message))
-            print(f"📤 Client {self.client_id} sent update")
+            print(f" Client {self.client_id} sent update")
     
     def pull_model(self):
         """Pull latest model from server."""
@@ -185,10 +185,10 @@ class FederatedClient:
                 data = pickle.loads(response)
                 if data.get('type') == 'model':
                     self.local_model = data.get('data')
-                    print(f"📥 Client {self.client_id} received updated model")
+                    print(f" Client {self.client_id} received updated model")
     
     def disconnect(self):
         """Disconnect from server."""
         if self.conn:
             self.conn.close()
-            print(f"🔌 Client {self.client_id} disconnected")
+            print(f" Client {self.client_id} disconnected")

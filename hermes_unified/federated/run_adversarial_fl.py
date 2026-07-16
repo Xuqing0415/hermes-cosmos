@@ -49,7 +49,7 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
     Returns:
         Experiment results
     """
-    print("=== 🎮 Adversarial Federated Learning Experiment ===")
+    print("===  Adversarial Federated Learning Experiment ===")
     print(f"Configuration:")
     print(f"  - Total clients: {num_clients}")
     print(f"  - Malicious clients: {num_malicious}")
@@ -108,11 +108,11 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
         if client.connect():
             clients.append(client)
             if is_malicious:
-                print(f"⚠️  Malicious client {i} connected with {attack_type} attack")
+                print(f"  Malicious client {i} connected with {attack_type} attack")
             else:
-                print(f"✅ Honest client {i} connected")
+                print(f" Honest client {i} connected")
     
-    print(f"\n🔗 {len(clients)} clients connected")
+    print(f"\n {len(clients)} clients connected")
     
     # Run federated learning
     results = {
@@ -125,7 +125,7 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
     for round_idx in range(num_rounds):
         start_time = time.time()
         
-        print(f"\n🔄 Round {round_idx + 1}/{num_rounds}")
+        print(f"\n Round {round_idx + 1}/{num_rounds}")
         
         # Clients train locally
         updates = []
@@ -151,12 +151,12 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
                     'round': round_idx,
                     'accuracy_drop': acc_drop
                 })
-                print(f"💀 Attack detected! Accuracy dropped by {acc_drop:.2f}%")
+                print(f" Attack detected! Accuracy dropped by {acc_drop:.2f}%")
         
         round_time = time.time() - start_time
         results['round_times'].append(round_time)
         
-        print(f"📊 Round {round_idx + 1}: Loss={loss:.4f}, Accuracy={accuracy:.4f}, Time={round_time:.2f}s")
+        print(f" Round {round_idx + 1}: Loss={loss:.4f}, Accuracy={accuracy:.4f}, Time={round_time:.2f}s")
     
     # Cleanup
     for client in clients:
@@ -166,10 +166,10 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
     
     # Generate report
     print("\n" + "="*60)
-    print("          📊 EXPERIMENT REPORT          ")
+    print("           EXPERIMENT REPORT          ")
     print("="*60)
     
-    print("\n📈 RESULTS")
+    print("\n RESULTS")
     final_acc = results['accuracy_history'][-1]
     peak_acc = max(results['accuracy_history'])
     acc_drop = (peak_acc - final_acc) * 100
@@ -179,13 +179,13 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
     print(f"Total Accuracy Drop: {acc_drop:.2f}%")
     print(f"Number of Attack Events: {len(results['attack_events'])}")
     
-    print("\n🏆 OUTCOME")
+    print("\n OUTCOME")
     if acc_drop < 10:
-        print("✅ SUCCESS: Defense effectively mitigated attacks!")
+        print(" SUCCESS: Defense effectively mitigated attacks!")
     elif acc_drop < 30:
-        print("⚠️  PARTIAL SUCCESS: Some accuracy loss but model usable")
+        print("  PARTIAL SUCCESS: Some accuracy loss but model usable")
     else:
-        print("❌ FAILURE: Attacks overwhelmed the defense")
+        print(" FAILURE: Attacks overwhelmed the defense")
     
     print("="*60)
     
@@ -194,7 +194,7 @@ def run_adversarial_experiment(num_clients: int = 10, num_malicious: int = 2,
 
 def compare_defenses():
     """Compare different defense mechanisms."""
-    print("=== 🔬 Defense Comparison Experiment ===")
+    print("===  Defense Comparison Experiment ===")
     
     defenses = [None, 'krum', 'trimmed_mean']
     results = {}

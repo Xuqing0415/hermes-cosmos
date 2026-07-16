@@ -1,5 +1,5 @@
 """
-EWC 客户端实现
+EWC 
 """
 
 import numpy as np
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class FisherInformationCalculator:
-    """Fisher 信息矩阵计算器"""
+    """Fisher """
 
     def __init__(self, num_params: int):
         self.num_params = num_params
@@ -18,14 +18,14 @@ class FisherInformationCalculator:
         self.n_samples = 0
 
     def update(self, gradients: np.ndarray, batch_size: int):
-        """在线更新 Fisher 信息"""
+        """ Fisher """
         grad_squared = gradients ** 2
         alpha = 0.9
         self.fisher_diagonal = alpha * self.fisher_diagonal + (1 - alpha) * grad_squared
         self.n_samples += batch_size
 
     def get_fisher(self) -> np.ndarray:
-        """获取 Fisher 信息对角线"""
+        """ Fisher """
         if self.n_samples > 0:
             return self.fisher_diagonal / self.n_samples
         return self.fisher_diagonal
@@ -33,7 +33,7 @@ class FisherInformationCalculator:
 
 class EWCClient:
     """
-    EWC 联邦学习客户端
+    EWC 
     """
 
     def __init__(self, client_id: int,
@@ -59,12 +59,12 @@ class EWCClient:
         logger.info(f"EWC Client {client_id} initialized")
 
     def set_old_parameters(self, weights: np.ndarray, bias: np.ndarray):
-        """设置旧参数"""
+        """"""
         self.old_weights = weights.copy()
         self.old_bias = bias.copy()
 
     def compute_ewc_penalty(self) -> float:
-        """计算 EWC 惩罚项"""
+        """ EWC """
         if self.old_weights is None or self.old_bias is None:
             return 0.0
 
@@ -77,7 +77,7 @@ class EWCClient:
         return self.ewc_lambda * (weight_penalty + bias_penalty)
 
     def compute_ewc_gradient(self) -> Tuple[np.ndarray, np.ndarray]:
-        """计算 EWC 惩罚项的梯度"""
+        """ EWC """
         if self.old_weights is None or self.old_bias is None:
             return np.zeros_like(self.weights), np.zeros_like(self.bias)
 
@@ -92,7 +92,7 @@ class EWCClient:
     def local_train(self, X: np.ndarray, y: np.ndarray,
                   num_epochs: int = 5,
                   lr: float = 0.01) -> Dict[str, float]:
-        """本地训练"""
+        """"""
         n_samples = len(y)
 
         for epoch in range(num_epochs):
@@ -128,24 +128,24 @@ class EWCClient:
         }
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """预测"""
+        """"""
         logits = X @ self.weights + self.bias
         return np.argmax(logits, axis=1)
 
     def get_accuracy(self, X: np.ndarray, y: np.ndarray) -> float:
-        """计算准确率"""
+        """"""
         predictions = self.predict(X)
         return np.mean(predictions == y)
 
     def get_parameters(self) -> Dict[str, np.ndarray]:
-        """获取模型参数"""
+        """"""
         return {
             'weights': self.weights.copy(),
             'bias': self.bias.copy()
         }
 
     def set_parameters(self, params: Dict):
-        """设置模型参数"""
+        """"""
         if 'weights' in params:
             self.weights = params['weights'].copy()
         if 'bias' in params:

@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Hermes Parameter Server Alibaba Cloud Deployment"
+echo " Hermes Parameter Server Alibaba Cloud Deployment"
 echo "==================================================="
 
 # Configuration
@@ -14,7 +14,7 @@ SECURITY_GROUP="hermes-sg"
 INSTANCE_NAME_PREFIX="hermes"
 
 # Create security group
-echo "📦 Creating security group..."
+echo " Creating security group..."
 SECURITY_GROUP_ID=$(aliyun ecs CreateSecurityGroup \
     --RegionId $REGION \
     --SecurityGroupName $SECURITY_GROUP \
@@ -22,10 +22,10 @@ SECURITY_GROUP_ID=$(aliyun ecs CreateSecurityGroup \
     --query 'SecurityGroupId' \
     --output text)
 
-echo "✅ Security Group ID: $SECURITY_GROUP_ID"
+echo " Security Group ID: $SECURITY_GROUP_ID"
 
 # Allow inbound traffic
-echo "🔓 Configuring security rules..."
+echo " Configuring security rules..."
 aliyun ecs AuthorizeSecurityGroup \
     --RegionId $REGION \
     --SecurityGroupId $SECURITY_GROUP_ID \
@@ -41,7 +41,7 @@ aliyun ecs AuthorizeSecurityGroup \
     --SourceCidrIp 0.0.0.0/0
 
 # Launch server instance
-echo "🖥️ Launching Parameter Server instance..."
+echo " Launching Parameter Server instance..."
 SERVER_INSTANCE=$(aliyun ecs RunInstances \
     --RegionId $REGION \
     --InstanceType $INSTANCE_TYPE \
@@ -53,7 +53,7 @@ SERVER_INSTANCE=$(aliyun ecs RunInstances \
     --query 'InstanceIdSets.InstanceIdSet[0]' \
     --output text)
 
-echo "✅ Server instance ID: $SERVER_INSTANCE"
+echo " Server instance ID: $SERVER_INSTANCE"
 
 # Wait for instance to be ready
 echo "⏳ Waiting for server to initialize..."
@@ -65,10 +65,10 @@ SERVER_IP=$(aliyun ecs DescribeInstances \
     --query 'Instances.Instance[0].PublicIpAddress.IpAddress[0]' \
     --output text)
 
-echo "📍 Server public IP: $SERVER_IP"
+echo " Server public IP: $SERVER_IP"
 
 # Launch worker instances
-echo "🧑‍💻 Launching worker instances..."
+echo "‍ Launching worker instances..."
 WORKER_COUNT=4
 WORKER_INSTANCES=""
 WORKER_IPS=""
@@ -84,7 +84,7 @@ for i in $(seq 1 $WORKER_COUNT); do
         --InternetMaxBandwidthOut 100 \
         --query 'InstanceIdSets.InstanceIdSet[0]' \
         --output text)
-    echo "✅ Worker $i instance ID: $WORKER_INSTANCE"
+    echo " Worker $i instance ID: $WORKER_INSTANCE"
     WORKER_INSTANCES="$WORKER_INSTANCES $WORKER_INSTANCE"
 done
 
@@ -99,10 +99,10 @@ for INSTANCE_ID in $WORKER_INSTANCES; do
     WORKER_IPS="$WORKER_IPS $IP"
 done
 
-echo "📍 Worker IPs: $WORKER_IPS"
+echo " Worker IPs: $WORKER_IPS"
 
 # Save configuration
-echo "📝 Saving deployment configuration..."
+echo " Saving deployment configuration..."
 cat > deploy_config.sh << EOF
 export SERVER_IP="$SERVER_IP"
 export WORKER_IPS="$WORKER_IPS"
@@ -110,7 +110,7 @@ export REGION="$REGION"
 EOF
 
 echo ""
-echo "🎉 Deployment complete!"
+echo " Deployment complete!"
 echo "==================================================="
 echo "Server IP: $SERVER_IP"
 echo "Worker IPs: $WORKER_IPS"

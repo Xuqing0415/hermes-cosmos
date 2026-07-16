@@ -51,12 +51,12 @@ python run_llm_finetune.py
 
 ```
 llm_finetune/
-├── llm_model.py          # Model loading and LoRA wrapping
-├── non_iid_data.py       # Non-IID text data generation
-├── llm_client.py         # Federated client implementation
-├── llm_server.py         # Federated server and coordinator
-├── run_llm_finetune.py   # Main experiment runner
-└── README.md             # This file
+ llm_model.py          # Model loading and LoRA wrapping
+ non_iid_data.py       # Non-IID text data generation
+ llm_client.py         # Federated client implementation
+ llm_server.py         # Federated server and coordinator
+ run_llm_finetune.py   # Main experiment runner
+ README.md             # This file
 ```
 
 ## Key Components
@@ -133,7 +133,7 @@ COMPARISON SUMMARY
 Federated Final Perplexity: 8.56
 Centralized Final Perplexity: 8.12
 Difference: 0.44
-✓ Federated performance is within 5% of centralized!
+ Federated performance is within 5% of centralized!
 
 2. COMMUNICATION
 Total Communication (Federated): 2.34 MB

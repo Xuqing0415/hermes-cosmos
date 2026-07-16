@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Hermes Parameter Server AWS Deployment"
+echo " Hermes Parameter Server AWS Deployment"
 echo "========================================="
 
 # Configuration
@@ -14,14 +14,14 @@ KEY_NAME="hermes-key"
 SECURITY_GROUP="hermes-sg"
 
 # Create security group
-echo "📦 Creating security group..."
+echo " Creating security group..."
 aws ec2 create-security-group \
     --group-name $SECURITY_GROUP \
     --description "Hermes Parameter Server Security Group" \
     --region $REGION
 
 # Allow inbound traffic
-echo "🔓 Configuring security rules..."
+echo " Configuring security rules..."
 aws ec2 authorize-security-group-ingress \
     --group-name $SECURITY_GROUP \
     --protocol tcp \
@@ -37,7 +37,7 @@ aws ec2 authorize-security-group-ingress \
     --region $REGION
 
 # Launch server instance
-echo "🖥️ Launching Parameter Server instance..."
+echo " Launching Parameter Server instance..."
 SERVER_INSTANCE=$(aws ec2 run-instances \
     --image-id $AMI_ID \
     --instance-type $INSTANCE_TYPE \
@@ -48,7 +48,7 @@ SERVER_INSTANCE=$(aws ec2 run-instances \
     --query 'Instances[0].InstanceId' \
     --output text)
 
-echo "✅ Server instance ID: $SERVER_INSTANCE"
+echo " Server instance ID: $SERVER_INSTANCE"
 
 # Wait for instance to be ready
 echo "⏳ Waiting for server to initialize..."
@@ -59,10 +59,10 @@ SERVER_IP=$(aws ec2 describe-instances \
     --query 'Reservations[0].Instances[0].PublicIpAddress' \
     --output text)
 
-echo "📍 Server public IP: $SERVER_IP"
+echo " Server public IP: $SERVER_IP"
 
 # Launch worker instances
-echo "🧑‍💻 Launching worker instances..."
+echo "‍ Launching worker instances..."
 WORKER_COUNT=4
 for i in $(seq 1 $WORKER_COUNT); do
     WORKER_INSTANCE=$(aws ec2 run-instances \
@@ -74,7 +74,7 @@ for i in $(seq 1 $WORKER_COUNT); do
         --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=hermes-worker-$i}]" \
         --query 'Instances[0].InstanceId' \
         --output text)
-    echo "✅ Worker $i instance ID: $WORKER_INSTANCE"
+    echo " Worker $i instance ID: $WORKER_INSTANCE"
     WORKER_IPS="$WORKER_IPS $(aws ec2 describe-instances \
         --instance-ids $WORKER_INSTANCE \
         --region $REGION \
@@ -82,10 +82,10 @@ for i in $(seq 1 $WORKER_COUNT); do
         --output text)"
 done
 
-echo "📍 Worker IPs: $WORKER_IPS"
+echo " Worker IPs: $WORKER_IPS"
 
 # Save configuration
-echo "📝 Saving deployment configuration..."
+echo " Saving deployment configuration..."
 cat > deploy_config.sh << EOF
 export SERVER_IP="$SERVER_IP"
 export WORKER_IPS="$WORKER_IPS"
@@ -93,7 +93,7 @@ export REGION="$REGION"
 EOF
 
 echo ""
-echo "🎉 Deployment complete!"
+echo " Deployment complete!"
 echo "========================================="
 echo "Server IP: $SERVER_IP"
 echo "Worker IPs: $WORKER_IPS"

@@ -2,7 +2,7 @@
 """
 Visualization Module
 
-提供模拟结果的可视化功能
+
 """
 
 import os
@@ -11,14 +11,14 @@ from typing import Dict, List, Optional
 try:
     import matplotlib.pyplot as plt
     import matplotlib
-    matplotlib.use('Agg')  # 使用非交互式后端
+    matplotlib.use('Agg')  # 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
 
 def plot_heterogeneous_results(results: Dict, output_dir: str = "results") -> None:
-    """绘制异构负载均衡结果"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         return
     
@@ -26,7 +26,7 @@ def plot_heterogeneous_results(results: Dict, output_dir: str = "results") -> No
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
     
-    # 吞吐量对比
+    # 
     strategies = ['Static Sharding', 'Dynamic Load Balancing']
     throughputs = [
         results['static_sharding']['throughput'],
@@ -38,7 +38,7 @@ def plot_heterogeneous_results(results: Dict, output_dir: str = "results") -> No
     ax1.set_title('Throughput Comparison')
     ax1.grid(True, alpha=0.3)
     
-    # Worker 完成时间分布
+    # Worker 
     worker_ids = [f'Worker {i+1}' for i in range(results['config']['num_workers'])]
     static_times = results['static_sharding']['worker_times']
     dynamic_times = results['dynamic_load_balancing']['worker_times']
@@ -62,7 +62,7 @@ def plot_heterogeneous_results(results: Dict, output_dir: str = "results") -> No
 
 
 def plot_overlap_results(results: Dict, output_dir: str = "results") -> None:
-    """绘制通信与计算重叠结果"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         return
     
@@ -70,14 +70,14 @@ def plot_overlap_results(results: Dict, output_dir: str = "results") -> None:
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # 提取数据
+    # 
     factors = [r['overlap_factor'] for r in results['fixed_overlap']]
     throughputs = [r['throughput'] for r in results['fixed_overlap']]
     
-    # 绘制吞吐量曲线
+    # 
     ax.plot(factors, throughputs, marker='o', label='Fixed Overlap', color='blue')
     
-    # 标记动态重叠点
+    # 
     dynamic = results['dynamic_overlap']
     ax.scatter(dynamic['overlap_factor'], dynamic['throughput'], 
                color='red', s=100, label='Dynamic Overlap', zorder=5)
@@ -95,7 +95,7 @@ def plot_overlap_results(results: Dict, output_dir: str = "results") -> None:
 
 
 def plot_congestion_results(results: Dict, output_dir: str = "results") -> None:
-    """绘制拥塞与动态压缩结果"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         return
     
@@ -103,7 +103,7 @@ def plot_congestion_results(results: Dict, output_dir: str = "results") -> None:
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
     
-    # 吞吐量对比
+    # 
     steps = [r['step'] for r in results['static_compression']]
     static_throughput = [r['throughput'] for r in results['static_compression']]
     dynamic_throughput = [r['throughput'] for r in results['dynamic_compression']]
@@ -116,7 +116,7 @@ def plot_congestion_results(results: Dict, output_dir: str = "results") -> None:
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
-    # 压缩率变化
+    # 
     dynamic_compression = [r['compression_ratio'] for r in results['dynamic_compression']]
     
     ax2.plot(steps, dynamic_compression, label='Compression Ratio', color='red')
@@ -132,7 +132,7 @@ def plot_congestion_results(results: Dict, output_dir: str = "results") -> None:
 
 
 def plot_protocol_switch_results(results: Dict, output_dir: str = "results") -> None:
-    """绘制自适应协议切换结果"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         return
     
@@ -140,7 +140,7 @@ def plot_protocol_switch_results(results: Dict, output_dir: str = "results") -> 
     
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
     
-    # 吞吐量和worker数量
+    # worker
     steps = [r['step'] for r in results['results']]
     throughputs = [r['throughput'] for r in results['results']]
     workers = [r['num_workers'] for r in results['results']]
@@ -156,7 +156,7 @@ def plot_protocol_switch_results(results: Dict, output_dir: str = "results") -> 
     ax1_twin.set_ylabel('Number of Workers')
     ax1_twin.legend(loc='upper right')
     
-    # 协议切换
+    # 
     protocol_colors = {'ps': 'red', 'ddp': 'green', 'gossip': 'purple'}
     protocol_y = {'ps': 0, 'ddp': 1, 'gossip': 2}
     
@@ -176,7 +176,7 @@ def plot_protocol_switch_results(results: Dict, output_dir: str = "results") -> 
 
 
 def plot_results(results: Dict, analysis_type: str, output_dir: str = "results") -> None:
-    """根据分析类型绘制对应的图表"""
+    """"""
     os.makedirs(output_dir, exist_ok=True)
     
     if analysis_type == 'heterogeneous':

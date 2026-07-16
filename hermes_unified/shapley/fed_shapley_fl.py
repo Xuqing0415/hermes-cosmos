@@ -250,7 +250,7 @@ def run_shapley_demo():
         import torch
         
         print("\n1. Checking torch installation...")
-        print(f"   ✓ torch version: {torch.__version__}")
+        print(f"    torch version: {torch.__version__}")
         
         print("\n2. Testing Core Components Import:")
         
@@ -258,18 +258,18 @@ def run_shapley_demo():
             from hermes_unified.shapley.shapley_estimator import (
                 MonteCarloShapleyEstimator, ShapleyValue
             )
-            print("   ✓ Shapley estimators imported")
+            print("    Shapley estimators imported")
         except Exception as e:
-            print(f"   ✗ Shapley estimators import failed: {e}")
+            print(f"    Shapley estimators import failed: {e}")
             return
         
         try:
             from hermes_unified.shapley.incentive_mechanism import (
                 TokenDistributor, ReputationSystem
             )
-            print("   ✓ Incentive mechanisms imported")
+            print("    Incentive mechanisms imported")
         except Exception as e:
-            print(f"   ✗ Incentive mechanisms import failed: {e}")
+            print(f"    Incentive mechanisms import failed: {e}")
             return
         
         print("\n3. Testing Component Functionality:")
@@ -282,25 +282,25 @@ def run_shapley_demo():
                 return len(subset) * 0.2
             
             values = estimator.estimate([0, 1, 2, 3, 4], valuation_fn)
-            print(f"   ✓ Estimated {len(values)} Shapley values")
+            print(f"    Estimated {len(values)} Shapley values")
         except Exception as e:
-            print(f"   ✗ MonteCarloShapleyEstimator failed: {e}")
+            print(f"    MonteCarloShapleyEstimator failed: {e}")
         
         try:
             print("   Testing TokenDistributor...")
             distributor = TokenDistributor(total_tokens_per_round=100)
             distributor.distribute({0: 0.5, 1: 0.3, 2: 0.2})
-            print(f"   ✓ Tokens distributed: {distributor.get_total_distributed()}")
+            print(f"    Tokens distributed: {distributor.get_total_distributed()}")
         except Exception as e:
-            print(f"   ✗ TokenDistributor failed: {e}")
+            print(f"    TokenDistributor failed: {e}")
         
         try:
             print("   Testing ReputationSystem...")
             reputation = ReputationSystem()
             reputation.update_reputation(0, 0.8)
-            print(f"   ✓ Reputation updated: {reputation.get_reputation(0):.4f}")
+            print(f"    Reputation updated: {reputation.get_reputation(0):.4f}")
         except Exception as e:
-            print(f"   ✗ ReputationSystem failed: {e}")
+            print(f"    ReputationSystem failed: {e}")
         
         try:
             print("   Testing FederatedShapleyLearning...")
@@ -309,16 +309,16 @@ def run_shapley_demo():
                 loss_fn=torch.nn.CrossEntropyLoss(),
                 num_clients=3
             )
-            print(f"   ✓ FederatedShapleyLearning created with {len(fl.clients)} clients")
+            print(f"    FederatedShapleyLearning created with {len(fl.clients)} clients")
         except Exception as e:
-            print(f"   ✗ FederatedShapleyLearning failed: {e}")
+            print(f"    FederatedShapleyLearning failed: {e}")
         
-        print("\n✓ Federated Shapley Value Learning demo completed!")
+        print("\n Federated Shapley Value Learning demo completed!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in demo: {e}")
+        print(f" Error in demo: {e}")
         import traceback
         traceback.print_exc()
 

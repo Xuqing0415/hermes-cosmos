@@ -1,7 +1,7 @@
 """
-联邦连续学习模块
 
-防止灾难性遗忘，应对概念漂移
+
+
 """
 
 from .drift_simulator import DriftSimulator, DataBuffer

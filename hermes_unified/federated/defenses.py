@@ -278,7 +278,7 @@ class DefenseServer:
         # Log defense action
         if filtered_count > 0:
             self.malicious_updates_filtered += filtered_count
-            print(f"🛡️ Defense module filtered {filtered_count} malicious update(s)!")
+            print(f" Defense module filtered {filtered_count} malicious update(s)!")
         
         self.defense_log.append({
             'defense_type': self.defense_type,

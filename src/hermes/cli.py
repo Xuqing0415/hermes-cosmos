@@ -264,6 +264,106 @@ def status(ctx: click.Context) -> None:
     asyncio.run(_status())
 
 
+@cli.group()
+@click.pass_context
+def proof(ctx: click.Context) -> None:
+    """Neural-symbolic proof generation commands"""
+    pass
+
+
+@proof.command("prove")
+@click.argument("function-name")
+@click.argument("module-file", type=click.File("r"))
+@click.option("--solver", default="z3", help="Theorem prover solver")
+@click.option("--timeout", type=int, default=30, help="Proof timeout in seconds")
+@click.pass_context
+def proof_prove(
+    ctx: click.Context,
+    function_name: str,
+    module_file,
+    solver: str,
+    timeout: int,
+) -> None:
+    """Prove a function's correctness"""
+    from hermes.neural_symbolic.proof_generator import ProofGenerator
+
+    code = module_file.read()
+    generator = ProofGenerator(solver=solver, timeout=timeout)
+    result = generator.prove_and_generate_test(code, function_name)
+
+    click.echo("=" * 60)
+    click.echo("Neural-Symbolic Proof Results")
+    click.echo("=" * 60)
+    click.echo(f"  Proven:   {result['proven']}")
+    click.echo(f"  Disproven: {result['disproven']}")
+    click.echo(f"  Unknown:  {result['unknown']}")
+    click.echo(f"  Duration: {result['duration']:.2f}s")
+
+    if result["tests"]:
+        click.echo("\nGenerated Tests:")
+        click.echo("-" * 40)
+        for test in result["tests"]:
+            click.echo(f"\n  Inputs:   {test['inputs']}")
+            click.echo(f"  Assertion: {test['assertion']}")
+
+        click.echo("\nTest Code:")
+        click.echo("-" * 40)
+        click.echo(result["test_code"])
+
+
+@proof.command("verify")
+@click.argument("function-name")
+@click.argument("module-file", type=click.File("r"))
+@click.pass_context
+def proof_verify(ctx: click.Context, function_name: str, module_file) -> None:
+    """Verify division safety of a function"""
+    from hermes.neural_symbolic.proof_generator import ProofGenerator
+
+    code = module_file.read()
+    generator = ProofGenerator()
+    result = generator.verify_division_safety(code, function_name)
+
+    click.echo("=" * 60)
+    click.echo("Division Safety Verification")
+    click.echo("=" * 60)
+    click.echo(f"  Result: {result['result']}")
+    click.echo(f"  Safe:   {result['safe']}")
+    click.echo(f"  Proof Results: {result['proof_results']}")
+    click.echo(f"  Generated Tests: {result['generated_tests']}")
+
+    if result["test_code"]:
+        click.echo("\nGenerated Test Code:")
+        click.echo("-" * 40)
+        click.echo(result["test_code"])
+
+
+@proof.command("test")
+@click.argument("function-name")
+@click.argument("module-file", type=click.File("r"))
+@click.option("--output", default="generated_tests.py", help="Output test file")
+@click.pass_context
+def proof_test(
+    ctx: click.Context,
+    function_name: str,
+    module_file,
+    output: str,
+) -> None:
+    """Generate tests from proof results"""
+    from hermes.neural_symbolic.proof_generator import ProofGenerator
+
+    code = module_file.read()
+    generator = ProofGenerator()
+    result = generator.prove_and_generate_test(code, function_name)
+
+    if result["test_code"]:
+        with open(output, "w") as f:
+            f.write(result["test_code"])
+        click.echo(f"Test file generated: {output}")
+        click.echo(f"Generated {len(result['tests'])} test(s)")
+    else:
+        click.echo("No tests generated - all proofs succeeded!")
+
+
 def main() -> None:
     cli()
 

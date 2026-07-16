@@ -227,10 +227,10 @@ def run_multimodal_demo():
         for i, acc in enumerate(results2['round_accuracy']):
             print(f"   Round {i+1}: Accuracy = {acc:.4f}")
         
-        print("\n✓ Federated Multimodal Learning demo completed!")
+        print("\n Federated Multimodal Learning demo completed!")
         
     except Exception as e:
-        print(f"⚠️ Error in Multimodal Learning demo: {e}")
+        print(f" Error in Multimodal Learning demo: {e}")
         import traceback
         traceback.print_exc()
 

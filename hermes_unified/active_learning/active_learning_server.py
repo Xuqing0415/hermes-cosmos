@@ -1,5 +1,5 @@
 """
-主动学习服务器
+
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class AnnotationModel:
     """
-    标注模型
+    
     """
 
     def __init__(self, num_classes: int = 10):
@@ -19,7 +19,7 @@ class AnnotationModel:
 
     def predict_labels(self, embeddings: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
-        预测标签（伪标签）
+        
 
         Returns:
             (predicted_labels, confidence_scores)
@@ -38,12 +38,12 @@ class AnnotationModel:
 
 class ActiveLearningServer:
     """
-    联邦主动学习服务器
+    
 
-    功能：
-    1. 接收客户端选择的样本嵌入
-    2. 生成/分发标注
-    3. 聚合模型更新
+    
+    1. 
+    2. /
+    3. 
     """
 
     def __init__(self, num_features: int,
@@ -62,7 +62,7 @@ class ActiveLearningServer:
 
     def process_client_selection(self,
                                  client_selections: List[Dict]) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
-        """处理客户端的样本选择"""
+        """"""
         all_embeddings = []
         client_info = []
 
@@ -106,7 +106,7 @@ class ActiveLearningServer:
     def aggregate_models(self,
                        client_updates: List[Dict],
                        client_weights: Optional[List[float]] = None) -> Dict[str, np.ndarray]:
-        """聚合客户端模型更新"""
+        """"""
         if client_weights is None:
             client_weights = [1.0 / len(client_updates)] * len(client_updates)
 
@@ -129,14 +129,14 @@ class ActiveLearningServer:
         }
 
     def get_global_model(self) -> Dict[str, np.ndarray]:
-        """获取全局模型"""
+        """"""
         return {
             'weights': self.global_weights,
             'bias': self.global_bias
         }
 
     def get_labeling_stats(self) -> Dict[str, Any]:
-        """获取标注统计"""
+        """"""
         if not self.labeling_history:
             return {'total_labeled': 0}
 
@@ -147,7 +147,7 @@ class ActiveLearningServer:
 
 
 def run_active_learning_demo():
-    """运行主动学习演示"""
+    """"""
     print("=" * 70)
     print("FEDERATED ACTIVE LEARNING DEMO")
     print("=" * 70)

@@ -1,5 +1,5 @@
 """
-Hermes Raft节点 - 基于PySyncObj实现分布式一致性
+Hermes Raft - PySyncObj
 """
 
 import asyncio
@@ -10,7 +10,7 @@ import json
 
 @dataclass
 class JobState:
-    """作业状态"""
+    """"""
     job_id: str
     status: str  # PENDING, RUNNING, COMPLETED, FAILED
     region: str
@@ -19,14 +19,14 @@ class JobState:
 
 @dataclass
 class ClusterResource:
-    """集群资源状态"""
+    """"""
     region: str
     total_gpus: int
     available_gpus: int
     pods_running: int
 
 class RaftSchedulerState(SyncObj):
-    """Raft调度器状态"""
+    """Raft"""
     
     def __init__(self, selfNodeAddr: str, otherNodesAddrs: List[str]):
         cfg = SyncObjConf(
@@ -46,7 +46,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def add_job(self, job_id: str, status: str, region: str, gpu_count: int) -> bool:
-        """添加作业"""
+        """"""
         if job_id in self._jobs:
             return False
         self._jobs[job_id] = JobState(
@@ -60,7 +60,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def update_job_status(self, job_id: str, status: str) -> bool:
-        """更新作业状态"""
+        """"""
         if job_id not in self._jobs:
             return False
         self._jobs[job_id].status = status
@@ -68,7 +68,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def add_checkpoint(self, job_id: str, checkpoint_id: str) -> bool:
-        """添加Checkpoint"""
+        """Checkpoint"""
         if job_id not in self._jobs:
             return False
         self._jobs[job_id].checkpoints.append(checkpoint_id)
@@ -76,7 +76,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def update_resources(self, region: str, available_gpus: int, pods_running: int) -> bool:
-        """更新资源状态"""
+        """"""
         if region not in self._resources:
             self._resources[region] = ClusterResource(
                 region=region,
@@ -91,7 +91,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def allocate_gpus(self, region: str, gpu_count: int) -> bool:
-        """分配GPU资源"""
+        """GPU"""
         if region not in self._resources:
             return False
         if self._resources[region].available_gpus < gpu_count:
@@ -102,7 +102,7 @@ class RaftSchedulerState(SyncObj):
     
     @replicated
     def release_gpus(self, region: str, gpu_count: int) -> bool:
-        """释放GPU资源"""
+        """GPU"""
         if region not in self._resources:
             return False
         self._resources[region].available_gpus += gpu_count
@@ -110,54 +110,54 @@ class RaftSchedulerState(SyncObj):
         return True
     
     def get_job(self, job_id: str) -> Optional[JobState]:
-        """获取作业状态"""
+        """"""
         return self._jobs.get(job_id)
     
     def get_all_jobs(self) -> Dict[str, JobState]:
-        """获取所有作业"""
+        """"""
         return self._jobs
     
     def get_resources(self) -> Dict[str, ClusterResource]:
-        """获取资源状态"""
+        """"""
         return self._resources
     
     def is_leader(self) -> bool:
-        """判断是否为Leader"""
+        """Leader"""
         return self._getLeader() == self._selfAddr
     
     def get_leader(self) -> Optional[str]:
-        """获取Leader地址"""
+        """Leader"""
         return self._getLeader()
 
 async def create_raft_cluster(node_addresses: List[str], node_index: int) -> RaftSchedulerState:
-    """创建Raft集群节点"""
+    """Raft"""
     self_addr = node_addresses[node_index]
     other_addrs = [addr for i, addr in enumerate(node_addresses) if i != node_index]
     
     raft_node = RaftSchedulerState(self_addr, other_addrs)
     
-    # 等待集群稳定
+    # 
     while not raft_node._isReady():
         await asyncio.sleep(0.1)
     
     return raft_node
 
-# 示例用法
+# 
 async def main():
-    # 启动3节点集群
+    # 3
     nodes = [
         '127.0.0.1:10001',
         '127.0.0.1:10002',
         '127.0.0.1:10003'
     ]
     
-    # 启动第一个节点
+    # 
     node = await create_raft_cluster(nodes, 0)
     
     if node.is_leader():
-        print("当前节点是Leader")
+        print("Leader")
         
-        # 添加测试作业
+        # 
         result = await asyncio.get_event_loop().run_in_executor(
             None,
             node.add_job,
@@ -166,9 +166,9 @@ async def main():
             "us-east",
             8
         )
-        print(f"添加作业结果: {result}")
+        print(f": {result}")
         
-        # 更新资源
+        # 
         await asyncio.get_event_loop().run_in_executor(
             None,
             node.update_resources,
@@ -177,20 +177,20 @@ async def main():
             10
         )
         
-        # 获取状态
+        # 
         jobs = await asyncio.get_event_loop().run_in_executor(
             None,
             node.get_all_jobs
         )
-        print(f"作业列表: {jobs}")
+        print(f": {jobs}")
         
         resources = await asyncio.get_event_loop().run_in_executor(
             None,
             node.get_resources
         )
-        print(f"资源状态: {resources}")
+        print(f": {resources}")
     
-    # 保持运行
+    # 
     while True:
         await asyncio.sleep(1)
 

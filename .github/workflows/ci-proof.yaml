@@ -1,0 +1,47 @@
+"""
+GitHub Actions workflow for incremental proof verification
+"""
+
+name: CI Proof Verification
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install z3-solver requests
+
+      - name: Run incremental proof
+        run: |
+          python -m hermes.ci.cli proof \
+            --owner ${{ github.repository_owner }} \
+            --repo ${{ github.event.repository.name }} \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --base-sha ${{ github.event.pull_request.base.sha }} \
+            --head-sha ${{ github.event.pull_request.head.sha }} \
+            --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload certificates
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-certificates
+          path: ./certificates/

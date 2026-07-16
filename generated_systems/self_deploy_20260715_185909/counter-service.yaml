@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: counter-svc
+  labels:
+    app: counter
+spec:
+  type: ClusterIP
+  selector:
+    app: counter
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5000

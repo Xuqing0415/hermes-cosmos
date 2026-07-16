@@ -295,36 +295,36 @@ def run_fed_causal_demo():
             from hermes_unified.fed_causal_representation.causal_vae_client import (
                 CausalVAEClient, CausalVAE, StructuralEquationModel
             )
-            print("   ✓ CausalVAE components imported")
+            print("    CausalVAE components imported")
         except Exception as e:
-            print(f"   ✗ CausalVAE import failed: {e}")
+            print(f"    CausalVAE import failed: {e}")
             return
         
         try:
             from hermes_unified.fed_causal_representation.graph_aggregator import (
                 CausalGraphAggregator, PrivacyPreservingGraphAggregator
             )
-            print("   ✓ Graph aggregator imported")
+            print("    Graph aggregator imported")
         except Exception as e:
-            print(f"   ✗ Graph aggregator import failed: {e}")
+            print(f"    Graph aggregator import failed: {e}")
             return
         
         try:
             from hermes_unified.fed_causal_representation.invariance_constraint import (
                 MMDInvariance, AdversarialInvariance
             )
-            print("   ✓ Invariance constraints imported")
+            print("    Invariance constraints imported")
         except Exception as e:
-            print(f"   ✗ Invariance constraints import failed: {e}")
+            print(f"    Invariance constraints import failed: {e}")
             return
         
         try:
             from hermes_unified.fed_causal_representation.counterfactual import (
                 CounterfactualReasoner, InterventionModel
             )
-            print("   ✓ Counterfactual components imported")
+            print("    Counterfactual components imported")
         except Exception as e:
-            print(f"   ✗ Counterfactual import failed: {e}")
+            print(f"    Counterfactual import failed: {e}")
             return
         
         print("\n3. Testing Component Functionality:")
@@ -335,18 +335,18 @@ def run_fed_causal_demo():
             exogenous = torch.randn(8, 5)
             causal_vars = sem(exogenous)
             dag_loss = sem.dag_constraint()
-            print(f"   ✓ SEM: causal_vars shape {causal_vars.shape}, DAG loss {dag_loss.item():.4f}")
+            print(f"    SEM: causal_vars shape {causal_vars.shape}, DAG loss {dag_loss.item():.4f}")
         except Exception as e:
-            print(f"   ✗ SEM failed: {e}")
+            print(f"    SEM failed: {e}")
         
         try:
             print("   Testing CausalVAE...")
             vae = CausalVAE(input_dim=8, num_causal_vars=5, num_noise_vars=3)
             x = torch.randn(8, 8)
             outputs = vae(x)
-            print(f"   ✓ CausalVAE: reconstruction shape {outputs['reconstruction'].shape}")
+            print(f"    CausalVAE: reconstruction shape {outputs['reconstruction'].shape}")
         except Exception as e:
-            print(f"   ✗ CausalVAE failed: {e}")
+            print(f"    CausalVAE failed: {e}")
         
         try:
             print("   Testing CausalGraphAggregator...")
@@ -356,9 +356,9 @@ def run_fed_causal_demo():
             aggregator.receive_graph(0, adj1)
             aggregator.receive_graph(1, adj2)
             global_adj = aggregator.aggregate()
-            print(f"   ✓ Graph aggregator: global graph shape {global_adj.shape}")
+            print(f"    Graph aggregator: global graph shape {global_adj.shape}")
         except Exception as e:
-            print(f"   ✗ Graph aggregator failed: {e}")
+            print(f"    Graph aggregator failed: {e}")
         
         try:
             print("   Testing MMDInvariance...")
@@ -366,9 +366,9 @@ def run_fed_causal_demo():
             rep1 = torch.randn(8, 5)
             rep2 = torch.randn(8, 5)
             loss = mmd([rep1, rep2])
-            print(f"   ✓ MMD invariance: loss {loss.item():.4f}")
+            print(f"    MMD invariance: loss {loss.item():.4f}")
         except Exception as e:
-            print(f"   ✗ MMD invariance failed: {e}")
+            print(f"    MMD invariance failed: {e}")
         
         try:
             print("   Testing FedCausalCoordinator...")
@@ -380,16 +380,16 @@ def run_fed_causal_demo():
                 num_rounds=2
             )
             coordinator.setup()
-            print(f"   ✓ Coordinator setup with {len(coordinator.clients)} clients")
+            print(f"    Coordinator setup with {len(coordinator.clients)} clients")
         except Exception as e:
-            print(f"   ✗ Coordinator failed: {e}")
+            print(f"    Coordinator failed: {e}")
         
-        print("\n✓ Federated Causal Representation Learning demo completed!")
+        print("\n Federated Causal Representation Learning demo completed!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in demo: {e}")
+        print(f" Error in demo: {e}")
         import traceback
         traceback.print_exc()
 

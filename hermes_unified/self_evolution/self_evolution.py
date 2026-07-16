@@ -194,7 +194,7 @@ class SelfEvolvingFederatedLearning:
             self.best_performance = actual_accuracy
             self.best_config = config
             self.milestones.append(result)
-            logger.info(f"🎉 New milestone! Accuracy: {actual_accuracy:.4f}")
+            logger.info(f" New milestone! Accuracy: {actual_accuracy:.4f}")
         
         return result
     
@@ -218,7 +218,7 @@ class SelfEvolvingFederatedLearning:
         if self.best_config is None:
             return
         
-        logger.info(f"🔧 Auto-deploying best configuration: {self.best_config}")
+        logger.info(f" Auto-deploying best configuration: {self.best_config}")
         
         # Simulate deployment update
         deployment_config = {
@@ -233,7 +233,7 @@ class SelfEvolvingFederatedLearning:
         with open(os.path.join(self.output_dir, 'best_deployment.json'), 'w') as f:
             json.dump(deployment_config, f, indent=2)
         
-        logger.info("✅ Deployment configuration updated")
+        logger.info(" Deployment configuration updated")
     
     def evolve(self, num_generations: int = 10, max_time_hours: float = 1.0):
         """
@@ -318,7 +318,7 @@ class SelfEvolvingFederatedLearning:
         with open(os.path.join(self.output_dir, 'evolution_progress.json'), 'w') as f:
             json.dump(progress, f, indent=2)
         
-        logger.info(f"📊 Progress saved. Experiments: {len(self.experiment_db)}")
+        logger.info(f" Progress saved. Experiments: {len(self.experiment_db)}")
     
     def get_evolution_tree(self) -> List[Dict]:
         """

@@ -204,7 +204,7 @@ class AttackManager:
     def log_attack_success(self, client_id: int, accuracy_drop: float):
         """Log a successful attack."""
         self.attack_success_count += 1
-        print(f"💀 Malicious client [{client_id}] attack succeeded! Accuracy dropped by {accuracy_drop:.2f}%")
+        print(f" Malicious client [{client_id}] attack succeeded! Accuracy dropped by {accuracy_drop:.2f}%")
     
     def get_attack_summary(self) -> Dict:
         """Get summary of all attacks."""

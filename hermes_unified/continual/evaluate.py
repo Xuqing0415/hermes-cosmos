@@ -1,5 +1,5 @@
 """
-连续学习评估指标
+
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ContinualLearningEvaluator:
     """
-    连续学习评估器
+    
     """
 
     def __init__(self):
@@ -21,7 +21,7 @@ class ContinualLearningEvaluator:
                       client_id: int,
                       accuracy: float,
                       is_baseline: bool = False):
-        """记录准确率"""
+        """"""
         if client_id not in self.accuracy_history:
             self.accuracy_history[client_id] = []
 
@@ -31,7 +31,7 @@ class ContinualLearningEvaluator:
         })
 
     def compute_forgetting_rate(self, client_id: int) -> float:
-        """计算遗忘率"""
+        """"""
         if client_id not in self.accuracy_history:
             return 0.0
 
@@ -46,7 +46,7 @@ class ContinualLearningEvaluator:
         return max(0, best_acc - final_acc)
 
     def compute_average_forgetting(self) -> float:
-        """计算所有客户端的平均遗忘率"""
+        """"""
         forgetting_rates = [
             self.compute_forgetting_rate(cid)
             for cid in self.accuracy_history.keys()
@@ -55,7 +55,7 @@ class ContinualLearningEvaluator:
         return np.mean(forgetting_rates) if forgetting_rates else 0.0
 
     def compute_fairness(self) -> Dict[str, float]:
-        """计算个体公平性"""
+        """"""
         forgetting_rates = [
             self.compute_forgetting_rate(cid)
             for cid in self.accuracy_history.keys()
@@ -81,7 +81,7 @@ class ContinualLearningEvaluator:
         }
 
     def compute_summary_metrics(self) -> Dict[str, float]:
-        """计算汇总指标"""
+        """"""
         return {
             'avg_forgetting': self.compute_average_forgetting(),
             'max_forgetting': max([
@@ -92,7 +92,7 @@ class ContinualLearningEvaluator:
         }
 
     def print_report(self):
-        """打印评估报告"""
+        """"""
         summary = self.compute_summary_metrics()
 
         print("\n" + "=" * 60)

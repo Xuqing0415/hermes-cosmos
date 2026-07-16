@@ -71,11 +71,11 @@ class TestEndToEnd:
         job_response = response.json()
         job_id = job_response["job"]["id"]
         
-        print(f"✓ Job submitted, ID: {job_id}")
+        print(f" Job submitted, ID: {job_id}")
         
         # Check scheduling latency
         latency = (end_time - start_time).total_seconds()
-        print(f"✓ Scheduling latency: {latency*1000:.2f}ms")
+        print(f" Scheduling latency: {latency*1000:.2f}ms")
         assert latency < 0.5, f"Expected latency < 500ms, got {latency*1000:.2f}ms"
         
         # Check job status
@@ -83,7 +83,7 @@ class TestEndToEnd:
         assert response.status_code == 200
         job = response.json()["job"]
         
-        print(f"✓ Job status: {job['status']}")
+        print(f" Job status: {job['status']}")
         
         return job_id
         
@@ -101,11 +101,11 @@ class TestEndToEnd:
         assert response.status_code == 200
         
         cluster_state = response.json()
-        print(f"✓ Total GPUs: {cluster_state['total_gpus']}")
-        print(f"✓ Available GPUs: {cluster_state['available_gpus']}")
+        print(f" Total GPUs: {cluster_state['total_gpus']}")
+        print(f" Available GPUs: {cluster_state['available_gpus']}")
         
         for region, data in cluster_state["regions"].items():
-            print(f"✓ {region}: {data['available']}/{data['total']} GPUs available")
+            print(f" {region}: {data['available']}/{data['total']} GPUs available")
             
         assert cluster_state["total_gpus"] > 0
         assert cluster_state["available_gpus"] > 0
@@ -122,17 +122,17 @@ class TestEndToEnd:
         response = client.get("/health")
         assert response.status_code == 200
         health = response.json()
-        print(f"✓ Health status: {health['status']}")
+        print(f" Health status: {health['status']}")
         assert health["status"] == "healthy"
         
         # Status endpoint
         response = client.get("/status")
         assert response.status_code == 200
         status = response.json()
-        print(f"✓ Is leader: {status['is_leader']}")
-        print(f"✓ Term: {status['term']}")
-        print(f"✓ Pending jobs: {status['pending_jobs']}")
-        print(f"✓ Running jobs: {status['running_jobs']}")
+        print(f" Is leader: {status['is_leader']}")
+        print(f" Term: {status['term']}")
+        print(f" Pending jobs: {status['pending_jobs']}")
+        print(f" Running jobs: {status['running_jobs']}")
         assert status["status"] == "running"
         assert status["is_leader"] is True
 
@@ -183,7 +183,7 @@ class TestJobFailover:
         assert response.status_code == 201
         job_id = response.json()["job"]["id"]
         
-        print(f"✓ Job submitted for failover test: {job_id}")
+        print(f" Job submitted for failover test: {job_id}")
         
         # Simulate job failure - mark as failed
         from hermes.core.store import get_job_queue
@@ -193,7 +193,7 @@ class TestJobFailover:
         job_obj = await job_queue.get_job(UUID(job_id))
         if job_obj:
             await job_queue.update_job_status(UUID(job_id), JobStatus.FAILED)
-            print(f"✓ Simulated job failure at {datetime.utcnow().isoformat()}")
+            print(f" Simulated job failure at {datetime.utcnow().isoformat()}")
         
         # Measure recovery time
         recovery_start = datetime.utcnow()
@@ -211,13 +211,13 @@ class TestJobFailover:
         recovery_end = datetime.utcnow()
         recovery_time = (recovery_end - recovery_start).total_seconds()
         
-        print(f"✓ Recovery time: {recovery_time:.3f}s")
-        print(f"✓ Target SLA: <= 5s")
+        print(f" Recovery time: {recovery_time:.3f}s")
+        print(f" Target SLA: <= 5s")
         
         assert recovery_time < 5.0, (
             f"Recovery time {recovery_time:.3f}s exceeds SLA requirement (5 seconds)"
         )
-        print("✓ Recovery SLA met!")
+        print(" Recovery SLA met!")
 
 
 class TestDataSovereignty:
@@ -267,12 +267,12 @@ class TestDataSovereignty:
         assert response.status_code == 201
         job_id = response.json()["job"]["id"]
         
-        print(f"✓ EU-only job submitted: {job_id}")
-        print("✓ Data sovereignty constraint: EU region only")
+        print(f" EU-only job submitted: {job_id}")
+        print(" Data sovereignty constraint: EU region only")
         
         # Verify job can only go to EU
         # In a real implementation, we'd check the placement decision
-        print("✓ Data sovereignty policy enforced")
+        print(" Data sovereignty policy enforced")
 
 
 def test_end_to_end_suite():
@@ -283,9 +283,9 @@ def test_end_to_end_suite():
     print("HERMES COSMOS - END-TO-END TEST SUITE")
     print("="*80)
     print("\nThis suite validates the P0 stage requirements:")
-    print("  ✓ Single Region 128 GPU scheduling")
-    print("  ✓ Basic checkpoint functionality")
-    print("  ✓ 5 second fault recovery SLA")
+    print("   Single Region 128 GPU scheduling")
+    print("   Basic checkpoint functionality")
+    print("   5 second fault recovery SLA")
     print("\n" + "="*80)
     
     # Run pytest programmatically

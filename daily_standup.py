@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Hermes 每日站会报告生成器
-用于快速生成每日进度报告，跟踪4周行动路线图执行情况
+Hermes 
+4
 """
 
 import os
@@ -12,54 +12,54 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Optional
 
-TEMPLATE = """# Hermes 每日站会报告
+TEMPLATE = """# Hermes 
 
-**日期**: {date}
-**团队**: Hermes Team
-**汇报人**: [你的名字]
+****: {date}
+****: Hermes Team
+****: []
 
 ---
 
-## 📊 昨日完成
+##  
 
 {completed_items}
 
 ---
 
-## 🎯 今日计划
+##  
 
 {today_items}
 
 ---
 
-## ⚠️  blockers（阻碍）
+##   blockers
 
 {blockers}
 
 ---
 
-## 📈 指标更新
+##  
 
-| 指标 | 昨日值 | 目标 | 状态 |
+|  |  |  |  |
 |------|--------|------|------|
-| 调度延迟 P95 | {sched_latency}ms | < 500ms | {sched_status} |
-| 故障恢复时间 | {recovery_time}s | < 5s | {recovery_status} |
-| GPU利用率 | {gpu_util}% | > 85% | {gpu_status} |
-| SLA达标率 | {sla}% | > 99.9% | {sla_status} |
+|  P95 | {sched_latency}ms | < 500ms | {sched_status} |
+|  | {recovery_time}s | < 5s | {recovery_status} |
+| GPU | {gpu_util}% | > 85% | {gpu_status} |
+| SLA | {sla}% | > 99.9% | {sla_status} |
 
 ---
 
-## 📅 里程碑进度
+##  
 
-| 阶段 | 目标 | 进度 | 状态 |
+|  |  |  |  |
 |------|------|------|------|
-| 阶段一：试点完成 | 第1-2周 | {phase1_progress}% | {phase1_status} |
-| 阶段二：有限推广 | 第3-4周 | {phase2_progress}% | {phase2_status} |
-| 阶段三：全面接管 | 第5-8周 | {phase3_progress}% | {phase3_status} |
+|  | 1-2 | {phase1_progress}% | {phase1_status} |
+|  | 3-4 | {phase2_progress}% | {phase2_status} |
+|  | 5-8 | {phase3_progress}% | {phase3_status} |
 
 ---
 
-## 📝 备注
+##  
 
 {notes}
 
@@ -74,7 +74,7 @@ class DailyStandupGenerator:
         self.date = datetime.now().strftime("%Y-%m-%d")
 
     def load_previous_report(self) -> Optional[dict]:
-        """加载昨天的报告"""
+        """"""
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         report_path = self.output_dir / f"standup_{yesterday}.md"
 
@@ -86,8 +86,8 @@ class DailyStandupGenerator:
         return None
 
     def _parse_report(self, content: str) -> dict:
-        """解析报告内容"""
-        # 简单解析，实际使用时可能需要更复杂的逻辑
+        """"""
+        # 
         return {
             'date': self.date,
             'raw_content': content
@@ -102,34 +102,34 @@ class DailyStandupGenerator:
         phase_progress: Dict[str, int],
         notes: str = ""
     ) -> str:
-        """生成报告"""
+        """"""
 
-        # 计算状态
+        # 
         def get_status(actual: float, target: float, inverse: bool = False) -> str:
             if inverse:
-                return "✅" if actual < target else "⚠️"
-            return "✅" if actual >= target else "⚠️"
+                return "" if actual < target else ""
+            return "" if actual >= target else ""
 
-        # 生成里程碑状态
+        # 
         def get_phase_status(progress: int) -> str:
             if progress >= 100:
-                return "✅ 完成"
+                return " "
             elif progress >= 50:
-                return "🔄 进行中"
+                return " "
             else:
-                return "⏳ 准备中"
+                return "⏳ "
 
-        # 格式化列表
+        # 
         def format_list(items: List[str]) -> str:
             if not items:
-                return "- 无"
+                return "- "
             return "\n".join(f"- {item}" for item in items)
 
         report = TEMPLATE.format(
             date=self.date,
             completed_items=format_list(completed),
             today_items=format_list(today),
-            blockers=format_list(blockers) if blockers else "- 无",
+            blockers=format_list(blockers) if blockers else "- ",
             sched_latency=metrics.get("sched_latency_ms", 0),
             sched_status=get_status(metrics.get("sched_latency_ms", 0), 500, inverse=True),
             recovery_time=metrics.get("recovery_time_s", 0),
@@ -137,47 +137,47 @@ class DailyStandupGenerator:
             gpu_util=metrics.get("gpu_util", 0),
             gpu_status=get_status(metrics.get("gpu_util", 0), 85),
             sla=metrics.get("sla_compliance", 0),
-            sla_status="✅" if metrics.get("sla_compliance", 0) >= 99.9 else "⚠️",
+            sla_status="" if metrics.get("sla_compliance", 0) >= 99.9 else "",
             phase1_progress=phase_progress.get("phase1", 0),
             phase1_status=get_phase_status(phase_progress.get("phase1", 0)),
             phase2_progress=phase_progress.get("phase2", 0),
             phase2_status=get_phase_status(phase_progress.get("phase2", 0)),
             phase3_progress=phase_progress.get("phase3", 0),
             phase3_status=get_phase_status(phase_progress.get("phase3", 0)),
-            notes=notes if notes else "- 无"
+            notes=notes if notes else "- "
         )
 
         return report
 
     def save_report(self, content: str) -> Path:
-        """保存报告"""
+        """"""
         filename = f"standup_{self.date}.md"
         filepath = self.output_dir / filename
 
         with open(filepath, 'w') as f:
             f.write(content)
 
-        print(f"✅ 报告已保存: {filepath}")
+        print(f" : {filepath}")
         return filepath
 
 def main():
-    parser = argparse.ArgumentParser(description="Hermes 每日站会报告生成器")
-    parser.add_argument("--output-dir", default=".", help="输出目录")
-    parser.add_argument("--completed", nargs="+", help="昨日完成项")
-    parser.add_argument("--today", nargs="+", help="今日计划")
-    parser.add_argument("--blockers", nargs="+", help="阻碍事项")
-    parser.add_argument("--notes", default="", help="备注")
-    parser.add_argument("--interactive", action="store_true", help="交互式输入")
+    parser = argparse.ArgumentParser(description="Hermes ")
+    parser.add_argument("--output-dir", default=".", help="")
+    parser.add_argument("--completed", nargs="+", help="")
+    parser.add_argument("--today", nargs="+", help="")
+    parser.add_argument("--blockers", nargs="+", help="")
+    parser.add_argument("--notes", default="", help="")
+    parser.add_argument("--interactive", action="store_true", help="")
     args = parser.parse_args()
 
     generator = DailyStandupGenerator(Path(args.output_dir))
 
     if args.interactive:
-        print("📝 交互式输入模式")
+        print(" ")
         print("="*40)
 
         completed = []
-        print("\n昨日完成 (输入空行结束):")
+        print("\n ():")
         while True:
             item = input("  > ")
             if not item.strip():
@@ -185,7 +185,7 @@ def main():
             completed.append(item)
 
         today = []
-        print("\n今日计划 (输入空行结束):")
+        print("\n ():")
         while True:
             item = input("  > ")
             if not item.strip():
@@ -193,14 +193,14 @@ def main():
             today.append(item)
 
         blockers = []
-        print("\n阻碍事项 (输入空行结束):")
+        print("\n ():")
         while True:
             item = input("  > ")
             if not item.strip():
                 break
             blockers.append(item)
 
-        notes = input("\n备注: ") or ""
+        notes = input("\n: ") or ""
 
         metrics = {
             "sched_latency_ms": 350,
@@ -216,12 +216,12 @@ def main():
         }
 
     else:
-        completed = args.completed or ["无"]
-        today = args.today or ["无"]
-        blockers = args.blockers or ["无"]
+        completed = args.completed or [""]
+        today = args.today or [""]
+        blockers = args.blockers or [""]
         notes = args.notes
 
-        # 默认指标
+        # 
         metrics = {
             "sched_latency_ms": 350,
             "recovery_time_s": 3.2,
@@ -235,7 +235,7 @@ def main():
             "phase3": 0
         }
 
-    # 生成报告
+    # 
     report = generator.generate_report(
         completed=completed,
         today=today,
@@ -246,13 +246,13 @@ def main():
     )
 
     print("\n" + "="*60)
-    print("📋 报告预览")
+    print(" ")
     print("="*60)
     print(report)
 
-    # 保存
+    # 
     filepath = generator.save_report(report)
-    print(f"\n💡 下次查看: cat {filepath}")
+    print(f"\n : cat {filepath}")
 
 if __name__ == "__main__":
     main()

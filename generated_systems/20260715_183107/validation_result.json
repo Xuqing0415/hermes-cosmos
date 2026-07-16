@@ -1,0 +1,33 @@
+{
+  "spec_name": "CounterService",
+  "status": "passed",
+  "errors": [],
+  "warnings": [],
+  "details": {
+    "constants": [
+      "MaxValue",
+      "VARIABLES",
+      "value",
+      "Init"
+    ],
+    "variables": [
+      "value",
+      "Init"
+    ],
+    "variable_count": 2,
+    "invariants_found": [
+      "Increment",
+      "Get",
+      "TypeOK",
+      "NoLostUpdates"
+    ],
+    "properties": [
+      "Increment",
+      "Get"
+    ],
+    "temporal_properties": [
+      "Spec => []TypeOK",
+      "Spec => []NoLostUpdates"
+    ]
+  }
+}
