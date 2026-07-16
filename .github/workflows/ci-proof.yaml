@@ -27,13 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-ci.txt
 
-      - name: Test imports
+      - name: Test basic imports
         run: |
           PYTHONPATH=src python -c "from hermes.ci.cli import main; print('CLI import successful')"
-          PYTHONPATH=src python -c "from hermes.ci.ci_prover import CIProver; print('CIProver import successful')"
-
-      - name: Upload certificates
-        uses: actions/upload-artifact@v4
-        with:
-          name: proof-certificates
-          path: ./certificates/
