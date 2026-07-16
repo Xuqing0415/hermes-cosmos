@@ -62,7 +62,7 @@ def main():
 
 
 def run_proof(args):
-    """Run proof verification for a PR"""
+    """Run proof verification for a PR or push"""
     os.environ["GITHUB_TOKEN"] = args.token or os.environ.get("GITHUB_TOKEN", "")
     
     ci_prover = CIProver(
@@ -72,25 +72,28 @@ def run_proof(args):
         timeout=args.timeout
     )
     
-    if args.pr_number and args.base_sha and args.head_sha:
-        pr_info = PRInfo(
-            owner=args.owner or "",
-            repo=args.repo or "",
-            pr_number=args.pr_number,
-            head_sha=args.head_sha,
-            base_sha=args.base_sha,
-            title="",
-            author=""
-        )
-        
-        report = ci_prover.run_pr_proof(pr_info, args.base_sha, args.head_sha)
-        
-        if args.post_comment:
-            ci_prover.post_pr_comment(pr_info, report)
+    if args.base_sha and args.head_sha:
+        if args.pr_number:
+            pr_info = PRInfo(
+                owner=args.owner or "",
+                repo=args.repo or "",
+                pr_number=args.pr_number,
+                head_sha=args.head_sha,
+                base_sha=args.base_sha,
+                title="",
+                author=""
+            )
+            
+            report = ci_prover.run_pr_proof(pr_info, args.base_sha, args.head_sha)
+            
+            if args.post_comment:
+                ci_prover.post_pr_comment(pr_info, report)
+        else:
+            report = ci_prover.run_push_proof(args.base_sha, args.head_sha)
         
         print_report(report)
     else:
-        print("Error: --pr-number, --base-sha, and --head-sha are required")
+        print("Error: --base-sha and --head-sha are required")
         sys.exit(1)
 
 
