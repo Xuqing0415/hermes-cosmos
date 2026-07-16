@@ -1,5 +1,5 @@
 """
-Hermes API Gateway - FastAPI版
+Hermes API Gateway - FastAPI
 """
 
 from fastapi import FastAPI, HTTPException
@@ -9,7 +9,7 @@ import httpx
 
 app = FastAPI(title="Hermes API Gateway", version="2.0")
 
-# 后端服务地址
+# 
 SCHEDULER_URL = "http://localhost:8001"
 CHECKPOINT_URL = "http://localhost:8002"
 
@@ -33,9 +33,9 @@ async def api_health():
 
 @app.post("/api/v1/jobs")
 async def submit_job(request: JobSubmitRequest):
-    """提交训练作业"""
+    """"""
     
-    # 转换为调度器格式
+    # 
     scheduler_request = {
         "name": f"{request.model_name}-{request.job_id}",
         "tenant_id": "default",
@@ -46,7 +46,7 @@ async def submit_job(request: JobSubmitRequest):
         "carbon_aware": True
     }
     
-    # 调用调度器
+    # 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -75,7 +75,7 @@ async def submit_job(request: JobSubmitRequest):
 
 @app.get("/api/v1/jobs/{job_id}")
 async def get_job(job_id: str):
-    """获取作业状态"""
+    """"""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{SCHEDULER_URL}/jobs/{job_id}")
@@ -97,7 +97,7 @@ async def get_job(job_id: str):
 
 @app.get("/api/v1/jobs")
 async def list_jobs(status: Optional[str] = None):
-    """列出作业"""
+    """"""
     params = {}
     if status:
         params["status"] = status
@@ -121,7 +121,7 @@ async def list_jobs(status: Optional[str] = None):
 
 @app.post("/api/v1/jobs/{job_id}/fail")
 async def simulate_failure(job_id: str):
-    """模拟作业故障"""
+    """"""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(f"{SCHEDULER_URL}/simulate_failure/{job_id}")
@@ -146,7 +146,7 @@ async def simulate_failure(job_id: str):
 
 @app.get("/api/v1/cluster")
 async def cluster_summary():
-    """获取集群状态"""
+    """"""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{SCHEDULER_URL}/cluster/summary")

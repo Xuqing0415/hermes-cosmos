@@ -1,5 +1,5 @@
 """
-主动学习客户端
+
 """
 
 import numpy as np
@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 
 class ActiveLearningClient:
     """
-    联邦主动学习客户端
+    
 
-    功能：
-    1. 本地不确定性采样
-    2. 多样性增强选择
-    3. 特征嵌入提取
+    
+    1. 
+    2. 
+    3. 
     """
 
     def __init__(self, client_id: int,
@@ -41,27 +41,27 @@ class ActiveLearningClient:
         logger.info(f"Active Learning Client {client_id} initialized")
 
     def set_labeled_data(self, X: np.ndarray, y: np.ndarray):
-        """设置有标签数据"""
+        """"""
         self.X_labeled = X
         self.y_labeled = y
 
     def add_unlabeled_pool(self, X: np.ndarray):
-        """设置无标签数据池"""
+        """"""
         self.X_unlabeled = X
         logger.info(f"Client {self.client_id}: Added {len(X)} unlabeled samples")
 
     def set_model_parameters(self, weights: np.ndarray, bias: np.ndarray):
-        """设置模型参数"""
+        """"""
         self.weights = weights.copy()
         self.bias = bias.copy()
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """预测概率"""
+        """"""
         logits = X @ self.weights + self.bias
         return self._softmax(logits)
 
     def get_feature_embeddings(self, X: np.ndarray) -> np.ndarray:
-        """获取特征嵌入"""
+        """"""
         embeddings = X @ self.weights
         embeddings = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10)
         return embeddings
@@ -71,7 +71,7 @@ class ActiveLearningClient:
                                   method: str = 'entropy',
                                   diversity_enhanced: bool = True) -> Dict[str, Any]:
         """
-        选择待标注样本
+        
         """
         if self.X_unlabeled is None or len(self.X_unlabeled) == 0:
             logger.warning(f"Client {self.client_id}: No unlabeled samples")
@@ -106,7 +106,7 @@ class ActiveLearningClient:
 
     def add_labels(self, indices: np.ndarray, labels: np.ndarray,
                   embedding_to_label: Dict = None):
-        """添加新标注的样本"""
+        """"""
         new_X = self.X_unlabeled[indices] if hasattr(self, 'X_unlabeled') else None
 
         if new_X is not None and len(new_X) > 0:
@@ -121,7 +121,7 @@ class ActiveLearningClient:
 
     def local_train(self, num_epochs: int = 5,
                   lr: float = 0.01) -> Dict[str, float]:
-        """本地训练"""
+        """"""
         if self.X_labeled is None or len(self.X_labeled) < 10:
             return {'loss': 0.0, 'accuracy': 0.0}
 
@@ -148,7 +148,7 @@ class ActiveLearningClient:
         return {'loss': loss, 'accuracy': accuracy}
 
     def get_parameters(self) -> Dict[str, np.ndarray]:
-        """获取模型参数"""
+        """"""
         return {
             'weights': self.weights.copy(),
             'bias': self.bias.copy()

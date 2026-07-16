@@ -98,7 +98,7 @@ class AdaptiveDefenseServer:
     def _switch_defense(self, new_defense: str):
         """Switch to a new defense strategy."""
         if new_defense != self.current_defense and new_defense in self.defenses:
-            print(f"🔄 Switching defense from {self.current_defense} to {new_defense}")
+            print(f" Switching defense from {self.current_defense} to {new_defense}")
             self.current_defense = new_defense
             self.defense_history.append(new_defense)
             self.defense_switches += 1
@@ -306,7 +306,7 @@ class OnlineAttackEvolution:
         self.best_fitness_history.append(best_fitness)
         self.best_params_history.append(best_params)
         
-        print(f"🧬 Generation {self.generation}: Best fitness = {best_fitness:.4f}")
+        print(f" Generation {self.generation}: Best fitness = {best_fitness:.4f}")
         
         return best_params
     
@@ -488,7 +488,7 @@ class AttackDefenseGame:
     
     def run_game(self, max_rounds: int = 20) -> Dict:
         """Run the full game."""
-        print("=== ⚔️ Attack-Defense Game Started ⚔️ ===")
+        print("===  Attack-Defense Game Started  ===")
         
         for _ in range(max_rounds):
             if self.game_over:
@@ -496,7 +496,7 @@ class AttackDefenseGame:
             
             result = self.play_round()
             
-            print(f"\n🔄 Round {result['round']}")
+            print(f"\n Round {result['round']}")
             print(f"   Defense: {result['defense']}")
             print(f"   Attack: {result['attack_type']} (intensity={result.get('attack_params', {}).get('intensity', 0):.2f})")
             print(f"   Accuracy: {result['accuracy']:.4f}")
@@ -505,7 +505,7 @@ class AttackDefenseGame:
         
         # Final report
         print("\n" + "="*50)
-        print("          🏆 GAME OVER 🏆          ")
+        print("           GAME OVER           ")
         print("="*50)
         print(f"Final Score: Attack {self.attack_score} - {self.defense_score} Defense")
         print(f"Winner: {self.winner}")
@@ -529,13 +529,13 @@ def run_game_demo():
     results = game.run_game(max_rounds=15)
     
     # Print summary statistics
-    print("\n📊 GAME STATISTICS")
+    print("\n GAME STATISTICS")
     print(f"Initial Accuracy: {results['accuracy_history'][0]:.4f}")
     print(f"Final Accuracy: {results['accuracy_history'][-1]:.4f}")
     print(f"Accuracy Change: {(results['accuracy_history'][-1] - results['accuracy_history'][0])*100:.2f}%")
     
     # Print round results
-    print("\n🔢 ROUND RESULTS:")
+    print("\n ROUND RESULTS:")
     for i, result in enumerate(results['round_results'], 1):
         print(f"  Round {i}: {result}")
 

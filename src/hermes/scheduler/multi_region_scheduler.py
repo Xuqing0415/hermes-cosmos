@@ -1,6 +1,6 @@
 """
-Hermes Multi-Region Scheduler - 跨Region分布式训练调度器
-支持多K8s集群、区域级故障恢复、数据合规
+Hermes Multi-Region Scheduler - Region
+K8s
 """
 
 from fastapi import FastAPI, HTTPException
@@ -12,13 +12,13 @@ import threading
 import json
 from uuid import uuid4
 
-# K8s客户端
+# K8s
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 
 app = FastAPI(title="Hermes Multi-Region Scheduler", version="3.0")
 
-# 多集群配置
+# 
 clusters = {
     "us-east": {
         "name": "us-east",
@@ -49,7 +49,7 @@ clusters = {
     }
 }
 
-# 全局作业存储
+# 
 jobs: Dict[str, dict] = {}
 
 class MultiRegionJobRequest(BaseModel):
@@ -58,37 +58,37 @@ class MultiRegionJobRequest(BaseModel):
     user_id: str
     total_replicas: int = 4
     regions: List[str] = ["us-east", "eu-west"]
-    data_residency: Optional[str] = None  # GDPR合规
+    data_residency: Optional[str] = None  # GDPR
     image: str = "hermes-ddp:latest"
     checkpoint_interval: int = 10
     priority: str = "normal"
 
 @app.on_event("startup")
 async def startup_event():
-    """初始化多集群连接"""
-    print("[Multi-Region] 初始化多集群调度器...")
+    """"""
+    print("[Multi-Region] ...")
     
-    # 加载多个kubeconfig
+    # kubeconfig
     for cluster_name, cluster_info in clusters.items():
         try:
-            # 尝试加载特定集群的kubeconfig
+            # kubeconfig
             kubeconfig_path = f"/etc/hermes/kubeconfig/{cluster_name}"
             config.load_kube_config(config_file=kubeconfig_path)
             
             cluster_info["client"] = client.CoreV1Api()
             cluster_info["api_client"] = client.ApiClient()
             
-            print(f"[Multi-Region] 集群 {cluster_name} 连接成功")
+            print(f"[Multi-Region]  {cluster_name} ")
         except Exception as e:
-            print(f"[Multi-Region] 集群 {cluster_name} 连接失败: {e}")
+            print(f"[Multi-Region]  {cluster_name} : {e}")
     
-    # 启动全局故障监听
+    # 
     threading.Thread(target=start_global_fault_watcher, daemon=True).start()
-    print("[Multi-Region] 全局故障监听已启动")
+    print("[Multi-Region] ")
 
 @app.get("/health")
 async def health_check():
-    """健康检查"""
+    """"""
     cluster_status = {}
     for name, info in clusters.items():
         cluster_status[name] = "connected" if info["client"] else "disconnected"
@@ -101,10 +101,10 @@ async def health_check():
 
 @app.post("/multi-region/jobs")
 async def submit_multi_region_job(job: MultiRegionJobRequest):
-    """提交跨Region分布式训练作业"""
+    """Region"""
     job_id = str(uuid4())[:8]
     
-    # 数据合规检查
+    # 
     if job.data_residency:
         if job.data_residency not in job.regions:
             raise HTTPException(
@@ -112,7 +112,7 @@ async def submit_multi_region_job(job: MultiRegionJobRequest):
                 detail=f"Data residency violation: data must stay in {job.data_residency}"
             )
     
-    # 计算每个Region的Pod数量
+    # RegionPod
     replicas_per_region = job.total_replicas // len(job.regions)
     region_assignments = {}
     
@@ -122,15 +122,15 @@ async def submit_multi_region_job(job: MultiRegionJobRequest):
         
         region_assignments[region] = replicas_per_region
     
-    # 碳感知优化：调整副本分配
+    # 
     if job.priority == "carbon-aware":
         sorted_regions = sorted(job.regions, key=lambda r: clusters[r]["carbon_intensity"])
-        # 给低碳区域分配更多副本
+        # 
         for i, region in enumerate(sorted_regions):
             if i == 0:
                 region_assignments[region] += job.total_replicas % len(job.regions)
     
-    # 创建跨Region Pod
+    # Region Pod
     pod_addresses = []
     rank = 0
     
@@ -162,18 +162,18 @@ async def submit_multi_region_job(job: MultiRegionJobRequest):
     }
     jobs[job_id] = job_data
     
-    print(f"[Multi-Region] 作业 {job_id} 创建成功")
+    print(f"[Multi-Region]  {job_id} ")
     print(f"  Regions: {job.regions}")
     print(f"  Assignments: {region_assignments}")
     
     return job_data
 
 async def create_cross_region_pod(job_id, pod_name, region, rank, world_size, image):
-    """在指定Region创建Pod"""
+    """RegionPod"""
     cluster_info = clusters[region]
     v1 = cluster_info["client"]
     
-    # 获取所有rank的地址列表（跨Region）
+    # rankRegion
     rank_addrs = ",".join([f"{r}:pending" for r in range(world_size)])
     
     container = client.V1Container(
@@ -214,7 +214,7 @@ async def create_cross_region_pod(job_id, pod_name, region, rank, world_size, im
     
     v1.create_namespaced_pod(namespace="default", body=pod)
     
-    # 等待Pod获取IP
+    # PodIP
     await asyncio.sleep(10)
     
     pod_obj = v1.read_namespaced_pod(name=pod_name, namespace="default")
@@ -224,7 +224,7 @@ async def create_cross_region_pod(job_id, pod_name, region, rank, world_size, im
 
 @app.post("/multi-region/jobs/{job_id}/region-failure")
 async def handle_region_failure(job_id: str, failed_region: str):
-    """处理Region级故障"""
+    """Region"""
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
@@ -235,36 +235,36 @@ async def handle_region_failure(job_id: str, failed_region: str):
     
     start_time = time.time()
     
-    print(f"[Multi-Region] Region {failed_region} 故障，开始恢复...")
+    print(f"[Multi-Region] Region {failed_region} ...")
     
-    # 1. 标记Region故障
+    # 1. Region
     job["region_failures"][failed_region] = {
         "timestamp": time.time(),
         "status": "failed"
     }
     
-    # 2. 从全局Redis获取最新Checkpoint
+    # 2. RedisCheckpoint
     import redis
     r = redis.Redis(host='global-redis-service', port=6379)
     latest_step = int(r.get(f"global_checkpoint_{job_id}_latest") or 0)
     
-    # 3. 计算新的Region分配（排除故障Region）
+    # 3. RegionRegion
     healthy_regions = [r for r in job["regions"] if r != failed_region]
     
     if not healthy_regions:
         raise HTTPException(status_code=500, detail="No healthy regions available")
     
-    # 4. 在健康Region重新创建Pod
+    # 4. RegionPod
     failed_replicas = job["region_assignments"][failed_region]
     new_assignments = job["region_assignments"].copy()
     del new_assignments[failed_region]
     
-    # 将失败的副本分配到健康Region
+    # Region
     replicas_per_region = failed_replicas // len(healthy_regions)
     for region in healthy_regions:
         new_assignments[region] += replicas_per_region
     
-    # 5. 创建新Pod
+    # 5. Pod
     new_pod_addresses = []
     rank = 0
     
@@ -278,7 +278,7 @@ async def handle_region_failure(job_id: str, failed_region: str):
             new_pod_addresses.append(f"{rank}:{pod_ip}")
             rank += 1
     
-    # 6. 更新作业状态
+    # 6. 
     job["region_assignments"] = new_assignments
     job["pod_addresses"] = new_pod_addresses
     job["regions"] = healthy_regions
@@ -288,7 +288,7 @@ async def handle_region_failure(job_id: str, failed_region: str):
     
     recovery_time = (time.time() - start_time) * 1000
     
-    print(f"[Multi-Region] Region故障恢复完成，耗时: {recovery_time:.0f}ms")
+    print(f"[Multi-Region] Region: {recovery_time:.0f}ms")
     
     return {
         "message": f"Region {failed_region} failure recovered",
@@ -300,13 +300,13 @@ async def handle_region_failure(job_id: str, failed_region: str):
 
 @app.get("/multi-region/jobs/{job_id}")
 async def get_multi_region_job(job_id: str):
-    """获取跨Region作业状态"""
+    """Region"""
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
     job = jobs[job_id]
     
-    # 获取每个Region的Pod状态
+    # RegionPod
     region_pod_status = {}
     for region in job["regions"]:
         if clusters[region]["client"]:
@@ -324,7 +324,7 @@ async def get_multi_region_job(job_id: str):
 
 @app.get("/multi-region/clusters")
 async def list_clusters():
-    """列出所有集群状态"""
+    """"""
     result = []
     for name, info in clusters.items():
         result.append({
@@ -338,24 +338,24 @@ async def list_clusters():
     return {"clusters": result}
 
 def start_global_fault_watcher():
-    """全局故障监听"""
-    print("[Multi-Region] 启动全局故障监听...")
+    """"""
+    print("[Multi-Region] ...")
     
     while True:
         try:
             for region, info in clusters.items():
                 if info["client"]:
-                    # 检查集群健康状态
+                    # 
                     try:
                         nodes = info["client"].list_node()
                         if len(nodes.items) == 0:
-                            print(f"[Multi-Region] Region {region} 无可用节点")
+                            print(f"[Multi-Region] Region {region} ")
                     except Exception as e:
-                        print(f"[Multi-Region] Region {region} 连接失败: {e}")
+                        print(f"[Multi-Region] Region {region} : {e}")
             
-            time.sleep(30)  # 每30秒检查一次
+            time.sleep(30)  # 30
         except Exception as e:
-            print(f"[Multi-Region] 故障监听异常: {e}")
+            print(f"[Multi-Region] : {e}")
             time.sleep(60)
 
 if __name__ == "__main__":

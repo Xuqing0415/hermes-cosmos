@@ -45,7 +45,7 @@ def run_self_evolution(num_generations: int = 10,
         )
         server_thread.start()
         
-        print(f"\n📊 Dashboard available at: http://localhost:{server_port}")
+        print(f"\n Dashboard available at: http://localhost:{server_port}")
         time.sleep(2)
     
     # Run evolution
@@ -134,7 +134,7 @@ def start_dashboard_server(sef: SelfEvolvingFederatedLearning, port: int):
         </head>
         <body>
             <div class="container">
-                <h1>🚀 Self-Evolving FL Dashboard</h1>
+                <h1> Self-Evolving FL Dashboard</h1>
                 
                 <div class="stats-grid">
                     <div class="stat-card">

@@ -234,4 +234,4 @@ if __name__ == "__main__":
             print(f"  {modality}: {data.shape if hasattr(data, 'shape') else len(data)}")
         break
     
-    print("✓ Data utilities test completed!")
+    print(" Data utilities test completed!")

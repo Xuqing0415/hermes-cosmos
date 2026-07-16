@@ -329,24 +329,24 @@ def run_fed_simclr_demo():
             device='cpu'
         )
         coordinator.setup()
-        print(f"   ✓ Coordinator setup with {len(coordinator.clients)} clients")
+        print(f"    Coordinator setup with {len(coordinator.clients)} clients")
         
         print("\n3. Creating CIFAR-10 dataloaders...")
         dataloaders = generate_cifar10_dataloaders(num_clients=3)
-        print(f"   ✓ {len(dataloaders)} dataloaders created")
+        print(f"    {len(dataloaders)} dataloaders created")
         
         print("\n4. Testing Global Buffer...")
         buffer = coordinator.buffer_server.buffer
-        print(f"   ✓ Buffer size: {buffer.get_size()}")
+        print(f"    Buffer size: {buffer.get_size()}")
         
         print("\n5. Testing Client Initialization...")
         client = coordinator.clients[0]
-        print(f"   ✓ Client {client.client_id} created")
+        print(f"    Client {client.client_id} created")
         
         print("\n6. Testing Feature Extraction...")
         dummy = torch.randn(2, 3, 32, 32)
         features = coordinator.global_encoder(dummy)
-        print(f"   ✓ Feature shape: {features.shape}")
+        print(f"    Feature shape: {features.shape}")
         
         print("\n7. Testing Contrastive Loss...")
         from .contrastive_loss import NTXentLoss
@@ -354,14 +354,14 @@ def run_fed_simclr_demo():
         z1 = torch.randn(8, 128)
         z2 = torch.randn(8, 128)
         loss = loss_fn(z1, z2)
-        print(f"   ✓ NT-Xent Loss: {loss.item():.4f}")
+        print(f"    NT-Xent Loss: {loss.item():.4f}")
         
-        print("\n✓ FedSimCLR demo completed successfully!")
+        print("\n FedSimCLR demo completed successfully!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in FedSimCLR demo: {e}")
+        print(f" Error in FedSimCLR demo: {e}")
         import traceback
         traceback.print_exc()
 

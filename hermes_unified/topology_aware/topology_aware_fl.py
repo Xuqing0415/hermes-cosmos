@@ -211,33 +211,33 @@ def run_topology_demo():
         import torch
         
         print("\n1. Checking torch installation...")
-        print(f"   ✓ torch version: {torch.__version__}")
+        print(f"    torch version: {torch.__version__}")
         
         print("\n2. Testing Core Components Import:")
         
         try:
             from hermes_unified.topology_aware.topology_discovery import NetworkTopology
-            print("   ✓ NetworkTopology imported")
+            print("    NetworkTopology imported")
         except Exception as e:
-            print(f"   ✗ NetworkTopology import failed: {e}")
+            print(f"    NetworkTopology import failed: {e}")
             return
         
         try:
             from hermes_unified.topology_aware.hierarchical_aggregator import (
                 HierarchicalAggregator, AggregationTree
             )
-            print("   ✓ HierarchicalAggregator imported")
+            print("    HierarchicalAggregator imported")
         except Exception as e:
-            print(f"   ✗ HierarchicalAggregator import failed: {e}")
+            print(f"    HierarchicalAggregator import failed: {e}")
             return
         
         try:
             from hermes_unified.topology_aware.topology_scheduler import (
                 TopologyScheduler, GraphBasedSelector
             )
-            print("   ✓ TopologyScheduler imported")
+            print("    TopologyScheduler imported")
         except Exception as e:
-            print(f"   ✗ TopologyScheduler import failed: {e}")
+            print(f"    TopologyScheduler import failed: {e}")
             return
         
         print("\n3. Testing Component Functionality:")
@@ -247,9 +247,9 @@ def run_topology_demo():
             topology = NetworkTopology('small_world')
             topology.generate_random_topology(20)
             info = topology.get_topology_info()
-            print(f"   ✓ Topology created: {info['num_nodes']} nodes, {info['num_edges']} edges")
+            print(f"    Topology created: {info['num_nodes']} nodes, {info['num_edges']} edges")
         except Exception as e:
-            print(f"   ✗ NetworkTopology failed: {e}")
+            print(f"    NetworkTopology failed: {e}")
         
         try:
             print("   Testing AggregationTree...")
@@ -257,18 +257,18 @@ def run_topology_demo():
             tree.add_node(-1)
             tree.add_node(0)
             tree.add_edge(-1, 0)
-            print(f"   ✓ Aggregation tree: {tree.get_num_nodes()} nodes")
+            print(f"    Aggregation tree: {tree.get_num_nodes()} nodes")
         except Exception as e:
-            print(f"   ✗ AggregationTree failed: {e}")
+            print(f"    AggregationTree failed: {e}")
         
         try:
             print("   Testing TopologyScheduler...")
             scheduler = TopologyScheduler(topology, server_id=-1)
             scheduler.set_strategy('min_cost')
             selected = scheduler.select_participants(list(range(20)), 5, 0)
-            print(f"   ✓ Selected {len(selected)} clients")
+            print(f"    Selected {len(selected)} clients")
         except Exception as e:
-            print(f"   ✗ TopologyScheduler failed: {e}")
+            print(f"    TopologyScheduler failed: {e}")
         
         try:
             print("   Testing TopologyAwareFL...")
@@ -279,16 +279,16 @@ def run_topology_demo():
                 num_rounds=2
             )
             fl.setup()
-            print(f"   ✓ TopologyAwareFL setup with {len(fl.clients)} clients")
+            print(f"    TopologyAwareFL setup with {len(fl.clients)} clients")
         except Exception as e:
-            print(f"   ✗ TopologyAwareFL failed: {e}")
+            print(f"    TopologyAwareFL failed: {e}")
         
-        print("\n✓ Topology-Aware Federated Learning demo completed!")
+        print("\n Topology-Aware Federated Learning demo completed!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in demo: {e}")
+        print(f" Error in demo: {e}")
         import traceback
         traceback.print_exc()
 

@@ -1,0 +1,42 @@
+{
+  "id": "cert_20260715162944_c2205102",
+  "created_at": "2026-07-15T16:29:44.548559",
+  "updated_at": "2026-07-15T16:29:44.548778",
+  "results": [
+    {
+      "id": "(> a b)",
+      "smt_expression": "(> a b)",
+      "status": "unknown",
+      "model": null,
+      "certificate": null,
+      "duration": 5.9604644775390625e-06,
+      "error_message": null,
+      "target_info": {
+        "function_name": "calculate",
+        "risk_score": 0.38153846153846155,
+        "priority": 3
+      },
+      "timestamp": "2026-07-15T16:29:44.548567"
+    }
+  ],
+  "tests": [
+    {
+      "id": "test_fallback_215c16fe",
+      "function_name": "calculate",
+      "inputs": {
+        "a": 10,
+        "b": 2
+      },
+      "expected_output": null,
+      "assertion": "assert True, 'Fallback test for unknown proof result'",
+      "description": "Fallback test for calculate"
+    }
+  ],
+  "statistics": {
+    "total": 1,
+    "proven": 0,
+    "disproven": 0,
+    "unknown": 1,
+    "timeout": 0
+  }
+}

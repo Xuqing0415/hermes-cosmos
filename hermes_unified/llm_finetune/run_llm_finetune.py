@@ -283,9 +283,9 @@ def print_comparison_summary(fed_results, centralized_results):
     print(f"Difference: {diff:.2f}")
     
     if fed_results['perplexity_history'][-1] < centralized_results['final_perplexity'] * 1.05:
-        print("✓ Federated performance is within 5% of centralized!")
+        print(" Federated performance is within 5% of centralized!")
     else:
-        print("⚠️  Federated performance is significantly worse than centralized")
+        print("  Federated performance is significantly worse than centralized")
     
     print("\n2. COMMUNICATION")
     print("-" * 30)

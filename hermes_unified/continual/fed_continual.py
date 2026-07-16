@@ -1,5 +1,5 @@
 """
-联邦连续学习协调器
+
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class FederatedContinualCoordinator:
     """
-    联邦连续学习协调器
+    
     """
 
     def __init__(self, num_clients: int,
@@ -40,7 +40,7 @@ class FederatedContinualCoordinator:
     def create_client(self, client_id: int,
                     ewc_lambda: float = 1000.0,
                     buffer_size: int = 200):
-        """创建客户端"""
+        """"""
         if self.method == 'ewc':
             from .ewc_client import EWCClient
             client = EWCClient(client_id, self.num_features, self.num_classes, ewc_lambda)
@@ -57,7 +57,7 @@ class FederatedContinualCoordinator:
         return client
 
     def broadcast_model(self):
-        """广播全局模型"""
+        """"""
         for client in self.clients.values():
             client.set_parameters({
                 'weights': self.global_weights,
@@ -66,7 +66,7 @@ class FederatedContinualCoordinator:
 
     def aggregate(self, client_updates: List[Dict],
                 client_weights: Optional[List[float]] = None) -> Dict[str, np.ndarray]:
-        """聚合客户端更新"""
+        """"""
         if client_weights is None:
             client_weights = [1.0 / len(client_updates)] * len(client_updates)
 
@@ -92,7 +92,7 @@ class FederatedContinualCoordinator:
                             old_loss: float,
                             new_loss: float,
                             threshold: float = 0.2) -> Tuple[bool, float]:
-        """检测概念漂移"""
+        """"""
         if self.previous_losses.get(client_id) is None:
             self.previous_losses[client_id] = new_loss
             return False, 0.0
@@ -118,7 +118,7 @@ class FederatedContinualCoordinator:
                 client_data: Dict[int, Tuple[np.ndarray, np.ndarray]],
                 num_epochs: int = 5,
                 lr: float = 0.01) -> Dict[str, Any]:
-        """运行一轮联邦连续学习"""
+        """"""
         self.round_history.append({'round': round_num, 'clients': selected_clients})
 
         self.broadcast_model()
@@ -169,7 +169,7 @@ class FederatedContinualCoordinator:
     def get_forgetting_score(self, client_id: int,
                            initial_accuracy: float,
                            current_accuracy: float) -> float:
-        """计算遗忘分数"""
+        """"""
         forgetting = max(0, initial_accuracy - current_accuracy)
 
         if client_id not in self.forgetting_scores:
@@ -180,7 +180,7 @@ class FederatedContinualCoordinator:
         return forgetting
 
     def get_average_forgetting(self) -> float:
-        """获取平均遗忘率"""
+        """"""
         if not self.forgetting_scores:
             return 0.0
 
@@ -198,7 +198,7 @@ class FederatedContinualCoordinator:
 
 
 def run_continual_learning_demo():
-    """运行联邦连续学习演示"""
+    """"""
     print("=" * 70)
     print("FEDERATED CONTINUAL LEARNING DEMO")
     print("=" * 70)

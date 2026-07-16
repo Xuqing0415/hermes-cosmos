@@ -1,5 +1,5 @@
 """
-不确定性采样策略
+
 """
 
 import numpy as np
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 class UncertaintySampler:
     """
-    不确定性采样器
+    
 
-    支持多种不确定性度量方法
+    
     """
 
     def __init__(self, method: str = 'entropy'):
@@ -25,13 +25,13 @@ class UncertaintySampler:
 
     def compute_uncertainty(self, probabilities: np.ndarray) -> np.ndarray:
         """
-        计算每个样本的不确定性分数
+        
 
         Args:
-            probabilities: softmax 概率 (n_samples, n_classes)
+            probabilities: softmax  (n_samples, n_classes)
 
         Returns:
-            不确定性分数 (n_samples,)
+             (n_samples,)
         """
         if self.method == 'entropy':
             return self._entropy(probabilities)
@@ -43,19 +43,19 @@ class UncertaintySampler:
             return self._entropy(probabilities)
 
     def _entropy(self, probs: np.ndarray) -> np.ndarray:
-        """熵不确定性: -sum(p * log(p))"""
+        """: -sum(p * log(p))"""
         eps = 1e-10
         entropy = -np.sum(probs * np.log(probs + eps), axis=1)
         return entropy
 
     def _margin(self, probs: np.ndarray) -> np.ndarray:
-        """边际不确定性: p1 - p2 (最大与次大概率的差)"""
+        """: p1 - p2 ()"""
         sorted_probs = np.sort(probs, axis=1)
         margins = sorted_probs[:, -1] - sorted_probs[:, -2]
         return 1 - margins
 
     def _least_confidence(self, probs: np.ndarray) -> np.ndarray:
-        """最小置信度: 1 - max(p)"""
+        """: 1 - max(p)"""
         max_probs = np.max(probs, axis=1)
         return 1 - max_probs
 
@@ -63,12 +63,12 @@ class UncertaintySampler:
                    probabilities: np.ndarray,
                    k: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        选择 Top-K 最不确定的样本
+         Top-K 
 
         Args:
-            X_pool: 未标注样本池
-            probabilities: 模型预测概率
-            k: 选择数量
+            X_pool: 
+            probabilities: 
+            k: 
 
         Returns:
             (X_selected, probs_selected, uncertainty_scores)
@@ -88,7 +88,7 @@ class UncertaintySampler:
                         k: int,
                         n_clusters: int = 10) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        多样性增强选择：从每个簇中选择最不确定的样本
+        
         """
         uncertainty = self.compute_uncertainty(probabilities)
 
@@ -126,7 +126,7 @@ def compute_coreset_scores(X_pool: np.ndarray,
                          X_labeled: np.ndarray,
                          k: int) -> np.ndarray:
     """
-    核心集评分：选择能覆盖特征空间的样本
+    
     """
     X_labeled_norm = X_labeled / (np.linalg.norm(X_labeled, axis=1, keepdims=True) + 1e-10)
     X_pool_norm = X_pool / (np.linalg.norm(X_pool, axis=1, keepdims=True) + 1e-10)

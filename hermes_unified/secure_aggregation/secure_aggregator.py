@@ -308,7 +308,7 @@ def run_secure_aggregation_demo(num_clients: int = 5, num_rounds: int = 3,
         print(f"Aggregation Error: {error:.8f}")
         
         if error < 1e-6:
-            print("✓ Aggregation is correct!")
+            print(" Aggregation is correct!")
     
     # Print stats
     stats = aggregator.get_stats()
@@ -323,5 +323,5 @@ def run_secure_aggregation_demo(num_clients: int = 5, num_rounds: int = 3,
                   f"Total {stats[f'{key}_total']:.4f}s, "
                   f"Avg {stats[f'{key}_mean']:.4f}s")
     
-    print("\n✓ Demo complete!")
+    print("\n Demo complete!")
     return aggregator, stats

@@ -1,6 +1,6 @@
 """
-Hermes Scheduler - 主动迁移版
-集成故障预测，实现零停机训练
+Hermes Scheduler - 
+
 """
 
 from fastapi import FastAPI, HTTPException
@@ -12,7 +12,7 @@ import threading
 from uuid import uuid4
 import requests
 
-# K8s客户端
+# K8s
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 
@@ -33,14 +33,14 @@ def _init_k8s():
             print("[SCHEDULER] Kubernetes config not found, running in standalone mode")
             v1 = None
 
-# 作业状态存储
+# 
 jobs: Dict[str, dict] = {}
 
-# 故障预测服务地址
+# 
 FAULT_PREDICTOR_URL = "http://localhost:8003"
 
-# 迁移阈值
-MIGRATION_THRESHOLD = 0.8  # 故障概率超过此值触发迁移
+# 
+MIGRATION_THRESHOLD = 0.8  # 
 
 class JobRequest(BaseModel):
     name: str
@@ -102,7 +102,7 @@ async def submit_job(job: JobRequest):
     return job_data
 
 def create_training_pod(pod_name, model_name, num_gpus, job_id):
-    """创建支持信号处理的训练Pod"""
+    """Pod"""
     training_script = """
 import os
 import sys
@@ -199,7 +199,7 @@ while True:
 
 @app.post("/jobs/{job_id}/migrate")
 async def migrate_job(job_id: str, target_node: Optional[str] = None):
-    """主动迁移作业到其他节点"""
+    """"""
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
@@ -209,21 +209,21 @@ async def migrate_job(job_id: str, target_node: Optional[str] = None):
     start_time = time.time()
     
     try:
-        # 1. 向旧Pod发送SIGUSR1信号，触发优雅迁移
+        # 1. PodSIGUSR1
         print(f"[MIGRATION] Sending SIGUSR1 to {old_pod_name}")
         send_signal_to_pod(old_pod_name, "SIGUSR1")
         
-        # 2. 等待Checkpoint保存（最多30秒）
+        # 2. Checkpoint30
         await asyncio.sleep(5)
         
-        # 3. 创建新Pod
+        # 3. Pod
         new_pod_name = f"hermes-job-{job_id}-migrated"
         create_training_pod(new_pod_name, job["name"], job["gpu_count"], job_id)
         
-        # 4. 等待新Pod启动
+        # 4. Pod
         await asyncio.sleep(10)
         
-        # 5. 删除旧Pod
+        # 5. Pod
         try:
             v1.delete_namespaced_pod(name=old_pod_name, namespace="default")
         except ApiException as e:
@@ -252,7 +252,7 @@ async def migrate_job(job_id: str, target_node: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
 
 def send_signal_to_pod(pod_name, signal_name):
-    """向Pod发送信号"""
+    """Pod"""
     import subprocess
     subprocess.run([
         "kubectl", "exec", pod_name, "-n", "default", "--",
@@ -260,10 +260,10 @@ def send_signal_to_pod(pod_name, signal_name):
     ], capture_output=True)
 
 async def check_and_migrate():
-    """定期检查节点故障概率并触发迁移"""
+    """"""
     while True:
         try:
-            # 获取所有节点的故障概率
+            # 
             response = requests.get(f"{FAULT_PREDICTOR_URL}/nodes")
             if response.status_code == 200:
                 nodes = response.json().get("nodes", {})
@@ -274,7 +274,7 @@ async def check_and_migrate():
                     if probability >= MIGRATION_THRESHOLD:
                         print(f"[PROACTIVE] Node {node_id} has fault probability {probability:.2f}, triggering migration")
                         
-                        # 找到该节点上运行的作业
+                        # 
                         jobs_on_node = [
                             job for job in jobs.values()
                             if job["node_id"] == node_id and job["status"] == "RUNNING"
@@ -283,7 +283,7 @@ async def check_and_migrate():
                         for job in jobs_on_node:
                             await migrate_job(job["job_id"])
             
-            await asyncio.sleep(30)  # 每30秒检查一次
+            await asyncio.sleep(30)  # 30
         
         except Exception as e:
             print(f"[PROACTIVE] Error checking nodes: {e}")
@@ -291,7 +291,7 @@ async def check_and_migrate():
 
 @app.post("/trigger_proactive_check")
 async def trigger_proactive_check():
-    """手动触发主动检查"""
+    """"""
     await check_and_migrate()
     return {"message": "Proactive check completed"}
 
@@ -335,10 +335,10 @@ async def delete_job(job_id: str):
 
 @app.on_event("startup")
 async def startup_event():
-    """启动时初始化"""
+    """"""
     print("[SCHEDULER] Starting Hermes Scheduler with Proactive Migration")
     
-    # 启动主动迁移检查任务
+    # 
     asyncio.create_task(check_and_migrate())
     print("[SCHEDULER] Proactive migration checker started")
 

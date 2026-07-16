@@ -2,7 +2,7 @@
 """
 Hermes Unified Congestion Benchmark
 
-模拟网络拥塞与动态带宽调整策略
+
 """
 
 import argparse
@@ -21,21 +21,21 @@ except ImportError:
 
 @dataclass
 class CongestionConfig:
-    """拥塞模拟配置"""
+    """"""
     num_workers: int = 4
     model_size_mb: float = 40.0
     compute_time_per_worker: float = 0.02
     base_bandwidth_mb_s: float = 100.0
     latency: float = 0.0001
     initial_compression_ratio: float = 0.1
-    congestion_threshold: float = 50.0  # MB/s，超过此阈值开始拥塞
-    congestion_decay: float = 0.5  # 拥塞时带宽衰减比例
+    congestion_threshold: float = 50.0  # MB/s
+    congestion_decay: float = 0.5  # 
     simulation_steps: int = 50
-    congestion_probability: float = 0.2  # 每步发生拥塞的概率
+    congestion_probability: float = 0.2  # 
 
 
 class CongestionSimulator:
-    """网络拥塞模拟器"""
+    """"""
     
     def __init__(self, config: CongestionConfig):
         self.config = config
@@ -48,7 +48,7 @@ class CongestionSimulator:
         self.step_count = 0
     
     def compute_communication_time(self, compression_ratio: float) -> float:
-        """计算通信时间"""
+        """"""
         if self.config.num_workers <= 1:
             return 0.0
         
@@ -59,11 +59,11 @@ class CongestionSimulator:
         return comm_time + base_latency
     
     def simulate_static_compression(self) -> List[Dict]:
-        """模拟静态压缩策略（压缩率固定）"""
+        """"""
         results = []
         
         for step in range(self.config.simulation_steps):
-            # 随机发生拥塞
+            # 
             if random.random() < self.config.congestion_probability:
                 self.current_bandwidth = self.config.base_bandwidth_mb_s * self.config.congestion_decay
                 self.congested = True
@@ -71,7 +71,7 @@ class CongestionSimulator:
                 self.current_bandwidth = self.config.base_bandwidth_mb_s
                 self.congested = False
             
-            # 静态压缩：压缩率不变
+            # 
             compression_ratio = self.config.initial_compression_ratio
             
             comm_time = self.compute_communication_time(compression_ratio)
@@ -91,21 +91,21 @@ class CongestionSimulator:
         return results
     
     def simulate_dynamic_compression(self) -> List[Dict]:
-        """模拟动态压缩策略（根据拥塞调整压缩率）"""
+        """"""
         results = []
         current_compression = self.config.initial_compression_ratio
         
         for step in range(self.config.simulation_steps):
-            # 随机发生拥塞
+            # 
             if random.random() < self.config.congestion_probability:
                 self.current_bandwidth = self.config.base_bandwidth_mb_s * self.config.congestion_decay
                 self.congested = True
-                # 拥塞时提高压缩率（减少数据量）
+                # 
                 current_compression = max(0.05, current_compression * 0.7)
             else:
                 self.current_bandwidth = self.config.base_bandwidth_mb_s
                 self.congested = False
-                # 非拥塞时逐渐恢复压缩率
+                # 
                 current_compression = min(self.config.initial_compression_ratio, current_compression * 1.1)
             
             comm_time = self.compute_communication_time(current_compression)
@@ -125,11 +125,11 @@ class CongestionSimulator:
         return results
     
     def run_comparison(self) -> Dict:
-        """运行静态 vs 动态压缩对比"""
+        """ vs """
         static_results = self.simulate_static_compression()
         dynamic_results = self.simulate_dynamic_compression()
         
-        # 计算统计指标
+        # 
         static_throughputs = [r['throughput'] for r in static_results]
         dynamic_throughputs = [r['throughput'] for r in dynamic_results]
         
@@ -157,7 +157,7 @@ class CongestionSimulator:
 
 
 def print_results(results: Dict):
-    """打印结果"""
+    """"""
     print("=" * 80)
     print("Network Congestion and Dynamic Compression Study")
     print("=" * 80)
@@ -168,7 +168,7 @@ def print_results(results: Dict):
     print(f"Initial Compression: {results['config']['initial_compression']*100:.0f}%")
     print("=" * 80)
     
-    # 打印统计数据
+    # 
     stats = results['statistics']
     print("\n--- Statistics ---")
     print(f"{'Metric':<30} {'Static':<15} {'Dynamic':<15}")
@@ -178,7 +178,7 @@ def print_results(results: Dict):
     print(f"{'Maximum Throughput':<30} {stats['static_max_throughput']:<15.2f} {stats['dynamic_max_throughput']:<15.2f}")
     print(f"{'Std Deviation':<30} {stats['static_std_throughput']:<15.2f} {stats['dynamic_std_throughput']:<15.2f}")
     
-    # 计算改进
+    # 
     improvement = (stats['dynamic_avg_throughput'] - stats['static_avg_throughput']) / stats['static_avg_throughput'] * 100
     stability_improvement = (stats['static_std_throughput'] - stats['dynamic_std_throughput']) / stats['static_std_throughput'] * 100
     
@@ -188,14 +188,14 @@ def print_results(results: Dict):
 
 
 def plot_results(results: Dict):
-    """绘制结果图表"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         print("\nMatplotlib not installed, skipping plot generation")
         return
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
     
-    # 吞吐量对比
+    # 
     steps = [r['step'] for r in results['static_compression']]
     static_throughput = [r['throughput'] for r in results['static_compression']]
     dynamic_throughput = [r['throughput'] for r in results['dynamic_compression']]
@@ -208,7 +208,7 @@ def plot_results(results: Dict):
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
-    # 压缩率变化
+    # 
     dynamic_compression = [r['compression_ratio'] for r in results['dynamic_compression']]
     
     ax2.plot(steps, dynamic_compression, label='Compression Ratio', color='red')
@@ -236,7 +236,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建配置
+    # 
     config = CongestionConfig(
         num_workers=args.workers,
         model_size_mb=args.model_size,
@@ -245,15 +245,15 @@ def main():
         congestion_probability=args.congestion_prob
     )
     
-    # 运行模拟
+    # 
     simulator = CongestionSimulator(config)
     results = simulator.run_comparison()
     
-    # 输出结果
+    # 
     print_results(results)
     plot_results(results)
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)

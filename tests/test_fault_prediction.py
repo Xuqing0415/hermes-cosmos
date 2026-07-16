@@ -10,12 +10,12 @@ from hermes.fault_prediction.predictor import FaultPredictor, GPUMetrics
 
 
 class TestFaultPredictor:
-    """测试故障预测器"""
+    """"""
 
     @patch('onnxruntime.InferenceSession')
     def test_predict_output_range(self, mock_session):
-        """测试预测输出概率范围在 [0, 1] 之间"""
-        # 配置mock
+        """ [0, 1] """
+        # mock
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         mock_session.return_value.run.return_value = [np.array([[[0.75]]], dtype=np.float32)]
@@ -37,7 +37,7 @@ class TestFaultPredictor:
 
     @patch('onnxruntime.InferenceSession')
     def test_predict_boundary_values(self, mock_session):
-        """测试边界值输入时的输出"""
+        """"""
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         mock_session.return_value.run.return_value = [np.array([[[1.5]]], dtype=np.float32)]
@@ -59,7 +59,7 @@ class TestFaultPredictor:
 
     @patch('onnxruntime.InferenceSession')
     def test_predict_negative_boundary(self, mock_session):
-        """测试负边界值输入时的输出"""
+        """"""
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         mock_session.return_value.run.return_value = [np.array([[[-0.5]]], dtype=np.float32)]
@@ -81,7 +81,7 @@ class TestFaultPredictor:
 
     @patch('onnxruntime.InferenceSession')
     def test_get_risk_level(self, mock_session):
-        """测试风险等级划分"""
+        """"""
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         
@@ -97,13 +97,13 @@ class TestFaultPredictor:
 
     @patch('onnxruntime.InferenceSession')
     def test_normalize(self, mock_session):
-        """测试归一化函数"""
+        """"""
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         
         predictor = FaultPredictor(model_path="dummy.onnx")
         
-        # 测试均值处的值应该归一化为0
+        # 0
         input_data = np.array([70.0, 150.0, 80.0, 75.0, 0.5, 60.0], dtype=np.float32)
         normalized = predictor.normalize(input_data)
         
@@ -111,7 +111,7 @@ class TestFaultPredictor:
 
     @patch('onnxruntime.InferenceSession')
     def test_predict_consistency(self, mock_session):
-        """测试相同输入的预测结果一致性"""
+        """"""
         mock_session.return_value.get_inputs.return_value = [Mock(name='input')]
         mock_session.return_value.get_outputs.return_value = [Mock(name='output')]
         mock_session.return_value.run.return_value = [np.array([[[0.65]]], dtype=np.float32)]

@@ -1,5 +1,5 @@
 """
-记忆重放客户端实现
+
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ReplayClient:
     """
-    记忆重放客户端
+    
     """
 
     def __init__(self, client_id: int,
@@ -34,7 +34,7 @@ class ReplayClient:
         logger.info(f"Replay Client {client_id} initialized")
 
     def update_memory(self, X: np.ndarray, y: np.ndarray):
-        """更新记忆缓冲区"""
+        """"""
         for c in range(self.num_classes):
             mask = y == c
             X_c = X[mask]
@@ -61,7 +61,7 @@ class ReplayClient:
         self._trim_buffer()
 
     def _get_class_from_buffer(self, target_class: int) -> Tuple[np.ndarray, np.ndarray]:
-        """从缓冲区获取特定类别的样本"""
+        """"""
         X_selected = []
         y_selected = []
 
@@ -75,7 +75,7 @@ class ReplayClient:
         return np.array([]), np.array([])
 
     def _trim_buffer(self):
-        """淘汰多余样本"""
+        """"""
         total_size = len(self.memory_buffer_X)
 
         if total_size > self.buffer_size:
@@ -91,7 +91,7 @@ class ReplayClient:
             self.memory_buffer_y = new_y
 
     def get_replay_samples(self) -> Tuple[np.ndarray, np.ndarray]:
-        """获取重放样本"""
+        """"""
         if not self.memory_buffer_X:
             return np.array([]), np.array([])
 
@@ -101,7 +101,7 @@ class ReplayClient:
                   num_epochs: int = 5,
                   lr: float = 0.01,
                   replay_ratio: float = 0.3) -> Dict[str, float]:
-        """本地训练"""
+        """"""
         self.update_memory(X, y)
 
         replay_X, replay_y = self.get_replay_samples()
@@ -127,7 +127,7 @@ class ReplayClient:
 
     def _train_batch(self, X: np.ndarray, y: np.ndarray,
                    num_epochs: int, lr: float) -> Dict[str, float]:
-        """标准批量训练"""
+        """"""
         n_samples = len(y)
 
         for epoch in range(num_epochs):
@@ -147,12 +147,12 @@ class ReplayClient:
         return {'loss': loss}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """预测"""
+        """"""
         logits = X @ self.weights + self.bias
         return np.argmax(logits, axis=1)
 
     def get_parameters(self) -> Dict[str, np.ndarray]:
-        """获取模型参数"""
+        """"""
         return {
             'weights': self.weights.copy(),
             'bias': self.bias.copy()
@@ -165,7 +165,7 @@ class ReplayClient:
 
 
 class GenerativeReplayClient(ReplayClient):
-    """生成式重放客户端"""
+    """"""
 
     def __init__(self, client_id: int,
                  num_features: int,
@@ -183,7 +183,7 @@ class GenerativeReplayClient(ReplayClient):
 
     def train_generator(self, X: np.ndarray, y: np.ndarray,
                       num_epochs: int = 10, lr: float = 0.01):
-        """训练生成器"""
+        """"""
         n_samples = len(X)
 
         for epoch in range(num_epochs):
@@ -200,7 +200,7 @@ class GenerativeReplayClient(ReplayClient):
 
     def generate_pseudo_samples(self, target_class: int,
                               num_samples: int = 50) -> Tuple[np.ndarray, np.ndarray]:
-        """为指定类别生成伪样本"""
+        """"""
         noise = np.random.randn(num_samples, self.latent_dim)
 
         class_offset = np.zeros(self.latent_dim)
@@ -215,7 +215,7 @@ class GenerativeReplayClient(ReplayClient):
         return generated, labels
 
     def get_replay_samples(self) -> Tuple[np.ndarray, np.ndarray]:
-        """获取重放样本"""
+        """"""
         all_X = []
         all_y = []
 

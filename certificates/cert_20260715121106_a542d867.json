@@ -1,0 +1,58 @@
+{
+  "id": "cert_20260715121106_a542d867",
+  "created_at": "2026-07-15T12:11:06.106138",
+  "updated_at": "2026-07-15T12:11:06.106486",
+  "results": [
+    {
+      "id": "(= b 0)",
+      "smt_expression": "(= b 0)",
+      "status": "disproven",
+      "model": {
+        "b": "0"
+      },
+      "certificate": null,
+      "duration": 8.58306884765625e-06,
+      "error_message": null,
+      "target_info": {
+        "function_name": "safe_divide",
+        "risk_score": 0.59,
+        "priority": 5
+      },
+      "timestamp": "2026-07-15T12:11:06.106148"
+    },
+    {
+      "id": "(not (= b 0))",
+      "smt_expression": "(not (= b 0))",
+      "status": "proven",
+      "model": null,
+      "certificate": "Mock proof: division by zero prevented",
+      "duration": 3.5762786865234375e-06,
+      "error_message": null,
+      "target_info": {
+        "function_name": "safe_divide",
+        "risk_score": 0.57125,
+        "priority": 5
+      },
+      "timestamp": "2026-07-15T12:11:06.106219"
+    }
+  ],
+  "tests": [
+    {
+      "id": "test_4319a716",
+      "function_name": "safe_divide",
+      "inputs": {
+        "b": 0
+      },
+      "expected_output": null,
+      "assertion": "assert not ((= b 0)), 'Condition should not be true'",
+      "description": "Test for safe_divide - disproven path: (= b 0)..."
+    }
+  ],
+  "statistics": {
+    "total": 2,
+    "proven": 1,
+    "disproven": 1,
+    "unknown": 0,
+    "timeout": 0
+  }
+}

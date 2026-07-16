@@ -185,7 +185,7 @@ def run_online_demo():
         import torch
         
         print("\n1. Checking torch installation...")
-        print(f"   ✓ torch version: {torch.__version__}")
+        print(f"    torch version: {torch.__version__}")
         
         print("\n2. Testing Core Components Import:")
         
@@ -193,30 +193,30 @@ def run_online_demo():
             from hermes_unified.federated_online.drift_detector import (
                 CUSUMDetector, ADWINDetector, DriftDetectorEnsemble
             )
-            print("   ✓ Drift detectors imported")
+            print("    Drift detectors imported")
         except Exception as e:
-            print(f"   ✗ Drift detectors import failed: {e}")
+            print(f"    Drift detectors import failed: {e}")
             return
         
         try:
             from hermes_unified.federated_online.online_client import OnlineClient
-            print("   ✓ OnlineClient imported")
+            print("    OnlineClient imported")
         except Exception as e:
-            print(f"   ✗ OnlineClient import failed: {e}")
+            print(f"    OnlineClient import failed: {e}")
             return
         
         try:
             from hermes_unified.federated_online.online_server import OnlineServer
-            print("   ✓ OnlineServer imported")
+            print("    OnlineServer imported")
         except Exception as e:
-            print(f"   ✗ OnlineServer import failed: {e}")
+            print(f"    OnlineServer import failed: {e}")
             return
         
         try:
             from hermes_unified.federated_online.fomaml import FOMAMLClient, FOMAMLServer
-            print("   ✓ FOMAML components imported")
+            print("    FOMAML components imported")
         except Exception as e:
-            print(f"   ✗ FOMAML import failed: {e}")
+            print(f"    FOMAML import failed: {e}")
             return
         
         print("\n3. Testing Component Functionality:")
@@ -226,24 +226,24 @@ def run_online_demo():
             detector = CUSUMDetector(threshold=5.0)
             for i in range(100):
                 detector.update(0.1)
-            print("   ✓ CUSUM detector initialized")
+            print("    CUSUM detector initialized")
         except Exception as e:
-            print(f"   ✗ DriftDetector failed: {e}")
+            print(f"    DriftDetector failed: {e}")
         
         try:
             print("   Testing OnlineClient...")
             model = torch.nn.Linear(10, 1)
             client = OnlineClient(0, model, torch.nn.MSELoss())
-            print(f"   ✓ OnlineClient created")
+            print(f"    OnlineClient created")
         except Exception as e:
-            print(f"   ✗ OnlineClient failed: {e}")
+            print(f"    OnlineClient failed: {e}")
         
         try:
             print("   Testing OnlineServer...")
             server = OnlineServer(torch.nn.Linear(10, 1))
-            print(f"   ✓ OnlineServer created")
+            print(f"    OnlineServer created")
         except Exception as e:
-            print(f"   ✗ OnlineServer failed: {e}")
+            print(f"    OnlineServer failed: {e}")
         
         try:
             print("   Testing FederatedOnlineLearning...")
@@ -253,16 +253,16 @@ def run_online_demo():
                 num_clients=3,
                 batch_size=5
             )
-            print(f"   ✓ FederatedOnlineLearning created with {len(fol.clients)} clients")
+            print(f"    FederatedOnlineLearning created with {len(fol.clients)} clients")
         except Exception as e:
-            print(f"   ✗ FederatedOnlineLearning failed: {e}")
+            print(f"    FederatedOnlineLearning failed: {e}")
         
-        print("\n✓ Federated Online Learning demo completed!")
+        print("\n Federated Online Learning demo completed!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in demo: {e}")
+        print(f" Error in demo: {e}")
         import traceback
         traceback.print_exc()
 

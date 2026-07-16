@@ -236,9 +236,9 @@ def print_comparison_summary(results_edge, results_cloud):
     print(f"Difference: {diff:.4f}")
     
     if edge_final > cloud_final * 0.95:
-        print("✓ Cloud-edge performance is within 5% of cloud-only!")
+        print(" Cloud-edge performance is within 5% of cloud-only!")
     else:
-        print("⚠️  Cloud-edge performance is significantly worse")
+        print("  Cloud-edge performance is significantly worse")
     
     print("\n2. TRAINING TIME")
     print("-" * 30)

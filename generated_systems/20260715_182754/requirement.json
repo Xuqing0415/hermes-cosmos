@@ -1,0 +1,29 @@
+{
+  "name": "GenericService",
+  "description": "实现 http 计数器服务，两个操作：post /inc 增加计数；get /get 返回当前值。要求并发调用不会丢失更新。",
+  "entities": [],
+  "operations": [
+    {
+      "name": "read",
+      "operation_type": "read",
+      "endpoint": "/read",
+      "method": "GET",
+      "parameters": [],
+      "returns": "",
+      "description": ""
+    }
+  ],
+  "constraints": [
+    {
+      "name": "No Lost Updates",
+      "constraint_type": "no_lost_updates",
+      "description": "Constraint: no lost updates",
+      "properties": {}
+    }
+  ],
+  "language": "python",
+  "framework": "flask",
+  "notes": [
+    "Generic parsing template"
+  ]
+}

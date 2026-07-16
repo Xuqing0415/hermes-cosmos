@@ -1,5 +1,5 @@
 """
-半监督学习客户端
+
 """
 
 import numpy as np
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class PseudoLabelFilter:
-    """伪标签过滤器"""
+    """"""
 
     def __init__(self, initial_threshold: float = 0.9,
                  final_threshold: float = 0.95,
@@ -22,7 +22,7 @@ class PseudoLabelFilter:
         self.current_round = 0
 
     def update_threshold(self, round_num: int):
-        """随着训练进展提高阈值"""
+        """"""
         if round_num < self.warmup_rounds:
             self.threshold = self.initial_threshold
         else:
@@ -30,7 +30,7 @@ class PseudoLabelFilter:
             self.threshold = self.initial_threshold + progress * (self.final_threshold - self.initial_threshold)
 
     def filter_pseudo_labels(self, probs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """筛选高置信度样本"""
+        """"""
         max_probs = np.max(probs, axis=1)
         pseudo_labels = np.argmax(probs, axis=1)
 
@@ -40,7 +40,7 @@ class PseudoLabelFilter:
 
 
 class ConsistencyRegularizer:
-    """一致性正则化"""
+    """"""
 
     def __init__(self, strength: float = 1.0):
         self.strength = strength
@@ -48,7 +48,7 @@ class ConsistencyRegularizer:
     def compute_consistency_loss(self,
                                weak_probs: np.ndarray,
                                strong_probs: np.ndarray) -> float:
-        """计算一致性损失 (KL 散度)"""
+        """ (KL )"""
         eps = 1e-10
 
         kl_div = np.sum(weak_probs * np.log(weak_probs / (strong_probs + eps) + eps), axis=1)
@@ -56,14 +56,14 @@ class ConsistencyRegularizer:
         return self.strength * np.mean(kl_div)
 
     def augment_weak(self, X: np.ndarray) -> np.ndarray:
-        """弱增强：随机翻转"""
+        """"""
         X_aug = X.copy()
         flip_mask = np.random.rand(len(X)) > 0.5
         X_aug[flip_mask] = -X_aug[flip_mask]
         return X_aug
 
     def augment_strong(self, X: np.ndarray) -> np.ndarray:
-        """强增强：随机噪声 + 随机翻转"""
+        """ + """
         X_aug = X.copy()
 
         flip_mask = np.random.rand(len(X)) > 0.5
@@ -77,9 +77,9 @@ class ConsistencyRegularizer:
 
 class SemiSupervisedClient:
     """
-    联邦半监督学习客户端
+    
 
-    实现 MixMatch/FixMatch 风格的一致性正则化
+     MixMatch/FixMatch 
     """
 
     def __init__(self, client_id: int,
@@ -106,7 +106,7 @@ class SemiSupervisedClient:
 
     def set_data(self, X_labeled: np.ndarray, y_labeled: np.ndarray,
                 X_unlabeled: np.ndarray):
-        """设置有标签和无标签数据"""
+        """"""
         self.X_labeled = X_labeled
         self.y_labeled = y_labeled
         self.X_unlabeled = X_unlabeled
@@ -114,12 +114,12 @@ class SemiSupervisedClient:
         logger.info(f"Client {self.client_id}: {len(X_labeled)} labeled, {len(X_unlabeled)} unlabeled")
 
     def set_model_parameters(self, weights: np.ndarray, bias: np.ndarray):
-        """设置模型参数"""
+        """"""
         self.weights = weights.copy()
         self.bias = bias.copy()
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """预测概率"""
+        """"""
         logits = X @ self.weights + self.bias
         return self._softmax(logits)
 
@@ -127,7 +127,7 @@ class SemiSupervisedClient:
                   num_epochs: int = 5,
                   lr: float = 0.01,
                   round_num: int = 0) -> Dict[str, float]:
-        """本地半监督训练"""
+        """"""
         self.pseudo_filter.update_threshold(round_num)
 
         if self.X_labeled is not None and len(self.X_labeled) > 0:
@@ -150,7 +150,7 @@ class SemiSupervisedClient:
 
     def _supervised_loss(self, X: np.ndarray, y: np.ndarray,
                        lr: float, num_epochs: int) -> Tuple[float, float]:
-        """有标签数据的监督损失"""
+        """"""
         for epoch in range(num_epochs):
             probs = self.predict_proba(X)
 
@@ -170,7 +170,7 @@ class SemiSupervisedClient:
         return loss, accuracy
 
     def _unsupervised_loss(self, round_num: int) -> float:
-        """无标签数据的一致性正则化损失"""
+        """"""
         X_unlabeled = self.X_unlabeled
 
         probs = self.predict_proba(X_unlabeled)
@@ -196,7 +196,7 @@ class SemiSupervisedClient:
         return consistency_loss + 0.5 * pseudo_loss
 
     def get_parameters(self) -> Dict[str, np.ndarray]:
-        """获取模型参数"""
+        """"""
         return {
             'weights': self.weights.copy(),
             'bias': self.bias.copy()
@@ -208,7 +208,7 @@ class SemiSupervisedClient:
 
 
 class SemiSupervisedServer:
-    """半监督学习服务器"""
+    """"""
 
     def __init__(self, num_features: int, num_classes: int = 10):
         self.num_features = num_features
@@ -219,7 +219,7 @@ class SemiSupervisedServer:
 
     def aggregate(self, client_updates: List[Dict],
                 client_weights: Optional[List[float]] = None) -> Dict[str, np.ndarray]:
-        """聚合客户端更新"""
+        """"""
         if client_weights is None:
             client_weights = [1.0 / len(client_updates)] * len(client_updates)
 
@@ -249,7 +249,7 @@ class SemiSupervisedServer:
 
 
 def run_semi_supervised_demo():
-    """运行半监督学习演示"""
+    """"""
     print("=" * 70)
     print("FEDERATED SEMI-SUPERVISED LEARNING DEMO")
     print("=" * 70)

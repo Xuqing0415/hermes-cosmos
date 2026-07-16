@@ -2,11 +2,11 @@
 """
 Hermes Unified Simulation Framework
 
-整合所有模拟功能：
-1. 异构 Worker 负载均衡
-2. 通信与计算重叠优化
-3. 网络拥塞与动态压缩
-4. 自适应通信协议切换
+
+1.  Worker 
+2. 
+3. 
+4. 
 """
 
 from .core import SimulationConfig, DistributedSimulator

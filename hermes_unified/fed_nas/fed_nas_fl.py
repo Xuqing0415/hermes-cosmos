@@ -287,33 +287,33 @@ def run_fednas_demo():
         import torch
         
         print("\n1. Checking torch installation...")
-        print(f"   ✓ torch version: {torch.__version__}")
+        print(f"    torch version: {torch.__version__}")
         
         print("\n2. Testing Core Components Import:")
         
         try:
             from hermes_unified.fed_nas.supernet import SuperNet, DartsSearchSpace
-            print("   ✓ SuperNet and SearchSpace imported")
+            print("    SuperNet and SearchSpace imported")
         except Exception as e:
-            print(f"   ✗ SuperNet import failed: {e}")
+            print(f"    SuperNet import failed: {e}")
             return
         
         try:
             from hermes_unified.fed_nas.subnet_extractor import (
                 SubnetExtractor, ResourceEvaluator
             )
-            print("   ✓ SubnetExtractor imported")
+            print("    SubnetExtractor imported")
         except Exception as e:
-            print(f"   ✗ SubnetExtractor import failed: {e}")
+            print(f"    SubnetExtractor import failed: {e}")
             return
         
         try:
             from hermes_unified.fed_nas.local_search import (
                 EvolutionarySearch, SearchFactory
             )
-            print("   ✓ Local search imported")
+            print("    Local search imported")
         except Exception as e:
-            print(f"   ✗ Local search import failed: {e}")
+            print(f"    Local search import failed: {e}")
             return
         
         print("\n3. Testing Component Functionality:")
@@ -324,31 +324,31 @@ def run_fednas_demo():
             supernet = SuperNet(search_space, num_classes=10)
             dummy_input = torch.randn(2, 3, 32, 32)
             output = supernet(dummy_input)
-            print(f"   ✓ SuperNet created, output shape: {output.shape}")
+            print(f"    SuperNet created, output shape: {output.shape}")
         except Exception as e:
-            print(f"   ✗ SuperNet failed: {e}")
+            print(f"    SuperNet failed: {e}")
         
         try:
             print("   Testing ResourceEvaluator...")
             evaluator = ResourceEvaluator()
             resources = evaluator.evaluate(supernet, (3, 32, 32))
-            print(f"   ✓ Resource evaluation: FLOPs={resources['flops']:.2e}")
+            print(f"    Resource evaluation: FLOPs={resources['flops']:.2e}")
         except Exception as e:
-            print(f"   ✗ ResourceEvaluator failed: {e}")
+            print(f"    ResourceEvaluator failed: {e}")
         
         try:
             print("   Testing FederatedNAS...")
             fednas = FederatedNAS(search_space, num_clients=3)
-            print(f"   ✓ FederatedNAS created with {fednas.num_clients} clients")
+            print(f"    FederatedNAS created with {fednas.num_clients} clients")
         except Exception as e:
-            print(f"   ✗ FederatedNAS failed: {e}")
+            print(f"    FederatedNAS failed: {e}")
         
-        print("\n✓ Federated Neural Architecture Search demo completed!")
+        print("\n Federated Neural Architecture Search demo completed!")
         
     except ImportError as e:
-        print(f"⚠️ Import error: {e}")
+        print(f" Import error: {e}")
     except Exception as e:
-        print(f"⚠️ Error in demo: {e}")
+        print(f" Error in demo: {e}")
         import traceback
         traceback.print_exc()
 

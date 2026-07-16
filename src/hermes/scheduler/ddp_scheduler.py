@@ -1,6 +1,6 @@
 """
-Hermes Distributed Scheduler - 分布式训练容错版
-支持PyTorch DDP多Pod故障恢复
+Hermes Distributed Scheduler - 
+PyTorch DDPPod
 """
 
 from fastapi import FastAPI, HTTPException
@@ -12,13 +12,13 @@ import threading
 import json
 from uuid import uuid4
 
-# K8s客户端
+# K8s
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
 
 app = FastAPI(title="Hermes Distributed Scheduler", version="2.0")
 
-# 加载K8s配置
+# K8s
 try:
     config.load_kube_config()
 except Exception:
@@ -27,7 +27,7 @@ except Exception:
 v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
 
-# 作业状态存储
+# 
 jobs: Dict[str, dict] = {}
 
 class DDPJobRequest(BaseModel):
@@ -44,10 +44,10 @@ async def health_check():
 
 @app.post("/ddp/jobs")
 async def submit_ddp_job(job: DDPJobRequest):
-    """提交分布式训练作业"""
+    """"""
     job_id = str(uuid4())[:8]
     
-    # 创建StatefulSet
+    # StatefulSet
     try:
         create_ddp_statefulset(job_id, job.name, job.num_replicas, job.image)
     except Exception as e:
@@ -69,14 +69,14 @@ async def submit_ddp_job(job: DDPJobRequest):
     }
     jobs[job_id] = job_data
     
-    print(f"[DDP] 作业 {job_id} 创建成功，副本数: {job.num_replicas}")
+    print(f"[DDP]  {job_id} : {job.num_replicas}")
     return job_data
 
 def create_ddp_statefulset(job_id, name, num_replicas, image):
-    """创建DDP训练StatefulSet"""
+    """DDPStatefulSet"""
     statefulset_name = f"ddp-{job_id}"
     
-    # 环境变量
+    # 
     env = [
         client.V1EnvVar(name="RANK", valueFrom=client.V1EnvVarSource(
             field_ref=client.V1ObjectFieldSelector(field_path="metadata.name")
@@ -89,7 +89,7 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
         client.V1EnvVar(name="REDIS_PORT", value="6379")
     ]
     
-    # 容器定义
+    # 
     container = client.V1Container(
         name="trainer",
         image=image,
@@ -105,7 +105,7 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
         )
     )
     
-    # Pod模板
+    # Pod
     pod_spec = client.V1PodSpec(
         containers=[container],
         volumes=[client.V1Volume(
@@ -117,7 +117,7 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
         restart_policy="OnFailure"
     )
     
-    # StatefulSet定义
+    # StatefulSet
     statefulset = client.V1StatefulSet(
         metadata=client.V1ObjectMeta(
             name=statefulset_name,
@@ -151,7 +151,7 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
         )
     )
     
-    # 先创建Headless Service
+    # Headless Service
     service = client.V1Service(
         metadata=client.V1ObjectMeta(name=statefulset_name),
         spec=client.V1ServiceSpec(
@@ -168,7 +168,7 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
 
 @app.post("/ddp/jobs/{job_id}/recover")
 async def recover_ddp_job(job_id: str):
-    """恢复分布式训练作业"""
+    """"""
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
@@ -178,20 +178,20 @@ async def recover_ddp_job(job_id: str):
     start_time = time.time()
     
     try:
-        # 1. 暂停训练（发送暂停信号）
+        # 1. 
         pause_training(job_id)
         
-        # 2. 删除StatefulSet（会删除所有Pod）
+        # 2. StatefulSetPod
         apps_v1.delete_namespaced_stateful_set(
             name=statefulset_name,
             namespace="default",
             body=client.V1DeleteOptions(grace_period_seconds=0)
         )
         
-        # 3. 等待Pod删除
+        # 3. Pod
         await asyncio.sleep(5)
         
-        # 4. 重新创建StatefulSet
+        # 4. StatefulSet
         create_ddp_statefulset(
             job_id, 
             job["name"], 
@@ -199,7 +199,7 @@ async def recover_ddp_job(job_id: str):
             "hermes-ddp:latest"
         )
         
-        # 5. 恢复训练（清除暂停信号）
+        # 5. 
         resume_training(job_id)
         
         recovery_time = (time.time() - start_time) * 1000
@@ -209,7 +209,7 @@ async def recover_ddp_job(job_id: str):
         job["last_recovery_time"] = recovery_time
         job["updated_at"] = time.time()
         
-        print(f"[DDP] 作业 {job_id} 恢复完成，耗时: {recovery_time:.0f}ms")
+        print(f"[DDP]  {job_id} : {recovery_time:.0f}ms")
         
         return {
             "message": "DDP job recovered",
@@ -222,18 +222,18 @@ async def recover_ddp_job(job_id: str):
         raise HTTPException(status_code=500, detail=f"Recovery failed: {str(e)}")
 
 def pause_training(job_id):
-    """暂停训练"""
+    """"""
     import redis
     r = redis.Redis(host='redis-service', port=6379)
     r.set("training_paused", "true")
-    print(f"[DDP] 训练暂停信号已发送")
+    print(f"[DDP] ")
 
 def resume_training(job_id):
-    """恢复训练"""
+    """"""
     import redis
     r = redis.Redis(host='redis-service', port=6379)
     r.set("training_paused", "false")
-    print(f"[DDP] 训练恢复信号已发送")
+    print(f"[DDP] ")
 
 @app.get("/ddp/jobs/{job_id}")
 async def get_ddp_job(job_id: str):
@@ -242,7 +242,7 @@ async def get_ddp_job(job_id: str):
     
     job = jobs[job_id]
     
-    # 获取Pod状态
+    # Pod
     try:
         pods = v1.list_namespaced_pod(
             namespace="default",
@@ -269,12 +269,12 @@ async def delete_ddp_job(job_id: str):
     job = jobs[job_id]
     
     try:
-        # 删除StatefulSet
+        # StatefulSet
         apps_v1.delete_namespaced_stateful_set(
             name=job["statefulset_name"],
             namespace="default"
         )
-        # 删除Service
+        # Service
         v1.delete_namespaced_service(
             name=job["statefulset_name"],
             namespace="default"
@@ -285,9 +285,9 @@ async def delete_ddp_job(job_id: str):
     del jobs[job_id]
     return {"message": "DDP job deleted", "job_id": job_id}
 
-# DDP故障监听线程
+# DDP
 def start_ddp_fault_watcher():
-    """监听DDP作业Pod删除事件"""
+    """DDPPod"""
     w = watch.Watch()
     try:
         for event in w.stream(v1.list_namespaced_pod, namespace="default", label_selector="hermes-type=ddp"):
@@ -296,7 +296,7 @@ def start_ddp_fault_watcher():
                 job_id = pod.metadata.labels.get('hermes-job')
                 if job_id and job_id in jobs:
                     print(f"[DDP FAULT] Pod {pod.metadata.name} deleted, recovering job {job_id}")
-                    # 触发恢复（延迟5秒，避免误报）
+                    # 5
                     asyncio.run_coroutine_threadsafe(
                         asyncio.sleep(5) + recover_ddp_job(job_id),
                         asyncio.get_event_loop()
@@ -306,9 +306,9 @@ def start_ddp_fault_watcher():
 
 @app.on_event("startup")
 async def startup_event():
-    """启动时初始化"""
+    """"""
     print("[DDP Scheduler] Starting Hermes Distributed Scheduler")
-    # 启动故障监听线程
+    # 
     threading.Thread(target=start_ddp_fault_watcher, daemon=True).start()
     print("[DDP Scheduler] DDP fault watcher started")
 

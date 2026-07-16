@@ -101,7 +101,7 @@ class FederatedServer:
                     client_size = message.get('client_size', 1)
                     self.clients[client_id] = conn
                     self.client_sizes[client_id] = client_size
-                    print(f"📥 Client {client_id} registered from {addr}")
+                    print(f" Client {client_id} registered from {addr}")
                     
                     # Send global model
                     response = {
@@ -125,10 +125,10 @@ class FederatedServer:
                     conn.send(pickle.dumps(response))
             
         except Exception as e:
-            print(f"❌ Error handling client {addr}: {e}")
+            print(f" Error handling client {addr}: {e}")
         finally:
             conn.close()
-            print(f"🔌 Client {addr} disconnected")
+            print(f" Client {addr} disconnected")
     
     def _compute_update_stats(self, updates: List[np.ndarray]) -> Dict:
         """Compute statistics from collected updates."""
@@ -166,7 +166,7 @@ class FederatedServer:
         selected = self.defense_selector.select_defense(recent)
         
         if selected != self.defense_type:
-            print(f"🔄 Switching defense from {self.defense_type} to {selected}")
+            print(f" Switching defense from {self.defense_type} to {selected}")
             self.defense_type = selected
             self.defense = self.defense_instances.get(selected, self.defense)
         
@@ -195,7 +195,7 @@ class FederatedServer:
             self.round += 1
             
             if self.round % 10 == 0:
-                print(f"🔄 Round {self.round}: Model updated, Defense: {self.defense_type}")
+                print(f" Round {self.round}: Model updated, Defense: {self.defense_type}")
     
     def start(self):
         """Start the server."""
@@ -205,8 +205,8 @@ class FederatedServer:
         self.socket.listen(self.num_clients)
         self.running = True
         
-        print(f"🚀 Federated Server started on {self.host}:{self.port}")
-        print(f"🛡️ Defense: {self.defense_type if self.defense_type else 'None'}")
+        print(f" Federated Server started on {self.host}:{self.port}")
+        print(f" Defense: {self.defense_type if self.defense_type else 'None'}")
         
         self.thread = threading.Thread(target=self._accept_clients, daemon=True)
         self.thread.start()
@@ -216,20 +216,20 @@ class FederatedServer:
         while self.running:
             try:
                 conn, addr = self.socket.accept()
-                print(f"🔌 New connection from {addr}")
+                print(f" New connection from {addr}")
                 client_thread = threading.Thread(target=self._handle_client, 
                                                  args=(conn, addr), daemon=True)
                 client_thread.start()
             except Exception as e:
                 if self.running:
-                    print(f"❌ Accept error: {e}")
+                    print(f" Accept error: {e}")
     
     def stop(self):
         """Stop the server."""
         self.running = False
         if self.socket:
             self.socket.close()
-        print("🛑 Federated Server stopped")
+        print(" Federated Server stopped")
     
     def get_stats(self) -> Dict:
         """Get server statistics."""

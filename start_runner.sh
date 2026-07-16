@@ -1,6 +1,6 @@
 #!/bin/bash
-# Hermes 陪跑作业启动脚本
-# 用于7x24小时持续运行，验证系统稳定性
+# Hermes 
+# 7x24
 
 set -e
 
@@ -18,26 +18,26 @@ log_err() { echo -e "${RED}[ERR]${NC} $1"; }
 HERMES_API_URL="${HERMES_API_URL:-http://localhost:50051}"
 
 echo "=============================================="
-echo "🚀 Hermes 陪跑作业启动"
+echo " Hermes "
 echo "=============================================="
 echo ""
 
-# 记录开始时间
+# 
 START_TIME=$(date +%Y-%m-%d_%H%M%S)
-echo "开始时间: $START_TIME"
+echo ": $START_TIME"
 echo ""
 
-# 更新日志文件
-echo "## 📅 Day1 - 部署陪跑作业" >> daily_log.md
+# 
+echo "##  Day1 - " >> daily_log.md
 echo "" >> daily_log.md
-echo "**日期**: $(date +%Y-%m-%d)" >> daily_log.md
-echo "**开始时间**: $(date +%H:%M:%S)" >> daily_log.md
+echo "****: $(date +%Y-%m-%d)" >> daily_log.md
+echo "****: $(date +%H:%M:%S)" >> daily_log.md
 echo "" >> daily_log.md
 
-# 启动训练循环作业
-log_info "启动训练循环作业..."
+# 
+log_info "..."
 
-# 创建训练作业配置
+# 
 JOB_CONFIG=$(cat <<EOF
 {
   "name": "hermes-runner-training",
@@ -59,17 +59,17 @@ JOB_CONFIG=$(cat <<EOF
 EOF
 )
 
-echo "提交训练作业..."
+echo "..."
 TRAIN_RESPONSE=$(curl -s -X POST "$HERMES_API_URL/jobs" \
   -H "Content-Type: application/json" \
   -d "$JOB_CONFIG")
 
 echo "$TRAIN_RESPONSE"
 TRAIN_JOB_ID=$(echo "$TRAIN_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['job']['id'])")
-echo "训练作业ID: $TRAIN_JOB_ID"
+echo "ID: $TRAIN_JOB_ID"
 
-# 启动推理服务
-log_info "启动推理服务..."
+# 
+log_info "..."
 
 INFERENCE_CONFIG=$(cat <<EOF
 {
@@ -92,47 +92,47 @@ INFERENCE_CONFIG=$(cat <<EOF
 EOF
 )
 
-echo "提交推理服务..."
+echo "..."
 INFER_RESPONSE=$(curl -s -X POST "$HERMES_API_URL/jobs" \
   -H "Content-Type: application/json" \
   -d "$INFERENCE_CONFIG")
 
 echo "$INFER_RESPONSE"
 INFER_JOB_ID=$(echo "$INFER_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['job']['id'])")
-echo "推理服务ID: $INFER_JOB_ID"
+echo "ID: $INFER_JOB_ID"
 
-# 更新日志
-echo "### 运行状态" >> daily_log.md
-echo "- 训练作业ID: $TRAIN_JOB_ID" >> daily_log.md
-echo "- 推理服务ID: $INFER_JOB_ID" >> daily_log.md
-echo "- 系统启动时间: $(date +%Y-%m-%d %H:%M:%S)" >> daily_log.md
+# 
+echo "### " >> daily_log.md
+echo "- ID: $TRAIN_JOB_ID" >> daily_log.md
+echo "- ID: $INFER_JOB_ID" >> daily_log.md
+echo "- : $(date +%Y-%m-%d %H:%M:%S)" >> daily_log.md
 echo "" >> daily_log.md
 
 echo ""
-log_ok "陪跑作业已启动!"
+log_ok "!"
 echo ""
 echo "=============================================="
-echo "✅ 陪跑作业启动完成!"
+echo " !"
 echo "=============================================="
 echo ""
-echo "📋 作业信息:"
+echo " :"
 echo ""
-echo "  训练作业: $TRAIN_JOB_ID"
-echo "  推理服务: $INFER_JOB_ID"
+echo "  : $TRAIN_JOB_ID"
+echo "  : $INFER_JOB_ID"
 echo ""
-echo "💡 监控命令:"
+echo " :"
 echo ""
-echo "  # 查看作业状态"
+echo "  # "
 echo "  curl $HERMES_API_URL/jobs/$TRAIN_JOB_ID"
 echo "  curl $HERMES_API_URL/jobs/$INFER_JOB_ID"
 echo ""
-echo "  # 查看集群状态"
+echo "  # "
 echo "  curl $HERMES_API_URL/cluster/summary"
 echo ""
-echo "  # Grafana监控"
+echo "  # Grafana"
 echo "  http://localhost:3000"
 echo ""
 
-# 保存作业ID到文件
+# ID
 echo "$TRAIN_JOB_ID" > /tmp/hermes_train_job_id.txt
 echo "$INFER_JOB_ID" > /tmp/hermes_infer_job_id.txt

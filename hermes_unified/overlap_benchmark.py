@@ -2,7 +2,7 @@
 """
 Hermes Unified Overlap Benchmark
 
-模拟通信与计算重叠的动态优化策略
+
 """
 
 import argparse
@@ -20,15 +20,15 @@ except ImportError:
 
 @dataclass
 class OverlapConfig:
-    """重叠模拟配置"""
+    """"""
     num_workers: int = 4
     model_size_mb: float = 40.0
-    compute_time_per_worker: float = 0.02  # 单 worker 纯计算时间
+    compute_time_per_worker: float = 0.02  #  worker 
     bandwidth_mb_s: float = 100.0
     latency: float = 0.0001
     compression_ratio: float = 1.0
-    num_layers: int = 10  # 模型层数（用于分段计算）
-    overlap_factors: List[float] = None  # 要测试的重叠因子列表
+    num_layers: int = 10  # 
+    overlap_factors: List[float] = None  # 
     
     def __post_init__(self):
         if self.overlap_factors is None:
@@ -36,13 +36,13 @@ class OverlapConfig:
 
 
 class OverlapSimulator:
-    """通信与计算重叠模拟器"""
+    """"""
     
     def __init__(self, config: OverlapConfig):
         self.config = config
     
     def compute_communication_time(self) -> float:
-        """计算通信时间（DDP Ring All-Reduce）"""
+        """DDP Ring All-Reduce"""
         if self.config.num_workers <= 1:
             return 0.0
         
@@ -53,11 +53,11 @@ class OverlapSimulator:
         return comm_time + base_latency
     
     def simulate_serial_execution(self) -> Dict:
-        """模拟完全串行执行（重叠因子=0）"""
+        """=0"""
         compute_time = self.config.compute_time_per_worker
         comm_time = self.compute_communication_time()
         
-        # 串行：先计算，再通信
+        # 
         step_time = compute_time + comm_time
         throughput = self.config.num_workers * 64 / step_time
         
@@ -67,15 +67,15 @@ class OverlapSimulator:
             'throughput': throughput,
             'compute_time': compute_time,
             'comm_time': comm_time,
-            'description': '完全串行'
+            'description': ''
         }
     
     def simulate_ideal_overlap(self) -> Dict:
-        """模拟理想完全重叠（重叠因子=1）"""
+        """=1"""
         compute_time = self.config.compute_time_per_worker
         comm_time = self.compute_communication_time()
         
-        # 完全重叠：取最大值
+        # 
         step_time = max(compute_time, comm_time)
         throughput = self.config.num_workers * 64 / step_time
         
@@ -85,37 +85,37 @@ class OverlapSimulator:
             'throughput': throughput,
             'compute_time': compute_time,
             'comm_time': comm_time,
-            'description': '完全重叠'
+            'description': ''
         }
     
     def simulate_partial_overlap(self, overlap_factor: float) -> Dict:
         """
-        模拟部分重叠执行
+        
         
         Args:
-            overlap_factor: 重叠因子（0~1）
+            overlap_factor: 0~1
         
         Returns:
-            results: 模拟结果
+            results: 
         """
         compute_time = self.config.compute_time_per_worker
         comm_time = self.compute_communication_time()
         
-        # 分段计算和通信
+        # 
         num_segments = max(2, int(self.config.num_layers / 2))
         segment_compute_time = compute_time / num_segments
         
-        # 流水线执行
-        # 第一段：只计算
+        # 
+        # 
         total_time = segment_compute_time
         
-        # 中间段：计算和通信重叠
+        # 
         for _ in range(num_segments - 1):
-            # 每段的通信量 = 总通信量 / 段数
+            #  =  / 
             segment_comm_time = (comm_time / num_segments) * (1 - overlap_factor)
             total_time += max(segment_compute_time, segment_comm_time)
         
-        # 最后一段：只通信（剩余的通信）
+        # 
         remaining_comm_time = comm_time * overlap_factor
         total_time += remaining_comm_time
         
@@ -128,32 +128,32 @@ class OverlapSimulator:
             'compute_time': compute_time,
             'comm_time': comm_time,
             'num_segments': num_segments,
-            'description': f'部分重叠 ({overlap_factor*100:.0f}%)'
+            'description': f' ({overlap_factor*100:.0f}%)'
         }
     
     def simulate_dynamic_overlap(self) -> Dict:
         """
-        动态重叠调度策略：根据当前带宽和计算速度自动决定重叠程度
         
-        策略：
-        - 如果通信时间 << 计算时间：减少重叠（专注计算）
-        - 如果通信时间 >> 计算时间：增加重叠（尽可能并行）
-        - 否则：动态调整
+        
+        
+        -  << 
+        -  >> 
+        - 
         """
         compute_time = self.config.compute_time_per_worker
         comm_time = self.compute_communication_time()
         
-        # 根据通信/计算比例决定重叠因子
+        # /
         comm_ratio = comm_time / (compute_time + comm_time)
         
-        # 动态计算最优重叠因子
-        # 当通信比例高时，需要更多重叠
+        # 
+        # 
         dynamic_overlap = min(1.0, max(0.0, 2 * comm_ratio - 0.3))
         
         return self.simulate_partial_overlap(dynamic_overlap)
     
     def run_overlap_study(self) -> Dict:
-        """运行重叠因子研究"""
+        """"""
         results = {
             'config': {
                 'num_workers': self.config.num_workers,
@@ -165,19 +165,19 @@ class OverlapSimulator:
             'dynamic_overlap': None
         }
         
-        # 测试不同重叠因子
+        # 
         for factor in self.config.overlap_factors:
             result = self.simulate_partial_overlap(factor)
             results['fixed_overlap'].append(result)
         
-        # 动态重叠
+        # 
         results['dynamic_overlap'] = self.simulate_dynamic_overlap()
         
         return results
 
 
 def print_results(results: Dict):
-    """打印结果"""
+    """"""
     print("=" * 80)
     print("Communication-Compute Overlap Study")
     print("=" * 80)
@@ -187,7 +187,7 @@ def print_results(results: Dict):
     print(f"Compute Time: {results['config']['compute_time']:.4f} s")
     print("=" * 80)
     
-    # 打印固定重叠因子结果
+    # 
     print("\n--- Fixed Overlap Factors ---")
     print(f"{'Overlap':<10} {'Step Time':<15} {'Throughput':<15} {'Description'}")
     print("-" * 60)
@@ -195,7 +195,7 @@ def print_results(results: Dict):
         print(f"{result['overlap_factor']:<10.1f} {result['step_time']:<15.4f} "
               f"{result['throughput']:<15.2f} {result['description']}")
     
-    # 打印动态重叠结果
+    # 
     print("\n--- Dynamic Overlap ---")
     dynamic = results['dynamic_overlap']
     print(f"Optimal Overlap Factor: {dynamic['overlap_factor']:.3f}")
@@ -203,7 +203,7 @@ def print_results(results: Dict):
     print(f"Throughput: {dynamic['throughput']:.2f} samples/sec")
     print(f"Description: {dynamic['description']}")
     
-    # 计算最优重叠因子
+    # 
     best_result = max(results['fixed_overlap'], key=lambda x: x['throughput'])
     print(f"\n--- Best Fixed Overlap ---")
     print(f"Best Overlap Factor: {best_result['overlap_factor']:.1f}")
@@ -212,26 +212,26 @@ def print_results(results: Dict):
 
 
 def plot_results(results: Dict):
-    """绘制结果图表"""
+    """"""
     if not MATPLOTLIB_AVAILABLE:
         print("\nMatplotlib not installed, skipping plot generation")
         return
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # 提取数据
+    # 
     factors = [r['overlap_factor'] for r in results['fixed_overlap']]
     throughputs = [r['throughput'] for r in results['fixed_overlap']]
     
-    # 绘制吞吐量曲线
+    # 
     ax.plot(factors, throughputs, marker='o', label='Fixed Overlap', color='blue')
     
-    # 标记动态重叠点
+    # 
     dynamic = results['dynamic_overlap']
     ax.scatter(dynamic['overlap_factor'], dynamic['throughput'], 
                color='red', s=100, label='Dynamic Overlap', zorder=5)
     
-    # 标记最优点
+    # 
     best_result = max(results['fixed_overlap'], key=lambda x: x['throughput'])
     ax.scatter(best_result['overlap_factor'], best_result['throughput'],
                color='green', s=100, label='Best Fixed', zorder=5)
@@ -260,7 +260,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建配置
+    # 
     config = OverlapConfig(
         num_workers=args.workers,
         model_size_mb=args.model_size,
@@ -269,15 +269,15 @@ def main():
         num_layers=args.layers
     )
     
-    # 运行模拟
+    # 
     simulator = OverlapSimulator(config)
     results = simulator.run_overlap_study()
     
-    # 输出结果
+    # 
     print_results(results)
     plot_results(results)
     
-    # 保存结果
+    # 
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)

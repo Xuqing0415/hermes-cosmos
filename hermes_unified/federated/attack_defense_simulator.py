@@ -102,8 +102,8 @@ class AttackDefenseSimulator:
             )
             self.malicious_clients.append(malicious_client)
         
-        print(f"🎭 Setup complete: {len(self.honest_clients)} honest clients, {len(self.malicious_clients)} malicious clients")
-        print(f"⚔️ Attack type: {attack_type}")
+        print(f" Setup complete: {len(self.honest_clients)} honest clients, {len(self.malicious_clients)} malicious clients")
+        print(f" Attack type: {attack_type}")
     
     def set_defense(self, defense_type: str = 'trimmed_mean', **kwargs):
         """
@@ -121,7 +121,7 @@ class AttackDefenseSimulator:
             y_trust = np.argmax(X_trust @ np.random.randn(*self.model_shape).T, axis=1)
             self.defense_server.set_trusted_data(X_trust, y_trust)
         
-        print(f"🛡️ Defense enabled: {defense_type}")
+        print(f" Defense enabled: {defense_type}")
     
     def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> Tuple[float, float]:
         """Evaluate global model."""
@@ -144,7 +144,7 @@ class AttackDefenseSimulator:
             local_epochs: Number of local epochs
             attack_start_round: Round when attacks begin
         """
-        print("\n🚀 Starting Attack-Defense Simulation...")
+        print("\n Starting Attack-Defense Simulation...")
         
         # Generate test data
         X_test = np.random.randn(1000, self.model_shape[1])
@@ -158,7 +158,7 @@ class AttackDefenseSimulator:
             
             if is_attack_round and not self.battle_active:
                 self.battle_active = True
-                print(f"\n🔥 ATTACK PHASE STARTED at Round {round_idx}!")
+                print(f"\n ATTACK PHASE STARTED at Round {round_idx}!")
             
             # Select clients
             all_clients = self.honest_clients.copy()
@@ -208,24 +208,24 @@ class AttackDefenseSimulator:
                         'accuracy_drop': acc_drop,
                         'attackers': [c.client_id for c in self.malicious_clients]
                     })
-                    print(f"💀 ATTACK SUCCESSFUL at Round {round_idx}! Accuracy dropped by {acc_drop:.2f}%")
+                    print(f" ATTACK SUCCESSFUL at Round {round_idx}! Accuracy dropped by {acc_drop:.2f}%")
             
             # Print progress
             if round_idx % 10 == 0:
-                status = "⚔️ ATTACK" if is_attack_round else "🔒 SAFE"
+                status = " ATTACK" if is_attack_round else " SAFE"
                 print(f"Round {round_idx} [{status}]: Loss={loss:.4f}, Accuracy={accuracy:.4f}")
         
-        print("\n🏁 Simulation complete!")
+        print("\n Simulation complete!")
         self._generate_battle_report()
     
     def _generate_battle_report(self):
         """Generate a comprehensive battle report."""
         print("\n" + "="*60)
-        print("          📊 FEDERATED LEARNING BATTLE REPORT          ")
+        print("           FEDERATED LEARNING BATTLE REPORT          ")
         print("="*60)
         
         # Attack summary
-        print("\n⚔️ ATTACK SUMMARY")
+        print("\n ATTACK SUMMARY")
         print(f"Total malicious clients: {len(self.malicious_clients)}")
         attack_types = {}
         for c in self.malicious_clients:
@@ -238,7 +238,7 @@ class AttackDefenseSimulator:
         print(f"Successful attacks: {len(self.attack_events)}")
         
         # Defense summary
-        print("\n🛡️ DEFENSE SUMMARY")
+        print("\n DEFENSE SUMMARY")
         if self.defense_server:
             defense_summary = self.defense_server.get_defense_summary()
             print(f"Defense type: {defense_summary['defense_type']}")
@@ -251,19 +251,19 @@ class AttackDefenseSimulator:
         peak_acc = max(self.accuracy_history) if self.accuracy_history else 0
         acc_drop = (peak_acc - final_acc) * 100
         
-        print("\n📈 PERFORMANCE METRICS")
+        print("\n PERFORMANCE METRICS")
         print(f"Final Accuracy: {final_acc:.4f}")
         print(f"Peak Accuracy: {peak_acc:.4f}")
         print(f"Total Accuracy Drop: {acc_drop:.2f}%")
         
         # Battle outcome
-        print("\n🏆 BATTLE OUTCOME")
+        print("\n BATTLE OUTCOME")
         if acc_drop < 10:
-            print("VICTORY! 🎉 Defense successfully mitigated attacks!")
+            print("VICTORY!  Defense successfully mitigated attacks!")
         elif acc_drop < 30:
-            print("STALEMATE ⚔️ Attacks caused some damage but defense held!")
+            print("STALEMATE  Attacks caused some damage but defense held!")
         else:
-            print("DEFEAT 💀 Attacks overwhelmed the defense!")
+            print("DEFEAT  Attacks overwhelmed the defense!")
         
         print("="*60)
     
@@ -282,7 +282,7 @@ class AttackDefenseSimulator:
 
 def run_attack_defense_simulation():
     """Run a complete attack-defense simulation."""
-    print("=== 🔮 Federated Learning Attack-Defense Simulation 🔮 ===")
+    print("===  Federated Learning Attack-Defense Simulation  ===")
     
     # Create simulator
     sim = AttackDefenseSimulator(

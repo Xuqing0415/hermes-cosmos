@@ -104,7 +104,7 @@ class TestDeltaEngine:
 
     @pytest.mark.asyncio
     async def test_delta_compression_decompression_consistency(self, engine: DeltaEngine) -> None:
-        """测试差分压缩/解压后数据一致"""
+        """/"""
         checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
 
         base_data = b"abcdefghijklmnopqrstuvwxyz" * 100
@@ -119,7 +119,7 @@ class TestDeltaEngine:
 
     @pytest.mark.asyncio
     async def test_delta_with_partial_changes(self, engine: DeltaEngine) -> None:
-        """测试部分数据变化时的差分压缩"""
+        """"""
         checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
 
         base_data = b"a" * 8192
@@ -134,7 +134,7 @@ class TestDeltaEngine:
 
     @pytest.mark.asyncio
     async def test_delta_with_same_data(self, engine: DeltaEngine) -> None:
-        """测试相同数据时的差分压缩"""
+        """"""
         checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
 
         data = b"test data" * 1000
@@ -148,7 +148,7 @@ class TestDeltaEngine:
 
     @pytest.mark.asyncio
     async def test_delta_disabled(self, engine: DeltaEngine) -> None:
-        """测试禁用delta时的行为"""
+        """delta"""
         engine.enabled = False
         checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
 
@@ -174,7 +174,7 @@ class TestDeltaEngine:
 
     @pytest.mark.asyncio
     async def test_clear_state(self, engine: DeltaEngine) -> None:
-        """测试清除状态"""
+        """"""
         checkpoint_id = UUID("00000000-0000-0000-0000-000000000001")
 
         data = b"test data"

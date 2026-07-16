@@ -1,11 +1,11 @@
 """
-真实的 AI 训练作业示例 - NanoGPT 风格的小型语言模型训练
-适合在 16-64 GPU 上运行，验证 Hermes 的调度和容错能力
+ AI  - NanoGPT 
+ 16-64 GPU  Hermes 
 
-这是一个简化版的 GPT-like 模型训练脚本，用于测试：
-1. 多卡分布式训练
-2. Hermes Checkpoint 集成
-3. 故障恢复能力
+ GPT-like 
+1. 
+2. Hermes Checkpoint 
+3. 
 """
 
 import os
@@ -15,14 +15,14 @@ import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
-# Hermes SDK 集成
+# Hermes SDK 
 try:
     from hermes.checkpoint import HermesCheckpointer
     HERMES_AVAILABLE = True
 except ImportError:
     HERMES_AVAILABLE = False
 
-# 模型配置
+# 
 class GPTConfig:
     vocab_size = 50257
     n_layer = 12
@@ -98,19 +98,19 @@ class GPT(nn.Module):
         return logits
 
 def get_batch(split, device):
-    """生成随机训练数据"""
+    """"""
     data = torch.randint(0, 50257, (64, 1024))
     x = data[:, :-1].to(device)
     y = data[:, 1:].to(device)
     return x, y
 
 def train():
-    # 初始化分布式
+    # 
     dist.init_process_group(backend='nccl')
     rank = dist.get_rank()
     device = f'cuda:{rank}'
     
-    # 创建模型
+    # 
     config = GPTConfig()
     model = GPT(config).to(device)
     model = DDP(model, device_ids=[rank])
@@ -125,7 +125,7 @@ def train():
         checkpointer = HermesCheckpointer(job_id=job_id)
         print(f"[Rank {rank}] Hermes Checkpointer initialized")
     
-    # 尝试从Checkpoint恢复
+    # Checkpoint
     start_epoch = 0
     if HERMES_AVAILABLE:
         try:
@@ -137,14 +137,14 @@ def train():
         except Exception as e:
             print(f"[Rank {rank}] No checkpoint found, starting fresh: {e}")
     
-    # 训练循环
+    # 
     total_epochs = 10
     batch_size = 8
     
     for epoch in range(start_epoch, total_epochs):
         model.train()
         total_loss = 0
-        num_batches = 100  # 每epoch训练步数
+        num_batches = 100  # epoch
         
         for batch_idx in range(num_batches):
             optimizer.zero_grad()
@@ -158,11 +158,11 @@ def train():
             
             total_loss += loss.item()
             
-            # 打印进度
+            # 
             if rank == 0 and batch_idx % 10 == 0:
                 print(f"[Epoch {epoch+1}/{total_epochs}] Batch {batch_idx}/{num_batches} Loss: {loss.item():.4f}")
         
-        # Checkpoint保存（仅rank 0）
+        # Checkpointrank 0
         if rank == 0 and HERMES_AVAILABLE:
             if (epoch + 1) % (checkpoint_interval // 60) == 0:
                 checkpointer.save({
@@ -173,7 +173,7 @@ def train():
                 })
                 print(f"[Rank {rank}] Checkpoint saved at epoch {epoch+1}")
         
-        # 同步
+        # 
         dist.barrier()
     
     dist.destroy_process_group()

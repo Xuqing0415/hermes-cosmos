@@ -1,0 +1,4 @@
+digraph CFG {
+    node [shape=box, style=filled, color=lightblue];
+    "entry" [label="entry\n→ return"];
+}

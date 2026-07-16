@@ -1,0 +1,25 @@
+{
+  "spec_name": "GenericService",
+  "status": "passed",
+  "errors": [],
+  "warnings": [],
+  "details": {
+    "constants": [
+      "None",
+      "VARIABLES",
+      "state",
+      "Init"
+    ],
+    "variables": [
+      "state",
+      "Init"
+    ],
+    "variable_count": 2,
+    "invariants_found": [
+      "Operations"
+    ],
+    "properties": [
+      "read"
+    ]
+  }
+}

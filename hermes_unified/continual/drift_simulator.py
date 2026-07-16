@@ -1,5 +1,5 @@
 """
-数据漂移模拟器
+
 """
 
 import numpy as np
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class DriftType:
-    """漂移类型枚举"""
+    """"""
     GRADUAL = "gradual"
     PERIODIC = "periodic"
     SUDDEN = "sudden"
@@ -18,7 +18,7 @@ class DriftType:
 
 
 class DataBuffer:
-    """固定大小的数据缓冲区"""
+    """"""
 
     def __init__(self, max_size: int = 1000):
         self.max_size = max_size
@@ -27,7 +27,7 @@ class DataBuffer:
         self.timestamps = []
 
     def add(self, X: np.ndarray, y: np.ndarray, timestamp: int):
-        """添加数据"""
+        """"""
         for i in range(len(y)):
             self.X_buffer.append(X[i])
             self.y_buffer.append(y[i])
@@ -39,23 +39,23 @@ class DataBuffer:
                 self.timestamps.pop(0)
 
     def get_recent(self, n: int) -> Tuple[np.ndarray, np.ndarray]:
-        """获取最近的 n 个样本"""
+        """ n """
         recent_X = np.array(self.X_buffer[-n:])
         recent_y = np.array(self.y_buffer[-n:])
         return recent_X, recent_y
 
     def get_all(self) -> Tuple[np.ndarray, np.ndarray]:
-        """获取所有缓冲数据"""
+        """"""
         return np.array(self.X_buffer), np.array(self.y_buffer)
 
     def size(self) -> int:
-        """当前缓冲区大小"""
+        """"""
         return len(self.X_buffer)
 
 
 class DriftSimulator:
     """
-    数据漂移模拟器
+    
     """
 
     def __init__(self, num_clients: int = 10,
@@ -71,7 +71,7 @@ class DriftSimulator:
         self.current_round = 0
 
     def _init_distributions(self) -> Dict[int, Dict[str, np.ndarray]]:
-        """初始化客户端分布参数"""
+        """"""
         distributions = {}
 
         for cid in range(self.num_clients):
@@ -88,7 +88,7 @@ class DriftSimulator:
         return distributions
 
     def configure_client_drift(self, client_id: int, drift_type: str, **kwargs):
-        """配置单个客户端的漂移模式"""
+        """"""
         if client_id not in self.client_distributions:
             return
 
@@ -98,7 +98,7 @@ class DriftSimulator:
     def configure_mixed_drift(self, gradual_ratio: float = 0.5,
                             periodic_ratio: float = 0.3,
                             sudden_ratio: float = 0.2):
-        """配置混合漂移模式"""
+        """"""
         assert np.isclose(gradual_ratio + periodic_ratio + sudden_ratio, 1.0)
 
         drift_types = []
@@ -123,7 +123,7 @@ class DriftSimulator:
     def generate_client_data(self, client_id: int,
                           n_samples: int = 500,
                           round_num: int = None) -> Tuple[np.ndarray, np.ndarray]:
-        """生成客户端数据"""
+        """"""
         if round_num is None:
             round_num = self.current_round
 
@@ -134,7 +134,7 @@ class DriftSimulator:
         return X, y
 
     def _apply_drift(self, dist: Dict, round_num: int) -> Dict:
-        """应用数据漂移"""
+        """"""
         updated = {k: v.copy() if isinstance(v, np.ndarray) else v
                  for k, v in dist.items()}
 
@@ -175,7 +175,7 @@ class DriftSimulator:
 
     def _sample_from_distribution(self, dist: Dict,
                                 n_samples: int) -> Tuple[np.ndarray, np.ndarray]:
-        """从分布中采样"""
+        """"""
         X_list = []
         y_list = []
 
@@ -202,7 +202,7 @@ class DriftSimulator:
         return X, y
 
     def simulate_round(self, round_num: int) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
-        """模拟一轮所有客户端数据"""
+        """"""
         self.current_round = round_num
 
         all_data = {}
@@ -214,7 +214,7 @@ class DriftSimulator:
 
 
 def run_drift_demo():
-    """运行漂移模拟演示"""
+    """"""
     print("=" * 60)
     print("Data Drift Simulator Demo")
     print("=" * 60)
