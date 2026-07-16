@@ -6,9 +6,9 @@ name: CI Proof Verification
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, master, develop]
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
 
 jobs:
   proof:
