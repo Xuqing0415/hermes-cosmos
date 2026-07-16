@@ -121,6 +121,44 @@ class CIProver:
         
         return report
     
+    def run_push_proof(
+        self,
+        base_sha: str,
+        head_sha: str
+    ) -> CIProofReport:
+        """
+        Run proof verification for a push event.
+        
+        Args:
+            base_sha: Base commit SHA (before push)
+            head_sha: Head commit SHA (after push)
+        
+        Returns:
+            CIProofReport with results
+        """
+        logger.info("Running push proof", base_sha=base_sha, head_sha=head_sha)
+        
+        changed_functions = self.change_analyzer.analyze_pr(base_sha, head_sha)
+        
+        if not changed_functions:
+            logger.info("No changed functions found")
+            return CIProofReport(
+                pr_number=0,
+                commit_hash=head_sha
+            )
+        
+        dependency_graph = self._build_dependency_graph()
+        
+        report = self.incremental_prover.prove_changed_functions(
+            changed_functions,
+            dependency_graph
+        )
+        
+        report.pr_number = 0
+        report.commit_hash = head_sha
+        
+        return report
+    
     def run_full_proof(self, files: List[str]) -> CIProofReport:
         """
         Run full proof verification for all functions in specified files.
