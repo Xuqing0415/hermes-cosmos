@@ -30,7 +30,8 @@ jobs:
           pip install -r requirements.txt
           pip install z3-solver requests
 
-      - name: Run incremental proof
+      - name: Run incremental proof (pull_request)
+        if: github.event_name == 'pull_request'
         run: |
           python -m hermes.ci.cli proof \
             --owner ${{ github.repository_owner }} \
@@ -38,6 +39,16 @@ jobs:
             --pr-number ${{ github.event.pull_request.number }} \
             --base-sha ${{ github.event.pull_request.base.sha }} \
             --head-sha ${{ github.event.pull_request.head.sha }} \
+            --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run incremental proof (push)
+        if: github.event_name == 'push'
+        run: |
+          python -m hermes.ci.cli proof \
+            --owner ${{ github.repository_owner }} \
+            --repo ${{ github.event.repository.name }} \
+            --base-sha ${{ github.event.before }} \
+            --head-sha ${{ github.sha }} \
             --token ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload certificates
