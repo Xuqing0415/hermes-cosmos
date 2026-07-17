@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "id": "knode-0001",
+      "pattern_type": "boundary_check_missing",
+      "domains": [
+        "mlir",
+        "default"
+      ],
+      "representative_keywords": [
+        "index",
+        "detected",
+        "memref",
+        "out",
+        "bound"
+      ],
+      "occurrences": 4,
+      "confidence": 0.62,
+      "created_at": "2026-07-17T00:21:18.844041",
+      "updated_at": "2026-07-17T00:21:18.844152"
+    },
+    {
+      "id": "knode-0002",
+      "pattern_type": "division_by_zero",
+      "domains": [
+        "mlir"
+      ],
+      "representative_keywords": [
+        "operation",
+        "arithmetic",
+        "potential",
+        "division",
+        "zero"
+      ],
+      "occurrences": 2,
+      "confidence": 0.7,
+      "created_at": "2026-07-17T00:21:18.844085",
+      "updated_at": "2026-07-17T00:21:18.844095"
+    },
+    {
+      "id": "knode-0003",
+      "pattern_type": "uninitialized_variable",
+      "domains": [
+        "mlir"
+      ],
+      "representative_keywords": [
+        "used",
+        "before",
+        "assign",
+        "init",
+        "assignment"
+      ],
+      "occurrences": 2,
+      "confidence": 0.77,
+      "created_at": "2026-07-17T00:21:18.844102",
+      "updated_at": "2026-07-17T00:21:18.844110"
+    },
+    {
+      "id": "knode-0004",
+      "pattern_type": "api_version_deprecated",
+      "domains": [
+        "k8s"
+      ],
+      "representative_keywords": [
+        "uses",
+        "image",
+        "gateway",
+        "old",
+        "deployment"
+      ],
+      "occurrences": 3,
+      "confidence": 0.72,
+      "created_at": "2026-07-17T00:21:18.844115",
+      "updated_at": "2026-07-17T00:21:18.844147"
+    },
+    {
+      "id": "knode-0005",
+      "pattern_type": "resource_limit_missing",
+      "domains": [
+        "k8s"
+      ],
+      "representative_keywords": [
+        "auth",
+        "missing",
+        "resource",
+        "deployment",
+        "service"
+      ],
+      "occurrences": 3,
+      "confidence": 0.67,
+      "created_at": "2026-07-17T00:21:18.844128",
+      "updated_at": "2026-07-17T00:21:18.844141"
+    },
+    {
+      "id": "knode-0006",
+      "pattern_type": "input_validation_missing",
+      "domains": [
+        "default"
+      ],
+      "representative_keywords": [
+        "for",
+        "input",
+        "validation",
+        "missing",
+        "request"
+      ],
+      "occurrences": 2,
+      "confidence": 0.77,
+      "created_at": "2026-07-17T00:21:18.844157",
+      "updated_at": "2026-07-17T00:21:18.844164"
+    },
+    {
+      "id": "knode-0007",
+      "pattern_type": "performance_bottleneck",
+      "domains": [
+        "default"
+      ],
+      "representative_keywords": [
+        "processing",
+        "data",
+        "potential",
+        "bottleneck",
+        "performance"
+      ],
+      "occurrences": 2,
+      "confidence": 0.7,
+      "created_at": "2026-07-17T00:21:18.844169",
+      "updated_at": "2026-07-17T00:21:18.844175"
+    }
+  ],
+  "edges": [
+    {
+      "source_id": "knode-0001",
+      "target_id": "knode-0001",
+      "similarity": 0.56,
+      "relationship_type": "similar",
+      "domains": [
+        "mlir",
+        "default"
+      ]
+    }
+  ],
+  "last_updated": "2026-07-17T00:21:18.844197",
+  "total_patterns": 7,
+  "total_relationships": 1
+}
