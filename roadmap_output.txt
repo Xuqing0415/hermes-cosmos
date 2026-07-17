@@ -1,0 +1,5 @@
+Total features: 3
+P0 features: 0
+P1 features: 1
+Total workload: 8.6
+Roadmap generated successfully!
