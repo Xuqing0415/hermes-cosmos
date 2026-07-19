@@ -2,7 +2,6 @@
 GPU metrics collector
 """
 
-import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -19,9 +18,11 @@ class GPUMetricsCollector:
     async def collect(self) -> dict[str, dict[str, Any]]:
         metrics = {}
 
+        initialized = False
         try:
             import pynvml
             pynvml.nvmlInit()
+            initialized = True
             self._nvidia_available = True
 
             device_count = pynvml.nvmlDeviceGetCount()
@@ -48,14 +49,15 @@ class GPUMetricsCollector:
                     "timestamp": datetime.utcnow().isoformat(),
                 }
 
-            pynvml.nvmlShutdown()
-
         except ImportError:
             logger.warning("pynvml not available, using mock GPU metrics")
             metrics = self._get_mock_metrics()
         except Exception as e:
             logger.error("Failed to collect GPU metrics", error=str(e))
             metrics = self._get_mock_metrics()
+        finally:
+            if initialized:
+                pynvml.nvmlShutdown()
 
         return metrics
 

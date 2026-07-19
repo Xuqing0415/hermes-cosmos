@@ -175,7 +175,13 @@ class RaftNode:
             self.voted_for = None
 
         if self.voted_for is None or self.voted_for == candidate_id:
-            if last_log_index >= len(self.log):
+            # Raft log up-to-date check: candidate's last log term > our last log term,
+            # or same term but candidate's last log index >= our last log index
+            our_last_term = self.log[-1].term if self.log else 0
+            our_last_index = len(self.log)
+            log_up_to_date = (last_log_term > our_last_term or
+                              (last_log_term == our_last_term and last_log_index >= our_last_index))
+            if log_up_to_date:
                 self.voted_for = candidate_id
                 self._reset_election_timer()
                 return True, self.current_term

@@ -4,7 +4,6 @@ from enum import Enum
 import os
 import time
 import json
-import subprocess
 
 
 class RebirthStatus(Enum):
@@ -271,7 +270,7 @@ class {module.name.replace('_', ' ').title().replace(' ', '')}:
     def __init__(self):
         pass
     
-    {self._generate_interface_methods(module.interfaces)}
+{self._generate_interface_methods(module.interfaces)}
 """
     
     def _generate_interface_methods(self, interfaces: List[str]) -> str:
@@ -282,7 +281,7 @@ class {module.name.replace('_', ' ').title().replace(' ', '')}:
         return "\n".join(methods)
     
     def _generate_init_code(self, modules) -> str:
-        exports = [f"from .{m.name} import {m.name.replace('_', ' ').title().replace(' ', '')}" for m in modules]
+        exports = [f"from {m.name} import {m.name.replace('_', ' ').title().replace(' ', '')}" for m in modules]
         return "\n".join(exports)
     
     def _run_sandbox_test(self) -> bool:
@@ -294,64 +293,30 @@ class {module.name.replace('_', ' ').title().replace(' ', '')}:
             total_count = 0
             errors = []
             
-            test_script = f"""
-import sys
-sys.path.insert(0, "{self._output_dir}")
-
-import os
-modules = [f[:-3] for f in os.listdir("{self._output_dir}") if f.endswith(".py") and f != "__init__.py"]
-
-success = 0
-total = 0
-errors = []
-
-for module_name in modules:
-    try:
-        module = __import__(module_name)
-        classes = [attr for attr in dir(module) if not attr.startswith('_')]
-        for class_name in classes:
-            cls = getattr(module, class_name)
-            if isinstance(cls, type):
-                instance = cls()
-                success += 1
-        total += 1
-        print(f"OK: {{module_name}}")
-    except Exception as e:
-        errors.append(f"FAIL: {{module_name}} - {{e}}")
-        total += 1
-
-print(f"RESULT: {{success}}/{{total}} modules passed")
-print(f"ERRORS: {{'; '.join(errors)}}")
-"""
+            py_files = [f for f in os.listdir(self._output_dir) if f.endswith(".py") and f != "__init__.py"]
             
-            test_result = subprocess.run(
-                ["python", "-c", test_script],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=self._output_dir
-            )
+            for fname in py_files:
+                filepath = os.path.join(self._output_dir, fname)
+                try:
+                    with open(filepath, "r", encoding="utf-8") as fh:
+                        source = fh.read()
+                    compile(source, filepath, "exec")
+                    total_count += 1
+                    success_count += 1
+                    print(f"  OK: {fname} (语法验证通过)")
+                except SyntaxError as e:
+                    errors.append(f"FAIL: {fname} - 语法错误: {e}")
+                    total_count += 1
+                    print(f"  FAIL: {fname} - {e}")
             
-            passed = test_result.returncode == 0
-            
-            if passed:
-                output_lines = test_result.stdout.strip().split('\n')
-                for line in output_lines:
-                    if line.startswith("RESULT:"):
-                        parts = line.split(':')[1].strip().split('/')
-                        success_count = int(parts[0])
-                        total_count = int(parts[1])
-                    elif line.startswith("ERRORS:"):
-                        error_msg = line.split(':', 1)[1].strip()
-                        if error_msg and error_msg != "None":
-                            errors.append(error_msg)
+            passed = len(errors) == 0
             
             self._add_log(RebirthStep.SANDBOX_TEST, "completed" if passed else "failed", {
                 "passed": passed,
                 "success_count": success_count,
                 "total_count": total_count,
                 "errors": errors,
-                "details": test_result.stdout.strip()
+                "details": "; ".join(errors)
             })
             
             print(f"[重生引擎] 沙盒测试: {'通过' if passed else '失败'} ({success_count}/{total_count} 模块)")

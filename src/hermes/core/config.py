@@ -146,6 +146,7 @@ class GatewayConfig(BaseSettings):
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     tls: TLSConfig = Field(default_factory=TLSConfig)
     upstream: UpstreamConfig = Field(default_factory=UpstreamConfig)
+    tracing: TracingConfig = Field(default_factory=TracingConfig)
     log_level: LogLevel = Field(default=LogLevel.INFO)
 
 

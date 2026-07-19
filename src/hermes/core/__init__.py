@@ -22,6 +22,17 @@ from hermes.core.models import (
     Region,
     GPUType,
 )
+from hermes.core.interfaces import (
+    DomainContext,
+    PainPoint,
+    PatchPlan,
+    ExecutionResult,
+    Perceiver,
+    Sage,
+    Knight,
+    DomainPlugin,
+)
+from hermes.core.plugin_manager import PluginManager
 
 __all__ = [
     "GatewayConfig",
@@ -42,4 +53,13 @@ __all__ = [
     "CheckpointState",
     "Region",
     "GPUType",
+    "DomainContext",
+    "PainPoint",
+    "PatchPlan",
+    "ExecutionResult",
+    "Perceiver",
+    "Sage",
+    "Knight",
+    "DomainPlugin",
+    "PluginManager",
 ]

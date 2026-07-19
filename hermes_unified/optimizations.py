@@ -14,6 +14,7 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 import pickle
 import os
+import datetime
 
 
 class GradientCompressor:
@@ -200,7 +201,7 @@ class LightweightCheckpointer:
         state_dict = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'save_time': torch.datetime.now().isoformat() if hasattr(torch, 'datetime') else 'unknown'
+            'save_time': datetime.datetime.now().isoformat()
         }
         
         if save_optimizer and optimizer is not None:

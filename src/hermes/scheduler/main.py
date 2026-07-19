@@ -10,8 +10,6 @@ import asyncio
 import time
 import threading
 from uuid import uuid4
-import requests
-
 # K8s
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
@@ -261,39 +259,41 @@ def send_signal_to_pod(pod_name, signal_name):
 
 async def check_and_migrate():
     """"""
-    while True:
-        try:
-            # 
-            response = requests.get(f"{FAULT_PREDICTOR_URL}/nodes")
-            if response.status_code == 200:
-                nodes = response.json().get("nodes", {})
-                
-                for node_id, status in nodes.items():
-                    probability = status.get("probability", 0.0)
+    import httpx
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                # 
+                response = await client.get(f"{FAULT_PREDICTOR_URL}/nodes")
+                if response.status_code == 200:
+                    nodes = response.json().get("nodes", {})
                     
-                    if probability >= MIGRATION_THRESHOLD:
-                        print(f"[PROACTIVE] Node {node_id} has fault probability {probability:.2f}, triggering migration")
+                    for node_id, status in nodes.items():
+                        probability = status.get("probability", 0.0)
                         
-                        # 
-                        jobs_on_node = [
-                            job for job in jobs.values()
-                            if job["node_id"] == node_id and job["status"] == "RUNNING"
-                        ]
-                        
-                        for job in jobs_on_node:
-                            await migrate_job(job["job_id"])
+                        if probability >= MIGRATION_THRESHOLD:
+                            print(f"[PROACTIVE] Node {node_id} has fault probability {probability:.2f}, triggering migration")
+                            
+                            # 
+                            jobs_on_node = [
+                                job for job in jobs.values()
+                                if job["node_id"] == node_id and job["status"] == "RUNNING"
+                            ]
+                            
+                            for job in jobs_on_node:
+                                await migrate_job(job["job_id"])
+                
+                await asyncio.sleep(30)  # 30
             
-            await asyncio.sleep(30)  # 30
-        
-        except Exception as e:
-            print(f"[PROACTIVE] Error checking nodes: {e}")
-            await asyncio.sleep(60)
+            except Exception as e:
+                print(f"[PROACTIVE] Error checking nodes: {e}")
+                await asyncio.sleep(60)
 
 @app.post("/trigger_proactive_check")
 async def trigger_proactive_check():
     """"""
-    await check_and_migrate()
-    return {"message": "Proactive check completed"}
+    asyncio.create_task(check_and_migrate())
+    return {"message": "Proactive check triggered"}
 
 @app.get("/jobs/{job_id}")
 async def get_job(job_id: str):

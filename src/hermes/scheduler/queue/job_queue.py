@@ -67,7 +67,7 @@ class JobQueue:
         if not results:
             return None
 
-        job_data, _ = results
+        job_data = results[0][0]
         job = Job.model_validate_json(job_data)
 
         await self._redis.hset(

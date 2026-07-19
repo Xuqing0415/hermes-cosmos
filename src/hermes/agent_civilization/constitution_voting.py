@@ -120,6 +120,7 @@ class ConstitutionVoting:
     def __init__(self):
         self.amendments: Dict[str, ConstitutionAmendment] = {}
         self.role_proposals: Dict[str, RoleProposal] = {}
+        self.total_agents: int = 0
         self.voting_timeout: float = 30.0
         self.quorum_percentage: float = 0.5
         self.majority_percentage: float = 0.6
@@ -199,7 +200,8 @@ class ConstitutionVoting:
         if not amendment:
             return AmendmentStatus.REJECTED
         
-        if amendment.has_quorum(10) and amendment.is_passed(self.majority_percentage):
+        effective_total = max(self.total_agents, 1)
+        if amendment.has_quorum(effective_total) and amendment.is_passed(self.majority_percentage):
             amendment.status = AmendmentStatus.PASSED
             amendment.passed_at = time.time()
         else:
@@ -212,7 +214,8 @@ class ConstitutionVoting:
         if not proposal:
             return AmendmentStatus.REJECTED
         
-        if proposal.has_quorum(10) and proposal.is_passed(self.majority_percentage):
+        effective_total = max(self.total_agents, 1)
+        if proposal.has_quorum(effective_total) and proposal.is_passed(self.majority_percentage):
             proposal.status = AmendmentStatus.PASSED
             proposal.passed_at = time.time()
         else:

@@ -50,24 +50,24 @@ class CheckpointCoordinator:
         async with self._semaphore:
             try:
                 if is_delta:
+                    original_size = len(data)
                     data, is_delta = await self.delta_engine.compute_delta(
                         checkpoint.id, data
                     )
                     checkpoint.is_delta = is_delta
                     checkpoint.delta_bytes = len(data)
+                    if is_delta:
+                        checkpoint.compression_ratio = (
+                            len(data) / original_size
+                            if original_size > 0
+                            else 1.0
+                        )
 
                 path = await self.storage.save(checkpoint, data)
 
                 checkpoint.state = CheckpointState.COMPLETED
                 checkpoint.size_bytes = len(data)
                 checkpoint.storage_path = path
-
-                if is_delta:
-                    checkpoint.compression_ratio = (
-                        checkpoint.delta_bytes / checkpoint.size_bytes
-                        if checkpoint.size_bytes > 0
-                        else 1.0
-                    )
 
                 logger.info(
                     "Checkpoint created",

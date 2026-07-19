@@ -63,7 +63,7 @@ class HermesAgent:
         logger.info("Setting up Hermes Agent", region=self.config.region.value)
 
         self.metrics_collector = MetricsCollector(
-            interval_seconds=self.config.prometheus.port,
+            interval_seconds=10,
         )
 
         self.gpu_collector = GPUMetricsCollector(

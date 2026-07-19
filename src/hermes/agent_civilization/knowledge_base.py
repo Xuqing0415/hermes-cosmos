@@ -1,4 +1,5 @@
 import time
+import json
 import sqlite3
 import os
 from typing import List, Dict, Optional, Any
@@ -53,7 +54,7 @@ class KnowledgeBase:
             ''', (
                 knowledge.knowledge_id,
                 knowledge.type,
-                str(knowledge.content),
+                json.dumps(knowledge.content, ensure_ascii=False),
                 knowledge.source_agent_id,
                 knowledge.source_role.value,
                 knowledge.created_at,
@@ -79,7 +80,7 @@ class KnowledgeBase:
                 return KnowledgeItem(
                     knowledge_id=row[0],
                     type=row[1],
-                    content=eval(row[2]),
+                    content=json.loads(row[2]),
                     source_agent_id=row[3],
                     source_role=AgentRole(row[4]),
                     created_at=row[5],
@@ -119,7 +120,7 @@ class KnowledgeBase:
                 results.append(KnowledgeItem(
                     knowledge_id=row[0],
                     type=row[1],
-                    content=eval(row[2]),
+                    content=json.loads(row[2]),
                     source_agent_id=row[3],
                     source_role=AgentRole(row[4]),
                     created_at=row[5],
@@ -151,7 +152,7 @@ class KnowledgeBase:
                 results.append(KnowledgeItem(
                     knowledge_id=row[0],
                     type=row[1],
-                    content=eval(row[2]),
+                    content=json.loads(row[2]),
                     source_agent_id=row[3],
                     source_role=AgentRole(row[4]),
                     created_at=row[5],
@@ -180,7 +181,7 @@ class KnowledgeBase:
                 results.append(KnowledgeItem(
                     knowledge_id=row[0],
                     type=row[1],
-                    content=eval(row[2]),
+                    content=json.loads(row[2]),
                     source_agent_id=row[3],
                     source_role=AgentRole(row[4]),
                     created_at=row[5],

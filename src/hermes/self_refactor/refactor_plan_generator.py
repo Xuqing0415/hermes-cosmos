@@ -264,9 +264,9 @@ class RefactorPlanGenerator:
         actions = []
         func_name = smell.metadata.get('function_name', 'unknown')
         external_classes = smell.metadata.get('external_classes', [])
+        primary_class = external_classes[0] if external_classes else "unknown"
         
         if external_classes and smell.locations:
-            primary_class = external_classes[0]
             
             actions.append(RefactorAction(
                 operation=RefactorOperation.MOVE_METHOD,

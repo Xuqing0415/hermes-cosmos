@@ -29,8 +29,7 @@ class PMemStorage(StorageBackend):
 
         with open(checkpoint_path, "wb") as f:
             f.write(data)
-
-        os.fsync(f.fileno())
+            os.fsync(f.fileno())
 
         checkpoint.size_bytes = len(data)
         checkpoint.storage_path = str(checkpoint_path)
