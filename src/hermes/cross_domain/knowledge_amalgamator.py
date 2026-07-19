@@ -172,6 +172,104 @@ class KnowledgeAmalgamator:
             fixes.append(fix_entry)
         return sorted(fixes, key=lambda x: x["occurrences"], reverse=True)
 
+    def query_similar(self, pattern_type: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Query the knowledge graph for patterns similar to the given type."""
+        matches = []
+        target_node = None
+        for node in self._graph.nodes:
+            if node.pattern_type.value == pattern_type:
+                target_node = node
+                break
+
+        if target_node is None:
+            return []
+
+        for edge in self._graph.edges:
+            if edge.source_id == target_node.id:
+                neighbor_id = edge.target_id
+            elif edge.target_id == target_node.id:
+                neighbor_id = edge.source_id
+            else:
+                continue
+
+            neighbor = None
+            for node in self._graph.nodes:
+                if node.id == neighbor_id:
+                    neighbor = node
+                    break
+
+            if neighbor:
+                matches.append({
+                    "pattern_type": neighbor.pattern_type.value,
+                    "source_domain": edge.domains[0] if edge.domains else "unknown",
+                    "target_domain": edge.domains[-1] if len(edge.domains) > 1 else edge.domains[0] if edge.domains else "unknown",
+                    "similarity": edge.similarity,
+                    "confidence": neighbor.confidence,
+                    "occurrences": neighbor.occurrences,
+                })
+
+        matches.sort(key=lambda x: x["similarity"], reverse=True)
+        return matches[:top_k]
+
+    def add_cross_domain_link(self, source_domain: str, target_domain: str,
+                               pattern_type: str, similarity: float, success: bool):
+        """Record a cross-domain link in the knowledge graph."""
+        source_node = None
+        target_node = None
+        for node in self._graph.nodes:
+            if node.pattern_type.value == pattern_type:
+                if source_domain in node.domains:
+                    source_node = node
+                if target_domain not in node.domains:
+                    node.domains.append(target_domain)
+                target_node = node
+
+        if source_node is None:
+            self._node_id_counter += 1
+            source_node = KnowledgeNode(
+                id=f"knode-{self._node_id_counter:04d}",
+                pattern_type=AbstractPatternType(pattern_type) if any(
+                    pt.value == pattern_type for pt in AbstractPatternType
+                ) else AbstractPatternType.BOUNDARY_CHECK_MISSING,
+                domains=[source_domain],
+                occurrences=1,
+                confidence=0.5
+            )
+            self._graph.nodes.append(source_node)
+
+        if target_node is None or target_node.id == source_node.id:
+            self._node_id_counter += 1
+            target_node = KnowledgeNode(
+                id=f"knode-{self._node_id_counter:04d}",
+                pattern_type=source_node.pattern_type,
+                domains=[target_domain],
+                occurrences=1,
+                confidence=0.5
+            )
+            self._graph.nodes.append(target_node)
+
+        if not self._edge_exists(source_node.id, target_node.id):
+            edge = KnowledgeEdge(
+                source_id=source_node.id,
+                target_id=target_node.id,
+                similarity=similarity,
+                relationship_type="cross_domain_fix" if success else "cross_domain_attempt",
+                domains=[source_domain, target_domain]
+            )
+            self._graph.edges.append(edge)
+
+        self._graph.last_updated = datetime.utcnow()
+
+    def boost_similarity(self, pattern_type: str, increment: float = 0.05):
+        """Boost similarity weight for edges connected to a pattern node."""
+        for node in self._graph.nodes:
+            if node.pattern_type.value == pattern_type:
+                node.confidence = min(1.0, node.confidence + increment)
+                for edge in self._graph.edges:
+                    if edge.source_id == node.id or edge.target_id == node.id:
+                        edge.similarity = min(1.0, edge.similarity + increment)
+                break
+
     def _find_or_create_node(self, pattern: AbstractPattern) -> Optional[KnowledgeNode]:
         for node in self._graph.nodes:
             if node.pattern_type == pattern.pattern_type:

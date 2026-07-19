@@ -3,6 +3,7 @@ Hermes Checkpoint - PyTorchCheckpoint
 """
 
 import asyncio
+import concurrent.futures
 import torch
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
@@ -31,7 +32,14 @@ class HermesCheckpointer:
     
     def save(self, data: Dict[str, Any]) -> str:
         """Checkpoint"""
-        return asyncio.run(self.async_save(data))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.async_save(data))
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(asyncio.run, self.async_save(data))
+                return future.result()
     
     async def async_save(self, data: Dict[str, Any]) -> str:
         """Checkpoint"""
@@ -74,7 +82,14 @@ class HermesCheckpointer:
     
     def load(self, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
         """Checkpoint"""
-        return asyncio.run(self.async_load(checkpoint_id))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.async_load(checkpoint_id))
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(asyncio.run, self.async_load(checkpoint_id))
+                return future.result()
     
     async def async_load(self, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
         """Checkpoint"""

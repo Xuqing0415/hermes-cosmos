@@ -246,7 +246,10 @@ async def handle_region_failure(job_id: str, failed_region: str):
     # 2. RedisCheckpoint
     import redis
     r = redis.Redis(host='global-redis-service', port=6379)
-    latest_step = int(r.get(f"global_checkpoint_{job_id}_latest") or 0)
+    try:
+        latest_step = int(r.get(f"global_checkpoint_{job_id}_latest") or 0)
+    finally:
+        r.close()
     
     # 3. RegionRegion
     healthy_regions = [r for r in job["regions"] if r != failed_region]

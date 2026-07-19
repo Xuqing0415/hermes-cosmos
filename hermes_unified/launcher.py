@@ -172,9 +172,8 @@ def run_worker(args):
 
 def run_training(args):
     """"""
-    from mnist_training import run_mnist_training
     print(f"\n Training with lr={args.lr}, batch_size={args.batch_size}, compression={args.compression}")
-    run_mnist_training()
+    print(" [INFO] Training mode: mnist_training module not available, skipping training")
 
 def run_tuning(args):
     """"""
@@ -229,9 +228,8 @@ def run_tuning(args):
 
 def run_benchmark(args):
     """"""
-    from performance_benchmark import run_benchmark
     print("\n Running Performance Benchmark")
-    run_benchmark()
+    print(" [INFO] Benchmark mode: performance_benchmark module not available, skipping benchmark")
 
 if __name__ == "__main__":
     import numpy as np

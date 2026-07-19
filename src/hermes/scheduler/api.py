@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from hermes.core.config import Region
-from hermes.core.models import Job, JobStatus, InferenceService
+from hermes.core.models import Job, JobStatus
 
 router = APIRouter()
 

@@ -17,7 +17,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 
-def run_domain_analysis(domain: str, path: str, **kwargs):
+def run_domain_analysis(domain: str, path: str, cross_domain: bool = False, **kwargs):
     from hermes.core.plugin_manager import PluginManager
     
     plugin_manager = PluginManager()
@@ -33,6 +33,10 @@ def run_domain_analysis(domain: str, path: str, **kwargs):
         sys.exit(1)
     
     print(f"[AutoTestGen Kernel] Loaded: {plugin.description}")
+    
+    if cross_domain:
+        run_domain_analysis_with_cross_domain(plugin, domain, path, **kwargs)
+        return
     
     context = plugin.create_context(path, **kwargs)
     
@@ -75,6 +79,68 @@ def run_domain_analysis(domain: str, path: str, **kwargs):
             print(f"  - {result.get('test', result.get('operation', ''))}: {result['status']}")
     
     print(f"\n[Kernel] Domain analysis complete for {domain}")
+
+
+def run_domain_analysis_with_cross_domain(plugin, domain: str, path: str, **kwargs):
+    """Run domain analysis with cross-domain knowledge distillation fallback."""
+    from hermes.core.orchestrator import CrossDomainOrchestrator
+    from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
+    from hermes.cross_domain.cross_domain_translator import CrossDomainTranslator
+    from hermes.cross_domain.pattern_similarity_engine import PatternSimilarityEngine
+    from hermes.cross_domain.abstract_pattern_extractor import AbstractPatternExtractor
+
+    print(f"\n[Orchestrator] Cross-domain mode enabled for domain: {domain}")
+
+    context = plugin.create_context(path, **kwargs)
+
+    amalgamator = KnowledgeAmalgamator("loop_output/knowledge_graph.json")
+    try:
+        amalgamator.load()
+    except FileNotFoundError:
+        pass
+
+    orchestrator = CrossDomainOrchestrator(
+        plugin=plugin,
+        cross_domain_enabled=True,
+        similarity_threshold=0.5,
+        knowledge_amalgamator=amalgamator,
+        translator=CrossDomainTranslator(),
+        similarity_engine=PatternSimilarityEngine(),
+        pattern_extractor=AbstractPatternExtractor(),
+    )
+
+    results = orchestrator.run(context)
+
+    print(f"\n[Orchestrator] Results for domain: {domain}")
+    print("-" * 60)
+
+    for result in results:
+        pp = result.pain_point
+        print(f"\n[Perceiver] Found: {pp.message}")
+
+        if result.direct_fix:
+            print(f"[Sage] Direct fix template found.")
+        else:
+            print(f"[Sage] No direct fix template found.")
+
+        if result.cross_domain_used:
+            print(f"[CrossDomain] Querying knowledge graph...")
+            print(f"[CrossDomain] Found similar pattern '{result.pattern_type}' "
+                  f"in {result.source_domain} plugin (sim: {result.similarity:.2f})")
+            print(f"[CrossDomain] Translating fix from {result.source_domain} to {domain}...")
+
+        if result.success:
+            print(f"[Knight] Applying patch... Tests passed!")
+            if result.cross_domain_used:
+                print(f"[CrossDomain] New cross-domain link added.")
+        else:
+            print(f"[Knight] Patch failed or no patch available.")
+
+        if result.duration_ms > 0:
+            print(f"  (completed in {result.duration_ms:.0f}ms)")
+
+    amalgamator.save()
+    print(f"\n[Orchestrator] Domain analysis complete for {domain}")
 
 
 def list_plugins():
@@ -205,6 +271,8 @@ def main():
     parser.add_argument('--repo', help='Alias for --path')
     parser.add_argument('--gitops-repo', help='GitOps repository path (for k8s domain)')
     parser.add_argument('--demo', action='store_true', help='Run cross-domain demo mode')
+    parser.add_argument('--cross-domain', action='store_true',
+                        help='Enable cross-domain knowledge distillation fallback')
     
     args = parser.parse_args()
     
@@ -227,7 +295,7 @@ def main():
     if args.gitops_repo:
         kwargs['gitops'] = True
     
-    run_domain_analysis(args.domain, path, **kwargs)
+    run_domain_analysis(args.domain, path, cross_domain=args.cross_domain, **kwargs)
 
 
 if __name__ == "__main__":

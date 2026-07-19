@@ -4,8 +4,7 @@ Self-healing engine for automated fault recovery
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
-from uuid import UUID
+from typing import TYPE_CHECKING, Any
 
 import structlog
 

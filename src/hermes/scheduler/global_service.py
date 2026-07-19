@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from hermes.core.config import Region, SchedulerConfig
 from hermes.core.models import Job, JobPriority, JobRequirements, JobStatus, PlacementConstraints
 from hermes.core.store import get_job_queue, get_resource_manager
-from hermes.scheduler.algorithms.placement import PlacementEngine, NodeInfo
+from hermes.scheduler.algorithms.placement import PlacementEngine
 
 logger = structlog.get_logger()
 

@@ -2,11 +2,11 @@
 Inference Service API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from hermes.core.models import (
@@ -183,7 +183,7 @@ async def update_inference_service(
     if request.replicas:
         service.replicas = request.replicas
     
-    service.updated_at = datetime.utcnow()
+    service.updated_at = datetime.now(timezone.utc)
     return InferenceServiceResponse(service=service)
 
 
@@ -220,7 +220,7 @@ async def scale_inference_service(
         )
     
     service.replicas = request.replicas
-    service.updated_at = datetime.utcnow()
+    service.updated_at = datetime.now(timezone.utc)
     return InferenceServiceResponse(service=service)
 
 
@@ -248,9 +248,9 @@ async def predict(
         )
     
     # This is a placeholder - in a real implementation, this would proxy to the actual inference service
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     response_text = f"Generated response for: {request.prompt[:50]}..."
-    latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+    latency_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
     
     return InferenceResponse(
         text=response_text,

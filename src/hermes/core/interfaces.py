@@ -88,6 +88,33 @@ class Sage(ABC):
     def generate_patch(self, context: DomainContext, pain_point: PainPoint) -> PatchPlan:
         pass
 
+    def cross_domain_fallback(self, context: DomainContext, pain_point: PainPoint,
+                               cross_domain_fix: Any) -> PatchPlan:
+        """
+        Generate a patch plan using a cross-domain fix template.
+        Default implementation creates a generic PatchPlan from the fix template.
+        Override in domain-specific Sage for custom translation logic.
+        """
+        import hashlib
+        import time
+        patch_id = hashlib.md5(f"{pain_point.id}_{int(time.time())}_cd".encode()).hexdigest()
+        fix = cross_domain_fix
+        operations = []
+        if hasattr(fix, 'code_template') and fix.code_template:
+            operations.append({
+                "type": "cross_domain_fix",
+                "description": fix.fix_description,
+                "code": fix.code_template,
+                "steps": fix.implementation_steps if hasattr(fix, 'implementation_steps') else []
+            })
+        return PatchPlan(
+            id=patch_id,
+            pain_point_id=pain_point.id,
+            description=f"[CrossDomain] {fix.fix_description if hasattr(fix, 'fix_description') else str(fix)}",
+            operations=operations,
+            estimated_effort=0.5
+        )
+
 
 class Knight(ABC):
     @abstractmethod

@@ -74,7 +74,7 @@ class SpecValidator:
         if not content.strip().endswith("===="):
             result.add_error("Module must end with '===='")
         
-        if "Init ==" not in content and "Init ==" not in content:
+        if "Init ==" not in content:
             result.add_warning("No Init definition found")
         
         if "Next ==" not in content:
