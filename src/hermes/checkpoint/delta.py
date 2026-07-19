@@ -120,6 +120,10 @@ class DeltaEngine:
             
             if block_idx < len(result_blocks) and offset + block_size <= len(delta_data):
                 result_blocks[block_idx] = delta_data[offset:offset+block_size]
+            elif block_idx >= len(result_blocks) and offset + block_size <= len(delta_data):
+                # Extend result_blocks for new blocks beyond the base data
+                result_blocks.extend([b""] * (block_idx - len(result_blocks) + 1))
+                result_blocks[block_idx] = delta_data[offset:offset+block_size]
             
             offset += block_size
 

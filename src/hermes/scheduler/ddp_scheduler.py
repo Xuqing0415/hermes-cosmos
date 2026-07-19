@@ -225,15 +225,21 @@ def pause_training(job_id):
     """"""
     import redis
     r = redis.Redis(host='redis-service', port=6379)
-    r.set("training_paused", "true")
-    print(f"[DDP] ")
+    try:
+        r.set("training_paused", "true")
+        print(f"[DDP] ")
+    finally:
+        r.close()
 
 def resume_training(job_id):
     """"""
     import redis
     r = redis.Redis(host='redis-service', port=6379)
-    r.set("training_paused", "false")
-    print(f"[DDP] ")
+    try:
+        r.set("training_paused", "false")
+        print(f"[DDP] ")
+    finally:
+        r.close()
 
 @app.get("/ddp/jobs/{job_id}")
 async def get_ddp_job(job_id: str):
@@ -297,9 +303,13 @@ def start_ddp_fault_watcher():
                 if job_id and job_id in jobs:
                     print(f"[DDP FAULT] Pod {pod.metadata.name} deleted, recovering job {job_id}")
                     # 5
+                    async def _delayed_recovery():
+                        await asyncio.sleep(5)
+                        await recover_ddp_job(job_id)
+                    loop = asyncio.get_event_loop()
                     asyncio.run_coroutine_threadsafe(
-                        asyncio.sleep(5) + recover_ddp_job(job_id),
-                        asyncio.get_event_loop()
+                        _delayed_recovery(),
+                        loop
                     )
     except Exception as e:
         print(f"[DDP ERROR] Fault watcher error: {e}")

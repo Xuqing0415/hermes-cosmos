@@ -269,7 +269,7 @@ class CivilizationMigration:
     
     def _export_amendments(self) -> Dict[str, Any]:
         return {
-            "total_amendments": len(self.coordinator.amendments.amendments) if hasattr(self.coordinator, 'amendments') else 0
+            "total_amendments": len(self.coordinator.amendment_system.amendments) if hasattr(self.coordinator, 'amendment_system') else 0
         }
     
     def _import_amendments(self, data: Dict[str, Any]):

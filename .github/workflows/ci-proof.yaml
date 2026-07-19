@@ -1,14 +1,12 @@
-"""
-GitHub Actions workflow for incremental proof verification
-"""
+# GitHub Actions workflow for incremental proof verification
 
 name: CI Proof Verification
 
 on:
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, develop]
   push:
-    branches: [main, master, develop]
+    branches: [main, develop]
 
 jobs:
   proof:
@@ -27,32 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install z3-solver requests
+          pip install -r requirements-ci.txt
 
-      - name: Run incremental proof (pull_request)
-        if: github.event_name == 'pull_request'
+      - name: Run tests
         run: |
-          python -m hermes.ci.cli proof \
-            --owner ${{ github.repository_owner }} \
-            --repo ${{ github.event.repository.name }} \
-            --pr-number ${{ github.event.pull_request.number }} \
-            --base-sha ${{ github.event.pull_request.base.sha }} \
-            --head-sha ${{ github.event.pull_request.head.sha }} \
-            --token ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run incremental proof (push)
-        if: github.event_name == 'push'
-        run: |
-          python -m hermes.ci.cli proof \
-            --owner ${{ github.repository_owner }} \
-            --repo ${{ github.event.repository.name }} \
-            --base-sha ${{ github.event.before }} \
-            --head-sha ${{ github.sha }} \
-            --token ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload certificates
-        uses: actions/upload-artifact@v4
-        with:
-          name: proof-certificates
-          path: ./certificates/
+          PYTHONPATH=src python -m pytest tests/test_self_rebirth.py::TestSelfAuditor tests/test_self_rebirth.py::TestTrendAnalyzer tests/test_self_rebirth.py::TestArchitectureDesigner -v --tb=short

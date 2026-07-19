@@ -54,3 +54,8 @@ elastic_multiprocess/
 elastic_simulation/
 real_deep/
 real_tensor_parallel/
+
+# Generated artifacts
+certificates/
+rebirth_generations/
+loop_output/

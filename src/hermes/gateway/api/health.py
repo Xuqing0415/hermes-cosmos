@@ -2,7 +2,7 @@
 Health check API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -35,7 +35,7 @@ class LivenessResponse(BaseModel):
 async def health_check() -> HealthResponse:
     return HealthResponse(
         status="healthy",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         version="1.0.0",
         components={
             "scheduler": "healthy",

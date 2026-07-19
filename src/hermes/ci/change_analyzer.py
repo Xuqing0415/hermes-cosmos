@@ -58,7 +58,7 @@ class ChangeAnalyzer:
         """Get list of files changed between two commits"""
         try:
             cmd = [
-                "git", "diff", "--stat", "--numstat",
+                "git", "diff", "--numstat",
                 f"{base_sha}...{head_sha}"
             ]
             result = subprocess.run(
@@ -71,26 +71,23 @@ class ChangeAnalyzer:
             
             files = []
             for line in result.stdout.strip().split("\n"):
-                if not line or "|" not in line:
+                if not line.strip():
                     continue
                 
-                parts = line.split("|")
-                if len(parts) >= 2:
-                    stats = parts[0].split()
-                    filename = parts[1].strip()
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    additions = int(parts[0])
+                    deletions = int(parts[1])
+                    filename = parts[2]
+                    changes = additions + deletions
                     
-                    if len(stats) >= 3:
-                        additions = int(stats[0])
-                        deletions = int(stats[1])
-                        changes = additions + deletions
-                        
-                        files.append(ChangedFile(
-                            filename=filename,
-                            additions=additions,
-                            deletions=deletions,
-                            changes=changes,
-                            status="modified"
-                        ))
+                    files.append(ChangedFile(
+                        filename=filename,
+                        additions=additions,
+                        deletions=deletions,
+                        changes=changes,
+                        status="modified"
+                    ))
             
             return files
         except subprocess.CalledProcessError as e:
@@ -201,7 +198,7 @@ class ChangeAnalyzer:
         logger.info("Analyzing local changes")
         
         try:
-            cmd = ["git", "diff", "--stat", "--numstat"]
+            cmd = ["git", "diff", "--numstat"]
             result = subprocess.run(
                 cmd,
                 cwd=self.repo_path,
@@ -212,22 +209,21 @@ class ChangeAnalyzer:
             
             files = []
             for line in result.stdout.strip().split("\n"):
-                if not line or "|" not in line:
+                if not line.strip():
                     continue
                 
-                parts = line.split("|")
-                if len(parts) >= 2:
-                    stats = parts[0].split()
-                    filename = parts[1].strip()
-                    
-                    if len(stats) >= 3:
-                        files.append(ChangedFile(
-                            filename=filename,
-                            additions=int(stats[0]),
-                            deletions=int(stats[1]),
-                            changes=int(stats[0]) + int(stats[1]),
-                            status="modified"
-                        ))
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    additions = int(parts[0])
+                    deletions = int(parts[1])
+                    filename = parts[2]
+                    files.append(ChangedFile(
+                        filename=filename,
+                        additions=additions,
+                        deletions=deletions,
+                        changes=additions + deletions,
+                        status="modified"
+                    ))
             
             changed_functions = []
             for cf in files:

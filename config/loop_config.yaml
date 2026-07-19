@@ -1,0 +1,68 @@
+loop:
+  continuous: false
+  max_iterations: 3
+  iteration_delay_seconds: 60
+  auto_deploy: false
+  auto_create_pr: false
+  auto_self_replace: false
+  self_replace_strategy: blue_green
+
+triggers:
+  enabled:
+    - periodic
+    - self_demand
+    - github_issue
+  periodic_interval_minutes: 1440
+  self_demand_threshold: 0.7
+  github_repo: ""
+  github_token: ""
+
+phases:
+  requirement_parsing:
+    enabled: true
+    timeout_seconds: 300
+  spec_generation:
+    enabled: true
+    timeout_seconds: 600
+  code_generation:
+    enabled: true
+    timeout_seconds: 300
+  deployment:
+    enabled: false
+    timeout_seconds: 300
+  runtime_monitoring:
+    enabled: true
+    timeout_seconds: 600
+  auto_repair:
+    enabled: true
+    max_retries: 3
+  self_examination:
+    enabled: true
+  trend_analysis:
+    enabled: true
+  roadmap_generation:
+    enabled: true
+  metacognition:
+    enabled: true
+  self_upgrade:
+    enabled: false
+
+output:
+  base_dir: ./loop_output
+  save_specs: true
+  save_code: true
+  save_reports: true
+  save_logs: true
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  file: ./logs/loop.log
+
+objectives:
+  weights:
+    performance: 0.25
+    reliability: 0.25
+    maintainability: 0.20
+    security: 0.15
+    usability: 0.15

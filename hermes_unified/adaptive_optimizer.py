@@ -13,6 +13,7 @@ import sqlite3
 import time
 from typing import Dict, List, Optional
 import numpy as np
+import torch
 
 # 
 GradientCompressor = None
@@ -345,8 +346,4 @@ def run_adaptive_training_example():
 
 
 if __name__ == "__main__":
-    #  torch
-    global torch
-    import torch
-    
     run_adaptive_training_example()

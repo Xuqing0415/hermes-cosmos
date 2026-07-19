@@ -1,0 +1,208 @@
+{
+  "name": "AutoTestGen NextGen",
+  "version": "3.0",
+  "pattern": "microservices",
+  "modules": [
+    {
+      "name": "requirement_engine",
+      "module_type": "core",
+      "responsibility": "自然语言需求解析、结构化",
+      "technology": "Rust + Python",
+      "interfaces": [
+        "parse_requirement()",
+        "refine_requirement()"
+      ],
+      "dependencies": [],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "spec_generator",
+      "module_type": "core",
+      "responsibility": "TLA+ 规范生成与验证",
+      "technology": "Python + TLA+",
+      "interfaces": [
+        "generate_spec()",
+        "verify_spec()"
+      ],
+      "dependencies": [
+        "requirement_engine"
+      ],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "code_generator",
+      "module_type": "core",
+      "responsibility": "多语言代码生成（Python/Go/Rust）",
+      "technology": "Python + Jinja2 + polyglot",
+      "interfaces": [
+        "generate_code()",
+        "generate_deployment()"
+      ],
+      "dependencies": [
+        "spec_generator",
+        "requirement_engine"
+      ],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "deployment_engine",
+      "module_type": "worker",
+      "responsibility": "Kubernetes 部署与管理",
+      "technology": "Python + kubernetes client",
+      "interfaces": [
+        "deploy()",
+        "scale()",
+        "rollback()"
+      ],
+      "dependencies": [
+        "code_generator"
+      ],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "runtime_monitor",
+      "module_type": "observability",
+      "responsibility": "运行时监控与状态追踪",
+      "technology": "Python + OpenTelemetry",
+      "interfaces": [
+        "record_transition()",
+        "detect_violation()"
+      ],
+      "dependencies": [
+        "spec_generator"
+      ],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "anomaly_analyzer",
+      "module_type": "core",
+      "responsibility": "异常分析与根因定位",
+      "technology": "Python",
+      "interfaces": [
+        "analyze()",
+        "suggest_fix()"
+      ],
+      "dependencies": [
+        "runtime_monitor"
+      ],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "self_audit",
+      "module_type": "core",
+      "responsibility": "代码库自我审计",
+      "technology": "Python + AST",
+      "interfaces": [
+        "audit()",
+        "report_issues()"
+      ],
+      "dependencies": [],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "trend_analyzer",
+      "module_type": "core",
+      "responsibility": "技术趋势分析",
+      "technology": "Python + HTTP",
+      "interfaces": [
+        "analyze_trends()",
+        "score_relevance()"
+      ],
+      "dependencies": [],
+      "scalability": "horizontal",
+      "reliability": "high"
+    },
+    {
+      "name": "security_gateway",
+      "module_type": "security",
+      "responsibility": "安全验证与访问控制",
+      "technology": "Python + OAuth2",
+      "interfaces": [
+        "validate_request()",
+        "authenticate()"
+      ],
+      "dependencies": [],
+      "scalability": "horizontal",
+      "reliability": "high"
+    }
+  ],
+  "data_flows": [
+    {
+      "source": "requirement_engine",
+      "destination": "spec_generator",
+      "data_type": "ParsedRequirement",
+      "protocol": "function call",
+      "description": "结构化需求传递"
+    },
+    {
+      "source": "spec_generator",
+      "destination": "code_generator",
+      "data_type": "TLASpec",
+      "protocol": "function call",
+      "description": "TLA+ 规范传递"
+    },
+    {
+      "source": "code_generator",
+      "destination": "deployment_engine",
+      "data_type": "GeneratedService",
+      "protocol": "file system",
+      "description": "生成的代码工件"
+    },
+    {
+      "source": "runtime_monitor",
+      "destination": "anomaly_analyzer",
+      "data_type": "ViolationReport",
+      "protocol": "event",
+      "description": "违规事件传递"
+    },
+    {
+      "source": "self_audit",
+      "destination": "architecture_designer",
+      "data_type": "AuditResult",
+      "protocol": "function call",
+      "description": "审计结果传递"
+    },
+    {
+      "source": "trend_analyzer",
+      "destination": "architecture_designer",
+      "data_type": "TrendAnalysisResult",
+      "protocol": "function call",
+      "description": "趋势分析结果传递"
+    },
+    {
+      "source": "security_gateway",
+      "destination": "all_modules",
+      "data_type": "AuthToken",
+      "protocol": "middleware",
+      "description": "安全认证"
+    }
+  ],
+  "tech_stack": {
+    "language": "Rust + Python (hybrid)",
+    "web_framework": "pydantic",
+    "database": "redis",
+    "cache": "Redis",
+    "message_queue": "RabbitMQ",
+    "observability": "OpenTelemetry + Prometheus",
+    "container": "Docker",
+    "orchestration": "Kubernetes"
+  },
+  "design_principles": [
+    "单一职责原则",
+    "依赖倒置原则",
+    "接口隔离原则",
+    "开闭原则",
+    "可观测性优先",
+    "防御性编程",
+    "渐进式演进"
+  ],
+  "improvement_areas": [],
+  "tla_spec_available": true
+}
