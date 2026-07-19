@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 import structlog
 
@@ -251,7 +251,7 @@ class ProofCache:
         Args:
             days: Maximum age in days
         """
-        cutoff = datetime.now() - datetime.timedelta(days=days)
+        cutoff = datetime.now() - timedelta(days=days)
         
         cursor = self._conn.cursor()
         cursor.execute(

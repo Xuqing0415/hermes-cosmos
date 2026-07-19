@@ -151,7 +151,7 @@ class GitHubClient:
             logger.error("Failed to get PR comments", pr_number=pr_number, error=str(e))
             return []
     
-    def get_commit_diff(self, commit_sha: str) -> Optional[str]:
+    def get_commit_diff(self, commit_sha: str) -> Optional[List[Dict[str, Any]]]:
         """
         Get the diff for a commit.
         

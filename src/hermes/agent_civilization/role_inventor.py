@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import uuid
 
-from .types import AgentRole, TaskStatus
+from .types import AgentRole
 
 
 class FailurePatternType(Enum):

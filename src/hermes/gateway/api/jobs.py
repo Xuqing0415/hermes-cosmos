@@ -2,11 +2,11 @@
 Jobs API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from hermes.core.models import Job, JobStatus, JobPriority, JobRequirements, PlacementConstraints
@@ -142,7 +142,7 @@ async def update_job(job_id: UUID, request: UpdateJobRequest) -> JobResponse:
     if request.metadata:
         job.metadata.update(request.metadata)
 
-    job.updated_at = datetime.utcnow()
+    job.updated_at = datetime.now(timezone.utc)
 
     return JobResponse(job=job)
 

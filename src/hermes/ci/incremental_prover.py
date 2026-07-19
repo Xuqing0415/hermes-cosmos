@@ -2,6 +2,7 @@
 Incremental Prover - Only re-prove affected functions
 """
 
+import os
 import time
 from typing import List, Dict, Optional, Any
 import structlog
@@ -128,12 +129,12 @@ class IncrementalProver:
         changed_names = [f.name for f in changed_functions]
         affected_names = dependency_graph.get_affected_functions(changed_names)
         
-        affected_functions = []
-        for func in changed_functions:
-            if func.name in affected_names:
-                affected_functions.append(func)
-        
-        return affected_functions
+        # Return all directly changed functions; they all need re-proving.
+        # Note: downstream functions affected via the dependency graph are not
+        # included here because we lack their source code to construct
+        # ChangedFunction objects. Full dependency tracking would require
+        # resolving fully-qualified names (module.func_name) from the graph.
+        return changed_functions
     
     def _prove_function(self, func: ChangedFunction) -> ProofResult:
         """Prove a single function"""
@@ -183,8 +184,29 @@ class IncrementalProver:
             )
     
     def _get_function_code(self, func: ChangedFunction) -> Optional[str]:
-        """Get the complete code for a function"""
-        return f"def {func.name}(...):\n    ..."
+        """Get the complete code for a function from its source file"""
+        try:
+            filepath = func.filename
+            if not os.path.isabs(filepath):
+                # Try to find the file relative to the repo root
+                for root_dir in [".", "src"]:
+                    candidate = os.path.join(root_dir, filepath)
+                    if os.path.exists(candidate):
+                        filepath = candidate
+                        break
+
+            if not os.path.exists(filepath):
+                logger.warning("Function source file not found", filename=func.filename)
+                return None
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            source_lines = lines[func.line_start - 1:func.line_end]
+            return "".join(source_lines)
+        except Exception as e:
+            logger.error("Failed to read function code", name=func.name, error=str(e))
+            return None
     
     def _map_status(self, result: Dict[str, Any]) -> ProofResultStatus:
         """Map proof generator result to CI status"""

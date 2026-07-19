@@ -65,7 +65,7 @@ class ClusterManager:
             host, port = self.etcd_endpoints[0].split(":")
             self._etcd = etcd3.client(host=host, port=int(port))
             await self._load_cluster_state()
-            logger.info("Connected to etcd")
+            logger.info("Connected to etcd, but note: etcd3 client is synchronous, running in degraded mode")
         except Exception as e:
             logger.warning(f"Failed to connect to etcd: {e}, running in standalone mode")
             self._etcd = None
@@ -80,7 +80,9 @@ class ClusterManager:
             return
 
         try:
-            nodes_data = self._etcd.get_prefix("/hermes/nodes/")
+            # NOTE: etcd3 is synchronous; this call blocks the event loop.
+            # A production fix would migrate to an async etcd client (e.g. aioetcd).
+            nodes_data = await asyncio.to_thread(self._etcd.get_prefix, "/hermes/nodes/")
             for value, metadata in nodes_data:
                 node_id = metadata.key.decode().split("/")[-1]
                 node_state = NodeState(

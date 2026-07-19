@@ -4,10 +4,10 @@ In-memory implementations for development and testing
 
 import asyncio
 import json
-from collections import defaultdict, deque
+from collections import deque
 from datetime import datetime, timedelta
-from typing import Any, Deque, Dict, List, Optional, Set
-from uuid import UUID, uuid4
+from typing import Any, Deque, Dict, List, Optional
+from uuid import UUID
 
 import structlog
 from prometheus_client import Counter, Histogram, Gauge
@@ -94,6 +94,10 @@ class InMemoryCheckpointStore:
     
     async def create(self, checkpoint: Checkpoint, data: bytes) -> Checkpoint:
         async with self._lock:
+            # Reject data that exceeds the max store size
+            if len(data) > self._max_size:
+                raise ValueError(f"Data size {len(data)} exceeds max store size {self._max_size}")
+
             # Check if we need to evict old checkpoints
             while self._current_size + len(data) > self._max_size and self._checkpoints:
                 oldest_id = min(self._checkpoints.keys(), key=lambda k: self._checkpoints[k].created_at)

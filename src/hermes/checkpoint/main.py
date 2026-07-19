@@ -3,7 +3,9 @@ Hermes Checkpoint Service - Distributed checkpoint management for AI training
 """
 
 import asyncio
+import os
 import signal
+import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -153,11 +155,21 @@ class CheckpointService:
         server = uvicorn.Server(config)
 
         loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(
-                sig,
-                lambda: asyncio.create_task(self._shutdown(server)),
-            )
+        if sys.platform != "win32":
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(
+                    sig,
+                    lambda: asyncio.create_task(self._shutdown(server)),
+                )
+        else:
+            # Windows: use signal.signal instead of add_signal_handler
+            def _win_shutdown():
+                asyncio.ensure_future(self._shutdown(server), loop=loop)
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                try:
+                    signal.signal(sig, lambda s, f: _win_shutdown())
+                except (ValueError, OSError):
+                    pass
 
         await server.serve()
 

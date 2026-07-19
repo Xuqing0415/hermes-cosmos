@@ -5,7 +5,7 @@ from .interfaces import DomainPlugin
 
 
 class PluginManager:
-    def __init__(self, plugins_dir: str = None):
+    def __init__(self, plugins_dir: Optional[str] = None):
         self.plugins_dir = plugins_dir or self._find_plugins_dir()
         self._plugins: Dict[str, DomainPlugin] = {}
         self._plugin_classes: Dict[str, Type[DomainPlugin]] = {}

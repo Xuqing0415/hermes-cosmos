@@ -172,28 +172,6 @@ class CivilizationCoordinator:
         
         return success
 
-    def fail_task(self, task_id: str, reason: str = "") -> bool:
-        success = self.task_board.fail_task(task_id, reason)
-        
-        if success:
-            task = self.task_board.get_task(task_id)
-            if task and task.assignee:
-                agent_info = self.agents.get(task.assignee)
-                if agent_info:
-                    agent_info.success_rate = (
-                        agent_info.success_rate * (agent_info.task_count - 1) / 
-                        agent_info.task_count
-                    )
-            
-            self._add_log(
-                agent_id="coordinator",
-                agent_role=AgentRole.RESOURCE_OVERSEER,
-                action="task_fail",
-                details={"task_id": task_id, "reason": reason}
-            )
-        
-        return success
-
     def add_knowledge(self, knowledge: KnowledgeItem) -> bool:
         success = self.knowledge_base.add_knowledge(knowledge)
         
@@ -676,6 +654,7 @@ class CivilizationCoordinator:
         return success
     
     def close_amendment_vote(self, amendment_id: str) -> VotingStatus:
+        self.voting_system.total_agents = len(self.agents)
         status = self.voting_system.close_vote(amendment_id)
         
         amendment = self.voting_system.get_amendment(amendment_id)
@@ -745,6 +724,7 @@ class CivilizationCoordinator:
         return success
     
     def close_role_vote(self, proposal_id: str) -> VotingStatus:
+        self.voting_system.total_agents = len(self.agents)
         status = self.voting_system.close_role_vote(proposal_id)
         
         proposal = self.voting_system.get_role_proposal(proposal_id)
