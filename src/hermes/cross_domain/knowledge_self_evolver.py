@@ -7,7 +7,7 @@ and periodically performs full clustering.
 
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from .knowledge_amalgamator import KnowledgeAmalgamator

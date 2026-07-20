@@ -105,8 +105,8 @@ class PatternDiscoveryEngine:
                        threshold: float) -> List[Tuple[List[PatternClusterNode], List[str], set]]:
         """Cluster knowledge graph nodes using keyword Jaccard similarity."""
         cluster_nodes = [
-            PatternClusterNode(n, n.representative_keywords, d)
-            for n in nodes for d in n.domains
+            PatternClusterNode(n, n.representative_keywords, n.domains[0] if n.domains else "unknown")
+            for n in nodes
         ]
 
         if not cluster_nodes:

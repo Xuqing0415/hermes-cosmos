@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 
@@ -17,8 +17,8 @@ class KnowledgeNode:
     representative_keywords: List[str] = field(default_factory=list)
     occurrences: int = 0
     confidence: float = 0.0
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -55,7 +55,7 @@ class KnowledgeEdge:
 class KnowledgeGraph:
     nodes: List[KnowledgeNode] = field(default_factory=list)
     edges: List[KnowledgeEdge] = field(default_factory=list)
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -82,7 +82,7 @@ class KnowledgeAmalgamator:
                 self._update_node(existing_node, pattern)
                 new_patterns_count += 1
 
-        self._graph.last_updated = datetime.utcnow()
+        self._graph.last_updated = datetime.now(timezone.utc)
         return new_patterns_count
 
     def amalgamate_similarities(self, similarities: List[SimilarityMatch]) -> int:
@@ -104,7 +104,7 @@ class KnowledgeAmalgamator:
                     self._graph.edges.append(edge)
                     new_edges_count += 1
 
-        self._graph.last_updated = datetime.utcnow()
+        self._graph.last_updated = datetime.now(timezone.utc)
         return new_edges_count
 
     def get_graph(self) -> KnowledgeGraph:
@@ -139,8 +139,8 @@ class KnowledgeAmalgamator:
                     representative_keywords=node_data.get("representative_keywords", []),
                     occurrences=node_data.get("occurrences", 0),
                     confidence=node_data.get("confidence", 0.0),
-                    created_at=datetime.fromisoformat(node_data.get("created_at", datetime.utcnow().isoformat())),
-                    updated_at=datetime.fromisoformat(node_data.get("updated_at", datetime.utcnow().isoformat()))
+                    created_at=datetime.fromisoformat(node_data.get("created_at", datetime.now(timezone.utc).isoformat())),
+                    updated_at=datetime.fromisoformat(node_data.get("updated_at", datetime.now(timezone.utc).isoformat()))
                 )
                 self._graph.nodes.append(node)
                 node_id = int(node.id.split("-")[-1]) if "-" in node.id else 0
@@ -220,9 +220,19 @@ class KnowledgeAmalgamator:
             if node.pattern_type.value == pattern_type:
                 if source_domain in node.domains:
                     source_node = node
-                if target_domain not in node.domains:
-                    node.domains.append(target_domain)
-                target_node = node
+                if target_domain in node.domains:
+                    target_node = node
+
+        # If the same node matches both source and target, reuse it
+        if source_node is not None and target_node is None:
+            target_node = source_node
+        elif target_node is not None and source_node is None:
+            source_node = target_node
+
+        # Add target_domain to target_node's domains if it exists and is different from source
+        if target_node is not None and target_node is not source_node:
+            if target_domain not in target_node.domains:
+                target_node.domains.append(target_domain)
 
         if source_node is None:
             self._node_id_counter += 1
@@ -258,7 +268,7 @@ class KnowledgeAmalgamator:
             )
             self._graph.edges.append(edge)
 
-        self._graph.last_updated = datetime.utcnow()
+        self._graph.last_updated = datetime.now(timezone.utc)
 
     def boost_similarity(self, pattern_type: str, increment: float = 0.05):
         """Boost similarity weight for edges connected to a pattern node."""
@@ -307,7 +317,7 @@ class KnowledgeAmalgamator:
 
         node.confidence = (node.confidence * (node.occurrences - 1) + pattern.confidence) / node.occurrences
 
-        node.updated_at = datetime.utcnow()
+        node.updated_at = datetime.now(timezone.utc)
 
     def _edge_exists(self, source_id: str, target_id: str) -> bool:
         for edge in self._graph.edges:

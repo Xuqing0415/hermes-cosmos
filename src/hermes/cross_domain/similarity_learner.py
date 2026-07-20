@@ -6,7 +6,7 @@ Uses a simple gradient-based approach to adjust the PATTERN_TYPE_SIMILARITY matr
 
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import copy
@@ -21,7 +21,7 @@ class MigrationRecord:
     target_domain: str
     similarity_used: float
     success: bool
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -155,7 +155,7 @@ class SimilarityLearner:
             "matrix": self._matrix.to_dict(),
             "history": [r.to_dict() for r in self._history],
             "migration_count": self._migration_count,
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
         directory = os.path.dirname(self._storage_path)
         if directory and not os.path.exists(directory):
@@ -182,7 +182,7 @@ class SimilarityLearner:
                 similarity_used=r_data.get("similarity_used", 0.0),
                 success=r_data["success"],
                 timestamp=datetime.fromisoformat(
-                    r_data.get("timestamp", datetime.utcnow().isoformat())
+                    r_data.get("timestamp", datetime.now(timezone.utc).isoformat())
                 ),
             ))
         self._migration_count = data.get("migration_count", len(self._history))

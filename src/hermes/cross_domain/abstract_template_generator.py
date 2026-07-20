@@ -7,7 +7,7 @@ same structure, it generates an abstract template applicable across domains.
 
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 from .abstract_pattern_extractor import AbstractPattern, AbstractPatternType
@@ -27,7 +27,7 @@ class AbstractFixTemplate:
     implementation_steps: List[str]
     confidence: float
     source_count: int
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
