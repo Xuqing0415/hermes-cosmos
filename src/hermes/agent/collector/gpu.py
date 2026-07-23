@@ -2,7 +2,7 @@
 GPU metrics collector
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
@@ -46,7 +46,7 @@ class GPUMetricsCollector:
                     "temperature": temp,
                     "power_draw": power / 1000.0,
                     "power_limit": power_limit / 1000.0,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
         except ImportError:
@@ -72,7 +72,7 @@ class GPUMetricsCollector:
                 "temperature": 75.0,
                 "power_draw": 350.0,
                 "power_limit": 400.0,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
             "gpu-1": {
                 "utilization": 82.0,
@@ -83,6 +83,6 @@ class GPUMetricsCollector:
                 "temperature": 72.0,
                 "power_draw": 340.0,
                 "power_limit": 400.0,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }

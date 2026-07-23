@@ -3,7 +3,7 @@ Checkpoint coordinator for managing distributed checkpoints
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -143,7 +143,7 @@ class CheckpointCoordinator:
         return await self.storage.list_checkpoints(job_id, tenant_id, limit)
 
     async def cleanup_expired(self) -> int:
-        expired_threshold = datetime.utcnow() - timedelta(days=self.retention_days)
+        expired_threshold = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
         checkpoints = await self.storage.list_checkpoints(limit=1000)
 

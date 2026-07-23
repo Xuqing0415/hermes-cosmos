@@ -5,7 +5,7 @@ Raft consensus protocol implementation
 import asyncio
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -26,7 +26,7 @@ class LogEntry:
     index: int
     term: int
     command: dict[str, Any]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -65,7 +65,7 @@ class RaftNode:
         self.match_index: dict[str, int] = {}
 
         self._leader_id: Optional[str] = None
-        self._last_heartbeat: datetime = datetime.utcnow()
+        self._last_heartbeat: datetime = datetime.now(timezone.utc)
         self._election_timer: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._running = False
@@ -138,7 +138,7 @@ class RaftNode:
         self._heartbeat_task = asyncio.create_task(send_heartbeats())
 
     async def _send_heartbeat(self) -> None:
-        self._last_heartbeat = datetime.utcnow()
+        self._last_heartbeat = datetime.now(timezone.utc)
 
     async def append_entry(self, command: dict[str, Any]) -> bool:
         if self.state != RaftState.LEADER:

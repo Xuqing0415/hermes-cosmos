@@ -5,7 +5,7 @@ End-to-end integration tests for Hermes Cosmos
 import asyncio
 import pytest
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from typing import Any, Generator
 
@@ -62,9 +62,9 @@ class TestEndToEnd:
             "command": "python train.py",
         }
         
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         response = client.post("/jobs", json=job_data)
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         
         # Check response
         assert response.status_code == 201
@@ -193,10 +193,10 @@ class TestJobFailover:
         job_obj = await job_queue.get_job(UUID(job_id))
         if job_obj:
             await job_queue.update_job_status(UUID(job_id), JobStatus.FAILED)
-            print(f" Simulated job failure at {datetime.utcnow().isoformat()}")
+            print(f" Simulated job failure at {datetime.now(timezone.utc).isoformat()}")
         
         # Measure recovery time
-        recovery_start = datetime.utcnow()
+        recovery_start = datetime.now(timezone.utc)
         
         # In a real system, we'd wait for the scheduler to re-schedule
         # For this test, we'll simulate recovery by re-enqueueing
@@ -208,7 +208,7 @@ class TestJobFailover:
         response = client.get("/jobs")
         assert response.status_code == 200
         
-        recovery_end = datetime.utcnow()
+        recovery_end = datetime.now(timezone.utc)
         recovery_time = (recovery_end - recovery_start).total_seconds()
         
         print(f" Recovery time: {recovery_time:.3f}s")

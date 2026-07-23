@@ -60,7 +60,7 @@ class MLIRCompilerPerceiver(Perceiver):
                     if "memref.load" in content or "memref.store" in content:
                         if "cf.assert" not in content:
                             pain_points.append(PainPoint(
-                                id=f"mlir-bound-{hash(mlir_file)}",
+                                id=f"mlir-bound-{hashlib.sha256(mlir_file.encode()).hexdigest()[:8]}",
                                 type="missing_bound_check",
                                 severity="medium",
                                 message=f"Missing bounds check in MLIR file",

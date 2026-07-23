@@ -17,7 +17,7 @@ import json
 import argparse
 import asyncio
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict
 from typing import Optional, List
 from pathlib import Path
@@ -178,7 +178,7 @@ class InferenceServiceTester:
 
             #  ()
             snapshot = MetricsSnapshot(
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 job_status=job.get("status", "UNKNOWN"),
                 gpu_utilization=85.5,  # 
                 gpu_memory_used_gb=320.0,  # 
@@ -307,7 +307,7 @@ class InferenceServiceTester:
 
     def generate_report(self) -> TestResults:
         """"""
-        completed_at = datetime.utcnow().isoformat()
+        completed_at = datetime.now(timezone.utc).isoformat()
         duration = (datetime.now() - datetime.fromisoformat(self.metrics[0].timestamp)).total_seconds() if self.metrics else 0
 
         results = TestResults(

@@ -3,7 +3,7 @@ Placement engine for job scheduling
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID
 
@@ -84,7 +84,7 @@ class PlacementAlgorithm:
                 carbon_intensity=0.0,
                 data_locality=True,
                 score=best_score,
-                scheduled_at=datetime.utcnow(),
+                scheduled_at=datetime.now(timezone.utc),
             )
         return None
 
@@ -194,7 +194,7 @@ class PlacementEngine:
             carbon_intensity=node.carbon_intensity,
             data_locality=job.constraints.data_locality,
             score=score,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=datetime.now(timezone.utc),
         )
 
     async def find_migration_target(

@@ -5,7 +5,7 @@ In-memory implementations for development and testing
 import asyncio
 import json
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Deque, Dict, List, Optional
 from uuid import UUID
 
@@ -70,7 +70,7 @@ class InMemoryJobQueue:
             job = self._jobs.get(job_id)
             if job:
                 job.status = status
-                job.updated_at = datetime.utcnow()
+                job.updated_at = datetime.now(timezone.utc)
                 if status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
                     JOBS_COMPLETED.labels(status=status.value).inc()
                 logger.info("Job status updated", job_id=str(job.id), status=status.value)
@@ -168,7 +168,7 @@ class InMemoryResourceManager:
             "total_gpus": total_gpus,
             "available_gpus": available_gpus,
             "allocated_gpus": total_gpus - available_gpus,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     
     async def allocate(self, job: Job, region: Region, gpu_count: int) -> bool:
@@ -184,7 +184,7 @@ class InMemoryResourceManager:
             self._allocated_gpus[job.id] = {
                 "region": region,
                 "gpu_count": gpu_count,
-                "allocated_at": datetime.utcnow(),
+                "allocated_at": datetime.now(timezone.utc),
             }
             ACTIVE_GPUS.labels(region=region.value).set(
                 region_data["total_gpus"] - region_data["available_gpus"]

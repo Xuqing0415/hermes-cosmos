@@ -79,7 +79,7 @@ class K8sDriftPerceiver(Perceiver):
                                                 tag = parts[1]
                                                 if tag < "v1.3.0":
                                                     pain_points.append(PainPoint(
-                                                        id=f"k8s-image-{hash(yaml_file)}",
+                                                        id=f"k8s-image-{hashlib.sha256(yaml_file.encode()).hexdigest()[:8]}",
                                                         type="old_image",
                                                         severity="high",
                                                         message=f"Deployment uses old image: {image}",

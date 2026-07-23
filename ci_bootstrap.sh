@@ -1,8 +1,5 @@
 #!/bin/bash
-"""
-CI Bootstrap Script - Install dependencies and run proof verification
-"""
-
+# CI Bootstrap Script - Install dependencies and run proof verification
 set -e
 
 echo " Starting CI Proof Pipeline..."

@@ -189,16 +189,16 @@ class SelfRefactorEngine:
         top_smells = self.detector.get_top_smells(5)
         
         if any(s.smell_type == SmellType.CYCLE_DEPENDENCY for s in top_smells):
-            recommendations.append("")
+            recommendations.append("Break circular dependencies by extracting shared interfaces or restructuring module imports")
         
         if any(s.smell_type == SmellType.DUPLICATE_CODE for s in top_smells):
-            recommendations.append("")
+            recommendations.append("Extract duplicate code into shared utility functions or base classes")
         
         if any(s.smell_type == SmellType.GOD_MODULE for s in top_smells):
-            recommendations.append("")
+            recommendations.append("Split god module into smaller, single-responsibility modules")
         
         if any(s.smell_type == SmellType.LONG_FUNCTION for s in top_smells):
-            recommendations.append("")
+            recommendations.append("Refactor long functions by extracting helper functions for each logical block")
         
         return recommendations
 

@@ -2,7 +2,7 @@
 Core data models for Hermes
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -60,8 +60,8 @@ class Resource(BaseModel):
     cost_per_hour: float
     carbon_intensity: float = Field(default=0.0, description="gCO2/kWh")
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def utilization(self) -> float:
@@ -127,8 +127,8 @@ class Job(BaseModel):
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CheckpointState(str, Enum):
@@ -150,7 +150,7 @@ class Checkpoint(BaseModel):
     storage_path: Optional[str] = None
     checksum: Optional[str] = None
     compression_ratio: float = Field(default=1.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -163,14 +163,14 @@ class FaultPrediction(BaseModel):
     predicted_failure_time: datetime
     confidence: float = Field(ge=0.0, le=1.0)
     recommended_action: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Metric(BaseModel):
     name: str
     value: float
     labels: dict[str, str] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Event(BaseModel):
@@ -179,7 +179,7 @@ class Event(BaseModel):
     source: str
     subject: str
     data: dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Tenant(BaseModel):
@@ -187,7 +187,7 @@ class Tenant(BaseModel):
     name: str
     quota: dict[ResourceType, int] = Field(default_factory=dict)
     roles: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class User(BaseModel):
@@ -195,7 +195,7 @@ class User(BaseModel):
     tenant_id: str
     email: str
     roles: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class JobType(str, Enum):
@@ -264,8 +264,8 @@ class InferenceService(BaseModel):
     region: Optional[Region] = None
     sla_availability: float = Field(default=99.9, description="SLA availability target")
     sla_latency_p99_ms: float = Field(default=100.0, description="SLA P99 latency target")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class InferenceRequest(BaseModel):
@@ -295,4 +295,4 @@ class InferenceMetrics(BaseModel):
     latency_p99_ms: float = 0.0
     gpu_utilization: float = 0.0
     error_rate: float = 0.0
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

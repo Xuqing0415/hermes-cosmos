@@ -14,7 +14,7 @@ import sys
 import time
 import json
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 try:
@@ -88,7 +88,7 @@ def submit_job(job_name: str, gpu_count: int, image: str) -> dict:
     return {
         "job_id": job_id,
         "submit_time": submit_time,
-        "submitted_at": datetime.utcnow().isoformat(),
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
     }
 
 def monitor_job(job_id: str, max_wait_minutes: int = 30) -> dict:
@@ -118,24 +118,24 @@ def monitor_job(job_id: str, max_wait_minutes: int = 30) -> dict:
             # 
             status_history.append({
                 "status": status,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             
             print(f"   [{datetime.now().strftime('%H:%M:%S')}] : {status}")
             
             # 
             if status == "SCHEDULING" and scheduled_at is None:
-                scheduled_at = datetime.utcnow().isoformat()
+                scheduled_at = datetime.now(timezone.utc).isoformat()
                 scheduling_delay = time.time() - start_time
                 print(f"   ⏱ : {scheduling_delay:.2f}")
             
             if status == "RUNNING" and running_at is None:
-                running_at = datetime.utcnow().isoformat()
+                running_at = datetime.now(timezone.utc).isoformat()
                 startup_delay = time.time() - start_time
                 print(f"   ⏱ : {startup_delay:.2f}")
             
             if status in ["COMPLETED", "FAILED", "CANCELLED"]:
-                completed_at = datetime.utcnow().isoformat()
+                completed_at = datetime.now(timezone.utc).isoformat()
                 total_duration = time.time() - start_time
                 print(f"\n !")
                 print(f"   : {status}")
@@ -172,8 +172,8 @@ def simulate_failure(job_id: str, delay_seconds: int = 180):
     
     # 
     return {
-        "failure_triggered_at": datetime.utcnow().isoformat(),
-        "recovery_started_at": datetime.utcnow().isoformat(),
+        "failure_triggered_at": datetime.now(timezone.utc).isoformat(),
+        "recovery_started_at": datetime.now(timezone.utc).isoformat(),
     }
 
 def save_results(results: dict, filename: str = OUTPUT_FILE):
@@ -219,7 +219,7 @@ def main():
             "gpu_count": args.gpu_count,
             "image": args.image,
             "test_failure": args.test_failure,
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
         },
         "submit_result": submit_result,
         "failure_result": failure_result,

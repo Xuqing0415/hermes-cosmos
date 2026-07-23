@@ -15,7 +15,7 @@ import sys
 import json
 import socket
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import yaml
 
@@ -125,7 +125,7 @@ def test_kafka_connection(endpoint: str) -> Dict[str, any]:
 def generate_test_audit_log() -> dict:
     """"""
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": "JOB_SUBMITTED",
         "service": "hermes-scheduler",
         "tenant_id": "test-tenant",

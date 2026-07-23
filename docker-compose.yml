@@ -8,8 +8,8 @@ services:
       hermes-net:
         ipv4_address: 172.20.0.10
     command: >
-      python -m hermes_unified.launcher --mode ps
-      --bind 0.0.0.0 --port 8888
+      python -m hermes.gateway.main
+      --host 0.0.0.0 --port 8888
     ports:
       - "8888:8888"
     environment:
@@ -21,8 +21,8 @@ services:
     networks:
       - hermes-net
     command: >
-      python -m hermes_unified.launcher --mode worker
-      --server-ip 172.20.0.10 --port 8888 --worker-id 1
+      python -m hermes.gateway.main
+      --host 0.0.0.0 --port 8889 --worker-id 1
     depends_on:
       - parameter-server
     environment:
@@ -34,8 +34,8 @@ services:
     networks:
       - hermes-net
     command: >
-      python -m hermes_unified.launcher --mode worker
-      --server-ip 172.20.0.10 --port 8888 --worker-id 2
+      python -m hermes.gateway.main
+      --host 0.0.0.0 --port 8890 --worker-id 2
     depends_on:
       - parameter-server
     environment:
@@ -43,4 +43,7 @@ services:
 
 networks:
   hermes-net:
-    external: true
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

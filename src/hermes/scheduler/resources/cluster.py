@@ -4,7 +4,7 @@ Cluster resource management
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID
 
@@ -92,7 +92,7 @@ class ClusterManager:
                     total_gpus=8,
                     available_gpus=8,
                     status="ready",
-                    last_heartbeat=datetime.utcnow(),
+                    last_heartbeat=datetime.now(timezone.utc),
                 )
                 self._nodes[node_id] = node_state
         except Exception as e:
@@ -119,7 +119,7 @@ class ClusterManager:
             "available_gpus": available_gpus,
             "regions": regions,
             "nodes": len(self._nodes),
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
 
     async def get_available_resources(
@@ -162,7 +162,7 @@ class ClusterManager:
 
     async def update_node_heartbeat(self, node_id: str) -> None:
         if node_id in self._nodes:
-            self._nodes[node_id].last_heartbeat = datetime.utcnow()
+            self._nodes[node_id].last_heartbeat = datetime.now(timezone.utc)
 
     async def get_nodes_by_region(self, region: Region) -> list[NodeState]:
         return [n for n in self._nodes.values() if n.region == region]

@@ -1,0 +1,25 @@
+# Docker 构建忽略文件
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+.env
+.git/
+.gitignore
+.github/
+.venv/
+venv/
+node_modules/
+data/
+generated_systems/
+*.md
+!README.md
+.DS_Store
+Thumbs.db

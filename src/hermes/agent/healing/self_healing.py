@@ -3,7 +3,7 @@ Self-healing engine for automated fault recovery
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -142,7 +142,7 @@ class SelfHealingEngine:
         success: bool,
     ) -> None:
         record = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": action,
             "prediction_id": str(prediction.id),
             "prediction_type": prediction.prediction_type,

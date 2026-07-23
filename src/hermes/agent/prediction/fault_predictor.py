@@ -2,7 +2,7 @@
 Fault prediction engine
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -82,7 +82,7 @@ class FaultPredictor:
                     resource_id=UUID("00000000-0000-0000-0000-000000000001"),
                     prediction_type="gpu_overheat",
                     probability=probability,
-                    predicted_failure_time=datetime.utcnow() + timedelta(minutes=self.prediction_window),
+                    predicted_failure_time=datetime.now(timezone.utc) + timedelta(minutes=self.prediction_window),
                     confidence=0.9,
                     recommended_action="Reduce workload or improve cooling",
                 ))
@@ -93,7 +93,7 @@ class FaultPredictor:
                     resource_id=UUID("00000000-0000-0000-0000-000000000001"),
                     prediction_type="gpu_power_overload",
                     probability=0.8,
-                    predicted_failure_time=datetime.utcnow() + timedelta(minutes=self.prediction_window),
+                    predicted_failure_time=datetime.now(timezone.utc) + timedelta(minutes=self.prediction_window),
                     confidence=0.85,
                     recommended_action="Migrate workload to reduce power consumption",
                 ))
@@ -115,7 +115,7 @@ class FaultPredictor:
                 resource_id=UUID("00000000-0000-0000-0000-000000000002"),
                 prediction_type="memory_exhaustion",
                 probability=0.85,
-                predicted_failure_time=datetime.utcnow() + timedelta(minutes=15),
+                predicted_failure_time=datetime.now(timezone.utc) + timedelta(minutes=15),
                 confidence=0.88,
                 recommended_action="Free memory or migrate jobs",
             ))

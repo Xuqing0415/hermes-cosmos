@@ -2,7 +2,7 @@
 Checkpoint API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -128,6 +128,6 @@ async def get_checkpoint_metadata(checkpoint_id: UUID) -> dict:
         "checkpoint_id": str(checkpoint_id),
         "size_bytes": 1024 * 1024 * 1024,
         "compression_ratio": 0.7,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "is_delta": False,
     }

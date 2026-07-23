@@ -191,7 +191,7 @@ class Orchestrator:
         return None
     
     def _phase_requirement_parsing(self, trigger: TriggerEvent) -> Optional[Dict[str, Any]]:
-        print(f"[1/9] Parsing requirement...")
+        print(f"[1/11] Parsing requirement...")
         
         title = trigger.data.get("title", "Self-evolution improvement")
         body = trigger.data.get("body", "")
@@ -224,7 +224,7 @@ class Orchestrator:
         return ops or ["update"]
     
     def _phase_spec_generation(self, parsed_req: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        print(f"[2/9] Generating TLA+ spec...")
+        print(f"[2/11] Generating TLA+ spec...")
         
         spec_name = f"{parsed_req['title'].lower().replace(' ', '_')}.tla"
         spec_content = self._generate_tla_spec(parsed_req)
@@ -257,7 +257,7 @@ THEOREM Spec => Safety
         return spec
     
     def _phase_code_generation(self, parsed_req: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        print(f"[3/9] Generating microservice code...")
+        print(f"[3/11] Generating microservice code...")
         
         service_name = parsed_req['title'].lower().replace(' ', '-')
         artifacts = []
@@ -374,7 +374,7 @@ spec:
 """
     
     def _phase_deployment(self, code: Optional[Dict[str, Any]]):
-        print(f"[4/9] Deploying...")
+        print(f"[4/11] Deploying...")
         
         if not self.config.auto_deploy or code is None:
             print(f"      → Skipped (auto_deploy disabled)")
@@ -391,7 +391,7 @@ spec:
         print(f"      → Deployed to {iteration_dir}")
     
     def _phase_runtime_monitoring(self) -> List[Dict[str, Any]]:
-        print(f"[5/9] Runtime monitoring...")
+        print(f"[5/11] Runtime monitoring...")
         
         anomalies = []
         
@@ -411,7 +411,7 @@ spec:
         return []
     
     def _phase_auto_repair(self, anomalies: List[Dict[str, Any]]):
-        print(f"[6/9] Auto-repair...")
+        print(f"[6/11] Auto-repair...")
         
         for anomaly in anomalies:
             print(f"      → Fixing: {anomaly['type']}")
@@ -420,7 +420,7 @@ spec:
         print(f"      → {len(anomalies)} issue(s) fixed")
     
     def _phase_self_examination(self) -> Dict[str, Any]:
-        print(f"[7/9] Self-examination...")
+        print(f"[7/11] Self-examination...")
         
         issues = []
         if random.random() < 0.5:
@@ -439,7 +439,7 @@ spec:
         return {"issues": issues, "total_files": 141, "total_issues": len(issues)}
     
     def _phase_trend_analysis(self) -> Dict[str, Any]:
-        print(f"[8/9] Trend analysis...")
+        print(f"[8/11] Trend analysis...")
         
         trends = [
             {"name": "Rust", "category": "performance", "relevance": 0.85},
@@ -454,7 +454,7 @@ spec:
     
     def _phase_roadmap_generation(self, introspection: Dict[str, Any], 
                                    trends: Dict[str, Any]) -> Dict[str, Any]:
-        print(f"[9/9] Roadmap generation...")
+        print(f"[9/11] Roadmap generation...")
         
         features = []
         if introspection.get("issues"):
@@ -478,7 +478,7 @@ spec:
         return {"features": features}
     
     def _phase_metacognition(self) -> Optional[Dict[str, float]]:
-        print(f"[10/10] Metacognition analysis...")
+        print(f"[10/11] Metacognition analysis...")
         
         new_dimensions = []
         if random.random() < 0.4:

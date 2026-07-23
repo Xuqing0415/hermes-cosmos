@@ -2,7 +2,7 @@
 Scheduler API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -46,7 +46,7 @@ async def get_scheduler_status() -> SchedulerStatusResponse:
         is_leader=True,
         term=1,
         committed_index=100,
-        last_heartbeat=datetime.utcnow(),
+        last_heartbeat=datetime.now(timezone.utc),
     )
 
 
@@ -72,7 +72,7 @@ async def preempt_job(job_id: UUID, reason: str = Query(...)) -> dict:
         "job_id": str(job_id),
         "status": "preempted",
         "reason": reason,
-        "preempted_at": datetime.utcnow().isoformat(),
+        "preempted_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -85,7 +85,7 @@ async def migrate_job(
         "job_id": str(job_id),
         "status": "migrating",
         "target_region": target_region.value,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -96,7 +96,7 @@ async def get_job_placement(job_id: UUID) -> PlacementResponse:
         region=Region.US_EAST,
         gpu_count=8,
         node_ids=["node-1", "node-2", "node-3", "node-4"],
-        scheduled_at=datetime.utcnow(),
+        scheduled_at=datetime.now(timezone.utc),
     )
 
 
@@ -119,7 +119,7 @@ async def schedule_inference_service(service_id: UUID) -> InferencePlacementResp
         replicas=2,
         node_ids=["node-10", "node-11"],
         endpoint=f"http://inference-{service_id}.hermes.svc.cluster.local:8000",
-        scheduled_at=datetime.utcnow(),
+        scheduled_at=datetime.now(timezone.utc),
     )
 
 
@@ -131,7 +131,7 @@ async def get_inference_service_status(service_id: UUID) -> dict:
         "replicas": 2,
         "available_replicas": 2,
         "region": Region.US_EAST.value,
-        "last_heartbeat": datetime.utcnow().isoformat(),
+        "last_heartbeat": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -144,5 +144,5 @@ async def scale_inference_service(
         "service_id": str(service_id),
         "status": "scaling",
         "target_replicas": replicas,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
     }

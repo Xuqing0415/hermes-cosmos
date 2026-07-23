@@ -4,7 +4,7 @@ System metrics collector
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import psutil
@@ -28,14 +28,14 @@ class MetricsCollector:
 
     async def collect(self) -> dict[str, Any]:
         metrics = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "cpu": await self._collect_cpu_metrics(),
             "memory": await self._collect_memory_metrics(),
             "disk": await self._collect_disk_metrics(),
             "network": await self._collect_network_metrics(),
         }
 
-        self._last_collection = datetime.utcnow()
+        self._last_collection = datetime.now(timezone.utc)
         return metrics
 
     async def _collect_cpu_metrics(self) -> dict[str, Any]:

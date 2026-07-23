@@ -4,7 +4,7 @@ Job queue management
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -54,7 +54,7 @@ class JobQueue:
         await self._redis.publish("hermes:events", json.dumps({
             "type": "job_enqueued",
             "job_id": str(job.id),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }))
 
         logger.info("Job enqueued", job_id=str(job.id), priority=job.priority.value)
@@ -118,7 +118,7 @@ class JobQueue:
             "type": "job_status_changed",
             "job_id": str(job_id),
             "status": status.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }))
 
         logger.info("Job status updated", job_id=str(job_id), status=status.value)

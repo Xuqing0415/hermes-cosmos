@@ -2,7 +2,7 @@
 Agent API endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -52,7 +52,7 @@ async def get_agent_status() -> AgentStatusResponse:
         uptime_seconds=3600,
         predictions_made=10,
         healing_actions=2,
-        last_prediction=datetime.utcnow(),
+        last_prediction=datetime.now(timezone.utc),
     )
 
 
@@ -107,5 +107,5 @@ async def trigger_healing(
         "prediction_id": str(prediction_id),
         "action": action,
         "status": "initiated",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
