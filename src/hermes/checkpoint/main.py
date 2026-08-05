@@ -127,7 +127,7 @@ class CheckpointService:
             lifespan=lifespan,
         )
 
-        self.app.include_router(router, prefix="/v1")
+        self.app.include_router(router, prefix="/v1/checkpoints")
 
         @self.app.get("/metrics")
         async def metrics() -> Response:

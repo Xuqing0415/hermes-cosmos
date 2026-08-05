@@ -9,6 +9,7 @@ from uuid import uuid4
 import pickle
 import zlib
 import os
+import tempfile
 
 app = FastAPI(title="Hermes Checkpoint Service", version="2.0")
 
@@ -17,8 +18,14 @@ checkpoints: Dict[str, dict] = {}
 job_checkpoints: Dict[str, List[str]] = {}
 
 # 
-STORAGE_PATH = "/tmp/hermes/checkpoints"
-os.makedirs(STORAGE_PATH, exist_ok=True)
+STORAGE_PATH = os.environ.get(
+    "HERMES_CHECKPOINT_STORAGE_PATH",
+    os.path.join(tempfile.gettempdir(), "hermes", "checkpoints"),
+)
+try:
+    os.makedirs(STORAGE_PATH, exist_ok=True)
+except OSError:
+    pass
 
 class CheckpointRequest(BaseModel):
     job_id: str
@@ -48,6 +55,7 @@ async def save_checkpoint(request: CheckpointRequest):
     
     # 
     file_path = os.path.join(STORAGE_PATH, f"{checkpoint_id}.chk")
+    os.makedirs(STORAGE_PATH, exist_ok=True)
     with open(file_path, 'wb') as f:
         f.write(compressed)
     

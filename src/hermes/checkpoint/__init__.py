@@ -2,6 +2,6 @@
 Checkpoint module initialization
 """
 
-from hermes.checkpoint.main import CheckpointService, main
+from hermes.checkpoint.client import HermesCheckpointer
 
-__all__ = ["CheckpointService", "main"]
+__all__ = ["HermesCheckpointer"]
