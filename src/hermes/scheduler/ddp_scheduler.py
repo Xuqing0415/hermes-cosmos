@@ -21,11 +21,12 @@ app = FastAPI(title="Hermes Distributed Scheduler", version="2.0")
 # K8s
 try:
     config.load_kube_config()
+    v1 = client.CoreV1Api()
+    apps_v1 = client.AppsV1Api()
 except Exception:
-    config.load_incluster_config()
-
-v1 = client.CoreV1Api()
-apps_v1 = client.AppsV1Api()
+    print("[DDP-SCHEDULER] Kubernetes config not found, running in standalone mode")
+    v1 = None
+    apps_v1 = None
 
 # 
 jobs: Dict[str, dict] = {}
@@ -161,6 +162,10 @@ def create_ddp_statefulset(job_id, name, num_replicas, image):
         )
     )
     
+    if v1 is None or apps_v1 is None:
+        print(f"[DDP] Running in standalone mode, skipping StatefulSet creation for {statefulset_name}")
+        return statefulset_name
+
     v1.create_namespaced_service(namespace="default", body=service)
     apps_v1.create_namespaced_stateful_set(namespace="default", body=statefulset)
     
@@ -182,11 +187,12 @@ async def recover_ddp_job(job_id: str):
         pause_training(job_id)
         
         # 2. StatefulSetPod
-        apps_v1.delete_namespaced_stateful_set(
-            name=statefulset_name,
-            namespace="default",
-            body=client.V1DeleteOptions(grace_period_seconds=0)
-        )
+        if apps_v1 is not None:
+            apps_v1.delete_namespaced_stateful_set(
+                name=statefulset_name,
+                namespace="default",
+                body=client.V1DeleteOptions(grace_period_seconds=0)
+            )
         
         # 3. Pod
         await asyncio.sleep(5)

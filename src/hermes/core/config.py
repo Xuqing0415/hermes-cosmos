@@ -139,7 +139,7 @@ class NetworkQoSConfig(BaseModel):
 
 
 class GatewayConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_GATEWAY_"}
+    model_config = {"env_prefix": "HERMES_GATEWAY_", "env_nested_delimiter": "__"}
 
     server: ServerConfig = Field(default_factory=ServerConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
@@ -151,7 +151,7 @@ class GatewayConfig(BaseSettings):
 
 
 class SchedulerConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_SCHEDULER_"}
+    model_config = {"env_prefix": "HERMES_SCHEDULER_", "env_nested_delimiter": "__"}
 
     server: ServerConfig = Field(default_factory=ServerConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -165,7 +165,7 @@ class SchedulerConfig(BaseSettings):
 
 
 class CheckpointConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_CHECKPOINT_"}
+    model_config = {"env_prefix": "HERMES_CHECKPOINT_", "env_nested_delimiter": "__"}
 
     server: ServerConfig = Field(default_factory=ServerConfig)
     storage: CheckpointStorageConfig = Field(default_factory=CheckpointStorageConfig)
@@ -176,7 +176,7 @@ class CheckpointConfig(BaseSettings):
 
 
 class AgentConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_AGENT_"}
+    model_config = {"env_prefix": "HERMES_AGENT_", "env_nested_delimiter": "__"}
 
     server: ServerConfig = Field(default_factory=ServerConfig)
     region: Region = Field(default=Region.US_EAST)
@@ -187,7 +187,7 @@ class AgentConfig(BaseSettings):
 
 
 class ObservabilityConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_OBSERVABILITY_"}
+    model_config = {"env_prefix": "HERMES_OBSERVABILITY_", "env_nested_delimiter": "__"}
 
     prometheus: PrometheusConfig = Field(default_factory=PrometheusConfig)
     tracing: TracingConfig = Field(default_factory=TracingConfig)
@@ -196,7 +196,7 @@ class ObservabilityConfig(BaseSettings):
 
 
 class SecurityConfig(BaseSettings):
-    model_config = {"env_prefix": "HERMES_SECURITY_"}
+    model_config = {"env_prefix": "HERMES_SECURITY_", "env_nested_delimiter": "__"}
 
     auth: AuthConfig = Field(default_factory=AuthConfig)
     tls: TLSConfig = Field(default_factory=TLSConfig)

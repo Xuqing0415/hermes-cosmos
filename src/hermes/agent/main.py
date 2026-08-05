@@ -222,12 +222,15 @@ class HermesAgent:
 
         server = uvicorn.Server(config)
 
-        loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(
-                sig,
-                lambda: asyncio.create_task(self._shutdown(server)),
-            )
+        try:
+            loop = asyncio.get_event_loop()
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(
+                    sig,
+                    lambda: asyncio.create_task(self._shutdown(server)),
+                )
+        except NotImplementedError:
+            logger.warning("Signal handlers not supported on this platform")
 
         await server.serve()
 
