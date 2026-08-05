@@ -23,7 +23,7 @@ from prometheus_client import Counter, Histogram, generate_latest
 from starlette.responses import Response
 
 from hermes.core.config import GatewayConfig
-from hermes.core.exceptions import HermesError, RateLimitError
+from hermes.core.exceptions import AuthenticationError, AuthorizationError, HermesError, RateLimitError
 from hermes.gateway.api import jobs, checkpoints, resources, health, inference
 from hermes.gateway.middleware.auth import AuthMiddleware
 from hermes.gateway.middleware.logging import LoggingMiddleware
@@ -167,7 +167,11 @@ class Gateway:
                 details=exc.details,
             )
             status_code = 500
-            if isinstance(exc, RateLimitError):
+            if isinstance(exc, AuthenticationError):
+                status_code = 401
+            elif isinstance(exc, AuthorizationError):
+                status_code = 403
+            elif isinstance(exc, RateLimitError):
                 status_code = 429
             return JSONResponse(
                 status_code=status_code,

@@ -5,9 +5,11 @@ Authentication middleware using SPIFFE
 import time
 from typing import Callable, Optional
 
-import jwt
+from jose import jwt
+from jose.exceptions import ExpiredSignatureError, JWTError
 import structlog
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from hermes.core.exceptions import AuthenticationError, AuthorizationError
@@ -43,29 +45,36 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            raise AuthenticationError("Missing Authorization header")
+            return JSONResponse(
+                status_code=401,
+                content={"error": "AUTHENTICATION_ERROR", "message": "Missing Authorization header"},
+            )
 
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise AuthenticationError("Invalid Authorization header format")
+            return JSONResponse(
+                status_code=401,
+                content={"error": "AUTHENTICATION_ERROR", "message": "Invalid Authorization header format"},
+            )
 
         token = parts[1]
 
         try:
             claims = await self._validate_token(token)
             request.state.user = claims
-        except jwt.ExpiredSignatureError:
-            raise AuthenticationError("Token has expired")
-        except jwt.InvalidTokenError as e:
-            raise AuthenticationError(f"Invalid token: {str(e)}")
+        except AuthenticationError as e:
+            return JSONResponse(
+                status_code=401,
+                content={"error": e.code, "message": e.message},
+            )
 
         return await call_next(request)
 
     async def _validate_token(self, token: str) -> dict:
         try:
-            unverified = jwt.decode(token, options={"verify_signature": False})
+            unverified = jwt.decode(token, key="", options={"verify_signature": False})
             return unverified
-        except jwt.DecodeError:
+        except JWTError:
             raise AuthenticationError("Invalid token format")
 
     async def _get_jwks(self) -> dict:

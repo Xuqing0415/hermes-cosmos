@@ -56,7 +56,7 @@ def list_jobs(
         if status:
             params["status"] = status
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/jobs", params=params)
             response.raise_for_status()
             data = response.json()
@@ -105,7 +105,7 @@ def submit_job(
         payload["command"] = command
 
     async def _submit_job() -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.post(f"{api_url}/v1/jobs", json=payload)
             response.raise_for_status()
             data = response.json()
@@ -123,7 +123,7 @@ def get_job(ctx: click.Context, job_id: str) -> None:
     api_url = ctx.obj["api_url"]
 
     async def _get_job() -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/jobs/{job_id}")
             response.raise_for_status()
             data = response.json()
@@ -146,7 +146,7 @@ def cancel_job(ctx: click.Context, job_id: str) -> None:
     api_url = ctx.obj["api_url"]
 
     async def _cancel_job() -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.delete(f"{api_url}/v1/jobs/{job_id}")
             response.raise_for_status()
 
@@ -174,7 +174,7 @@ def list_checkpoints(ctx: click.Context, job_id: Optional[str]) -> None:
         if job_id:
             params["job_id"] = job_id
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/checkpoints", params=params)
             response.raise_for_status()
             data = response.json()
@@ -205,7 +205,7 @@ def list_resources(ctx: click.Context, region: Optional[str]) -> None:
         if region:
             params["region"] = region
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/resources", params=params)
             response.raise_for_status()
             data = response.json()
@@ -224,7 +224,7 @@ def resource_summary(ctx: click.Context) -> None:
     api_url = ctx.obj["api_url"]
 
     async def _resource_summary() -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/resources/cluster/summary")
             response.raise_for_status()
             data = response.json()
@@ -249,7 +249,7 @@ def status(ctx: click.Context) -> None:
     api_url = ctx.obj["api_url"]
 
     async def _status() -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(f"{api_url}/v1/health")
             response.raise_for_status()
             data = response.json()
