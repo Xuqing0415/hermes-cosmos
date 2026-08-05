@@ -265,22 +265,27 @@ class TrendAnalyzer:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
                 content = resp.read().decode()
                 
-                repo_pattern = r'<article class="Box-row.*?<h2.*?<a href="([^"]+)".*?>([^<]+)</a>.*?<p class="col-9.*?>([^<]+)</p>.*?<span class="text-muted.*?>([^<]+)</span>'
+                # Split the page into per-article blocks first. Extracting all
+                # fields from the whole page with one long regex triggers
+                # catastrophic backtracking on the real GitHub HTML (multi-minute
+                # CPU hang); per-block regexes stay bounded and fast.
+                articles = re.findall(r'<article class="Box-row.*?</article>', content, re.DOTALL)
                 
-                matches = re.findall(repo_pattern, content, re.DOTALL)
-                
-                for href, name, desc, stars in matches[:15]:
-                    name = name.strip()
-                    desc = desc.strip()
-                    stars = self._parse_stars(stars)
+                for article in articles[:15]:
+                    href_match = re.search(r'<h2[^>]*>\s*<a[^>]*href="([^"]+)"', article)
+                    if not href_match:
+                        continue
                     
+                    name = self._parse_repo_name(article)
+                    desc = self._parse_repo_description(article)
+                    stars = self._parse_repo_stars(article)
                     category = self._classify_repo(name, desc)
                     
                     trends.append(TrendItem(
                         source=TrendSource.GITHUB_TRENDING,
                         name=name,
                         description=desc,
-                        url=f"https://github.com{href}",
+                        url=f"https://github.com{href_match.group(1)}",
                         stars=stars,
                         category=category,
                         tags=self._extract_tags(name, desc)
@@ -289,6 +294,29 @@ class TrendAnalyzer:
             pass
         
         return trends
+    
+    def _parse_repo_name(self, article: str) -> str:
+        h2_match = re.search(r'<h2[^>]*>(.*?)</h2>', article, re.DOTALL)
+        if not h2_match:
+            return ""
+        text = re.sub(r'<[^>]+>', ' ', h2_match.group(1))
+        text = re.sub(r'\s+', ' ', text).strip()
+        if "/" in text:
+            return text.split("/")[-1].strip()
+        return text
+    
+    def _parse_repo_description(self, article: str) -> str:
+        match = re.search(r'<p[^>]*class="[^"]*col-9[^"]*"[^>]*>(.*?)</p>', article, re.DOTALL)
+        if not match:
+            return ""
+        return re.sub(r'\s+', ' ', match.group(1)).strip()
+    
+    def _parse_repo_stars(self, article: str) -> int:
+        match = re.search(r'href="([^"]*/stargazers)"[^>]*>(.*?)</a>', article, re.DOTALL)
+        if not match:
+            return 0
+        inner = re.sub(r'<[^>]+>', ' ', match.group(2))
+        return self._parse_stars(inner)
     
     def _parse_stars(self, stars_str: str) -> int:
         stars_str = stars_str.strip().replace(',', '')

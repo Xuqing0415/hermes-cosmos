@@ -318,6 +318,7 @@ class SmellDetector:
                 content = f.read()
             
             tree = ast.parse(content)
+            local_names = self._collect_local_names(tree)
             
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -326,24 +327,10 @@ class SmellDetector:
                     external_classes = set()
                     
                     for child in ast.walk(node):
-                        if isinstance(child, ast.Attribute):
-                            if isinstance(child.value, ast.Name):
-                                with open(fp, 'r', encoding='utf-8') as f2:
-                                    content2 = f2.read()
-                                tree2 = ast.parse(content2)
-                                is_local = False
-                                for n in ast.walk(tree2):
-                                    if isinstance(n, ast.ClassDef) and n.name == child.value.id:
-                                        is_local = True
-                                        break
-                                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                                        for arg in n.args.args:
-                                            if arg.arg == child.value.id:
-                                                is_local = True
-                                                break
-                                if not is_local:
-                                    external_access_count += 1
-                                    external_classes.add(child.value.id)
+                        if isinstance(child, ast.Attribute) and isinstance(child.value, ast.Name):
+                            if child.value.id not in local_names:
+                                external_access_count += 1
+                                external_classes.add(child.value.id)
                     
                     if external_access_count > 5 and len(external_classes) >= 2:
                         line_start = node.lineno
@@ -367,6 +354,17 @@ class SmellDetector:
                             },
                             priority=30.0
                         ))
+
+    def _collect_local_names(self, tree: ast.AST) -> Set[str]:
+        # Collect names that are local to a file (class names and function arguments)
+        local_names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                local_names.add(node.name)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for arg in node.args.args:
+                    local_names.add(arg.arg)
+        return local_names
 
     def _find_cycles(self, graph: Dict[str, Set[str]]) -> List[List[str]]:
         visited = set()
