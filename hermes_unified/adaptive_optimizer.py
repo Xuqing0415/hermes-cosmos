@@ -2,11 +2,11 @@
 """
 Hermes Unified Adaptive Optimizer
 
-
-1.  vs 
-2. 
-3.  GPU 
-4. /
+根据实时指标自动选择优化策略：
+1. 分析通信延迟 vs 计算时间
+2. 分析梯度范数波动
+3. 分析 GPU 利用率
+4. 自动开启/关闭优化策略
 """
 
 import sqlite3
@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import torch
 
-# 
+# 延迟导入以避免循环依赖
 GradientCompressor = None
 GradientFusion = None
 
@@ -27,7 +27,7 @@ def _lazy_import():
 
 
 class OptimizationAdvisor:
-    """ - """
+    """优化顾问 - 根据指标数据提供优化建议"""
     
     def __init__(self, db_path: str = "benchmark_metrics.db"):
         self.db_path = db_path
@@ -43,15 +43,15 @@ class OptimizationAdvisor:
     
     def analyze_metrics(self, mode: str = "ddp", recent_batches: int = 100) -> Dict:
         """
-        
+        分析指标数据库，识别性能瓶颈
         
         Returns:
-            analysis: 
+            analysis: 分析结果字典
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 
+        # 获取最近批次的指标
         cursor.execute('''
             SELECT loss, grad_norm, comm_delay_ms, gpu_memory_used, gpu_utilization
             FROM training_metrics 
@@ -65,13 +65,13 @@ class OptimizationAdvisor:
         if not rows:
             return {"status": "no_data"}
         
-        # 
+        # 提取数据
         losses = [row[0] for row in rows]
         grad_norms = [row[1] for row in rows if row[1] is not None]
         comm_delays = [row[2] for row in rows if row[2] is not None]
         gpu_utilizations = [row[4] for row in rows if row[4] is not None]
         
-        # 
+        # 计算统计量
         analysis = {
             "mode": mode,
             "sample_count": len(rows),
@@ -89,25 +89,25 @@ class OptimizationAdvisor:
     
     def suggest_optimizations(self, analysis: Dict) -> List[Dict]:
         """
-        
+        根据分析结果建议优化策略
         
         Args:
-            analysis: 
+            analysis: 分析结果
             
         Returns:
-            suggestions: 
+            suggestions: 优化建议列表
         """
         suggestions = []
         
         # 1:  > 10% → 
         if analysis["avg_comm_delay_ms"] is not None:
-            # 5-10
-            step_time_estimate = analysis["avg_comm_delay_ms"] * 5  # 
+            # 假设每步计算时间约为通信延迟的5-10倍（粗略估计）
+            step_time_estimate = analysis["avg_comm_delay_ms"] * 5  # 粗略估计
             if analysis["avg_comm_delay_ms"] > 0.1 * step_time_estimate:
                 suggestions.append({
                     "type": "gradient_compression",
                     "action": "enable",
-                    "reason": f"({analysis['avg_comm_delay_ms']:.2f}ms) > 10%",
+                    "reason": f"通信延迟({analysis['avg_comm_delay_ms']:.2f}ms) > 计算时间的10%",
                     "params": {"compression_ratio": self.compression_ratio}
                 })
                 self.optimizations['gradient_compression'] = True
@@ -115,11 +115,11 @@ class OptimizationAdvisor:
         # 2:  → 
         if analysis["grad_norm_std"] is not None and analysis["avg_grad_norm"] is not None:
             grad_norm_cv = analysis["grad_norm_std"] / analysis["avg_grad_norm"]
-            if grad_norm_cv > 0.3:  #  > 30%
+            if grad_norm_cv > 0.3:  # 变异系数 > 30%
                 suggestions.append({
                     "type": "gradient_clipping",
                     "action": "enable",
-                    "reason": f"(CV={grad_norm_cv:.2f} > 0.3)",
+                    "reason": f"梯度范数波动大(CV={grad_norm_cv:.2f} > 0.3)",
                     "params": {"clip_value": self.clip_value}
                 })
                 self.optimizations['gradient_clipping'] = True
@@ -130,7 +130,7 @@ class OptimizationAdvisor:
                 suggestions.append({
                     "type": "auto_batch_size",
                     "action": "increase",
-                    "reason": f"GPU({analysis['avg_gpu_utilization']:.1f}%) < 80%",
+                    "reason": f"GPU利用率({analysis['avg_gpu_utilization']:.1f}%) < 80%",
                     "params": {"suggested_increase": "2x"}
                 })
                 self.optimizations['auto_batch_size'] = True
@@ -138,11 +138,11 @@ class OptimizationAdvisor:
         # 4:  → 
         if analysis["comm_delay_std"] is not None:
             comm_cv = analysis["comm_delay_std"] / analysis["avg_comm_delay_ms"]
-            if comm_cv > 0.5:  #  > 50%
+            if comm_cv > 0.5:  # 变异系数 > 50%
                 suggestions.append({
                     "type": "gradient_fusion",
                     "action": "enable",
-                    "reason": f"(CV={comm_cv:.2f} > 0.5)",
+                    "reason": f"通信延迟波动大(CV={comm_cv:.2f} > 0.5)",
                     "params": {"fusion_threshold": self.fusion_threshold}
                 })
                 self.optimizations['gradient_fusion'] = True
@@ -150,12 +150,12 @@ class OptimizationAdvisor:
         return suggestions
     
     def get_optimization_status(self) -> Dict:
-        """"""
+        """获取当前优化状态"""
         return self.optimizations
 
 
 class AdaptiveWorker:
-    """Worker - """
+    """自适应Worker - 根据实时指标自动调整优化策略"""
     
     def __init__(self, model, optimizer, device, amp_enabled: bool = True):
         self.model = model
@@ -163,48 +163,48 @@ class AdaptiveWorker:
         self.device = device
         self.amp_enabled = amp_enabled
         
-        # 
+        # 延迟导入优化组件
         if GradientCompressor is None:
             _lazy_import()
         
-        # 
+        # 优化器组件
         self.gradient_compressor = GradientCompressor(compression_ratio=0.1)
         self.gradient_fusion = GradientFusion(fusion_threshold=1024)
         self.amp_scaler = None
         if amp_enabled and torch.cuda.is_available():
             self.amp_scaler = torch.cuda.amp.GradScaler()
         
-        # 
+        # 优化状态
         self.use_compression = False
         self.use_fusion = False
         self.use_clipping = False
         self.clip_value = 1.0
         
-        # 
+        # 统计数据
         self.step_count = 0
         self.comm_delay_history = []
         self.grad_norm_history = []
         
     def train_step(self, inputs, targets, criterion):
         """
-        
+        执行一个训练步骤，自动应用优化策略
         
         Args:
-            inputs: 
-            targets: 
-            criterion: 
+            inputs: 输入数据
+            targets: 目标标签
+            criterion: 损失函数
             
         Returns:
-            loss: 
+            loss: 损失值
         """
         self.step_count += 1
         
         self.optimizer.zero_grad()
         
-        # 
+        # 记录通信开始时间
         comm_start = time.time()
         
-        # AMP 
+        # AMP 前向传播
         if self.amp_enabled and self.amp_scaler is not None:
             with torch.cuda.amp.autocast():
                 outputs = self.model(inputs)
@@ -213,24 +213,24 @@ class AdaptiveWorker:
             outputs = self.model(inputs)
             loss = criterion(outputs, targets)
         
-        # 
+        # 记录通信延迟
         comm_delay_ms = (time.time() - comm_start) * 1000
         self.comm_delay_history.append(comm_delay_ms)
         
-        # AMP 
+        # AMP 反向传播
         if self.amp_enabled and self.amp_scaler is not None:
             self.amp_scaler.scale(loss).backward()
         else:
             loss.backward()
         
-        # 
+        # 梯度裁剪（如果启用）
         if self.use_clipping:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), self.clip_value
             )
             self.grad_norm_history.append(grad_norm.item())
         
-        # 
+        # 梯度压缩（如果启用）
         if self.use_compression:
             for name, param in self.model.named_parameters():
                 if param.grad is not None:
@@ -240,13 +240,13 @@ class AdaptiveWorker:
                     decompressed = self.gradient_compressor.decompress(compressed, meta)
                     param.grad = decompressed
         
-        # 
+        # 梯度融合（如果启用）
         if self.use_fusion:
             for name, param in self.model.named_parameters():
                 if param.grad is not None:
                     self.gradient_fusion.add_gradient(name, param.grad)
         
-        # 
+        # 优化器步骤
         if self.amp_enabled and self.amp_scaler is not None:
             self.amp_scaler.step(self.optimizer)
             self.amp_scaler.update()
@@ -257,10 +257,10 @@ class AdaptiveWorker:
     
     def update_strategy(self, suggestions: List[Dict]):
         """
-        
+        根据优化建议更新策略
         
         Args:
-            suggestions: 
+            suggestions: 优化建议列表
         """
         for suggestion in suggestions:
             opt_type = suggestion["type"]
@@ -290,10 +290,10 @@ class AdaptiveWorker:
             
             elif opt_type == "auto_batch_size":
                 if action == "increase":
-                    print(f"[ADAPTIVE]  batch size: {params.get('suggested_increase')}")
+                    print(f"[ADAPTIVE] 建议增大 batch size: {params.get('suggested_increase')}")
     
     def get_stats(self) -> Dict:
-        """"""
+        """获取统计信息"""
         return {
             "step_count": self.step_count,
             "avg_comm_delay_ms": np.mean(self.comm_delay_history) if self.comm_delay_history else 0,
@@ -305,44 +305,44 @@ class AdaptiveWorker:
 
 
 def run_adaptive_training_example():
-    """"""
+    """运行自适应训练示例"""
     print("=== Adaptive Training Example ===")
     
-    # 
+    # 模拟分析
     advisor = OptimizationAdvisor()
     
-    # 
+    # 模拟分析结果（模拟通信瓶颈场景）
     mock_analysis = {
         "mode": "gossip",
         "sample_count": 100,
         "avg_loss": 0.5,
         "loss_std": 0.1,
         "avg_grad_norm": 2.5,
-        "grad_norm_std": 1.0,  # 
+        "grad_norm_std": 1.0,  # 高波动
         "avg_comm_delay_ms": 50.0,
-        "comm_delay_std": 30.0,  # 
-        "avg_gpu_utilization": 75.0,  # 80%
+        "comm_delay_std": 30.0,  # 高波动
+        "avg_gpu_utilization": 75.0,  # 低于80%
         "gpu_util_std": 5.0,
     }
     
-    print("\n:")
-    print(f"  : {mock_analysis['avg_comm_delay_ms']:.2f}ms")
-    print(f"  : {mock_analysis['grad_norm_std']:.2f}")
-    print(f"  GPU: {mock_analysis['avg_gpu_utilization']:.1f}%")
+    print("\n分析结果:")
+    print(f"  平均通信延迟: {mock_analysis['avg_comm_delay_ms']:.2f}ms")
+    print(f"  梯度范数波动: {mock_analysis['grad_norm_std']:.2f}")
+    print(f"  GPU利用率: {mock_analysis['avg_gpu_utilization']:.1f}%")
     
-    # 
+    # 获取建议
     suggestions = advisor.suggest_optimizations(mock_analysis)
     
-    print("\n:")
+    print("\n优化建议:")
     for i, suggestion in enumerate(suggestions, 1):
         print(f"  {i}. [{suggestion['type']}] {suggestion['action']} - {suggestion['reason']}")
         if 'params' in suggestion:
-            print(f"     : {suggestion['params']}")
+            print(f"     参数: {suggestion['params']}")
     
-    print("\n:")
+    print("\n当前优化状态:")
     status = advisor.get_optimization_status()
     for opt, enabled in status.items():
-        print(f"  {opt}: {' ' if enabled else ' '}")
+        print(f"  {opt}: {'✅ 启用' if enabled else '❌ 禁用'}")
 
 
 if __name__ == "__main__":

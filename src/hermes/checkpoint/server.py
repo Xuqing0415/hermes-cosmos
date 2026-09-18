@@ -1,5 +1,5 @@
 """
-Hermes Checkpoint Service - FastAPI
+Hermes Checkpoint Service - FastAPI版
 """
 
 from fastapi import FastAPI, HTTPException
@@ -13,11 +13,11 @@ import tempfile
 
 app = FastAPI(title="Hermes Checkpoint Service", version="2.0")
 
-# 
+# 内存存储（演示用）
 checkpoints: Dict[str, dict] = {}
 job_checkpoints: Dict[str, List[str]] = {}
 
-# 
+# 本地存储路径
 STORAGE_PATH = os.environ.get(
     "HERMES_CHECKPOINT_STORAGE_PATH",
     os.path.join(tempfile.gettempdir(), "hermes", "checkpoints"),
@@ -49,17 +49,17 @@ async def health_check():
 async def save_checkpoint(request: CheckpointRequest):
     checkpoint_id = f"chk_{request.job_id[:8]}_{request.step}_{uuid4().hex[:8]}"
     
-    # 
+    # 序列化并压缩
     serialized = pickle.dumps(request.data)
     compressed = zlib.compress(serialized)
     
-    # 
+    # 保存到本地文件
     file_path = os.path.join(STORAGE_PATH, f"{checkpoint_id}.chk")
     os.makedirs(STORAGE_PATH, exist_ok=True)
     with open(file_path, 'wb') as f:
         f.write(compressed)
     
-    # 
+    # 保存元数据
     checkpoint_info = {
         "checkpoint_id": checkpoint_id,
         "job_id": request.job_id,
@@ -70,7 +70,7 @@ async def save_checkpoint(request: CheckpointRequest):
     }
     checkpoints[checkpoint_id] = checkpoint_info
     
-    # checkpoint
+    # 更新作业的checkpoint列表
     if request.job_id not in job_checkpoints:
         job_checkpoints[request.job_id] = []
     job_checkpoints[request.job_id].append(checkpoint_id)
@@ -82,13 +82,13 @@ async def load_checkpoint(checkpoint_id: str):
     if checkpoint_id not in checkpoints:
         raise HTTPException(status_code=404, detail="Checkpoint not found")
     
-    # 
+    # 读取本地文件
     file_path = os.path.join(STORAGE_PATH, f"{checkpoint_id}.chk")
     try:
         with open(file_path, 'rb') as f:
             compressed = f.read()
         
-        # 
+        # 解压并反序列化
         serialized = zlib.decompress(compressed)
         data = pickle.loads(serialized)
         
@@ -121,15 +121,15 @@ async def delete_checkpoint(checkpoint_id: str):
     
     job_id = checkpoints[checkpoint_id]["job_id"]
     
-    # 
+    # 删除文件
     file_path = os.path.join(STORAGE_PATH, f"{checkpoint_id}.chk")
     if os.path.exists(file_path):
         os.remove(file_path)
     
-    # 
+    # 删除元数据
     del checkpoints[checkpoint_id]
     
-    # 
+    # 从作业列表中移除
     if job_id in job_checkpoints and checkpoint_id in job_checkpoints[job_id]:
         job_checkpoints[job_id].remove(checkpoint_id)
     
