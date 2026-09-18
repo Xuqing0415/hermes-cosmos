@@ -158,28 +158,28 @@ class AlgorithmRecommender:
         
         if non_iid_score > 0.5:
             if algorithm in ['ditto', 'fedrep']:
-                explanations.append(f"Non-IID ({non_iid_score:.2f})")
+                explanations.append(f"Non-IID程度较高 ({non_iid_score:.2f})，推荐使用个性化算法")
             else:
-                explanations.append(f"Non-IID ({non_iid_score:.2f})")
+                explanations.append(f"Non-IID程度较高 ({non_iid_score:.2f})")
         else:
             if algorithm == 'fedavg':
-                explanations.append(f" (Non-IID={non_iid_score:.2f})FedAvg")
+                explanations.append(f"数据分布较均匀 (Non-IID={non_iid_score:.2f})，FedAvg足够")
         
         # Client count
         num_clients = features.get('num_clients', 10)
         if num_clients > 30:
             if algorithm == 'fedrep':
-                explanations.append(f" ({int(num_clients)})FedRep")
+                explanations.append(f"客户端数量较多 ({int(num_clients)}个)，FedRep通信效率更高")
         
         # Bandwidth consideration
         bandwidth = features.get('avg_bandwidth_mbps', 10)
         if bandwidth < 10:
             if algorithm == 'fedrep':
-                explanations.append(f" ({bandwidth} Mbps)FedRep")
+                explanations.append(f"带宽较低 ({bandwidth} Mbps)，选择通信量小的FedRep")
         
         # Algorithm-specific strengths
         info = self.algorithm_descriptions[algorithm]
-        explanations.append(f"{info['name']}: {', '.join(info['strengths'][:2])}")
+        explanations.append(f"{info['name']}的优势: {', '.join(info['strengths'][:2])}")
         
         # Performance comparison
         best_acc = predictions[algorithm]['accuracy']
@@ -188,7 +188,7 @@ class AlgorithmRecommender:
         if other_algs:
             best_other_acc = max(predictions[a]['accuracy'] for a in other_algs)
             if best_acc > best_other_acc + 0.05:
-                explanations.append(f" ({best_acc:.2f}) ")
+                explanations.append(f"预计准确率 ({best_acc:.2f}) 显著高于其他算法")
         
         return ' '.join(explanations)
     
@@ -236,33 +236,33 @@ class AlgorithmRecommender:
         # Non-IID analysis
         non_iid_score = features.get('non_iid_gini', 0)
         if non_iid_score < 0.3:
-            analysis['non_iid_level'] = ''
-            analysis['non_iid_recommendation'] = 'FedAvg'
+            analysis['non_iid_level'] = '低'
+            analysis['non_iid_recommendation'] = '标准FedAvg足够'
         elif non_iid_score < 0.6:
-            analysis['non_iid_level'] = ''
-            analysis['non_iid_recommendation'] = 'DittoFedRep'
+            analysis['non_iid_level'] = '中'
+            analysis['non_iid_recommendation'] = '建议使用Ditto或FedRep'
         else:
-            analysis['non_iid_level'] = ''
-            analysis['non_iid_recommendation'] = 'Ditto'
+            analysis['non_iid_level'] = '高'
+            analysis['non_iid_recommendation'] = '强烈推荐Ditto进行个性化'
         
         # Client count analysis
         num_clients = features.get('num_clients', 10)
         if num_clients < 10:
-            analysis['client_scale'] = ''
+            analysis['client_scale'] = '小规模'
         elif num_clients < 30:
-            analysis['client_scale'] = ''
+            analysis['client_scale'] = '中等规模'
         else:
-            analysis['client_scale'] = ''
+            analysis['client_scale'] = '大规模'
         
         # Resource analysis
         bandwidth = features.get('avg_bandwidth_mbps', 10)
         if bandwidth < 5:
-            analysis['network_status'] = ''
-            analysis['network_recommendation'] = 'FedRep'
+            analysis['network_status'] = '网络条件较差'
+            analysis['network_recommendation'] = '推荐低通信算法如FedRep'
         elif bandwidth < 50:
-            analysis['network_status'] = ''
+            analysis['network_status'] = '网络条件一般'
         else:
-            analysis['network_status'] = ''
+            analysis['network_status'] = '网络条件良好'
         
         return analysis
     
@@ -309,9 +309,9 @@ if __name__ == "__main__":
     features = generate_synthetic_task(n_clients=20, non_iid_level=0.8)
     
     recommendation = recommender.recommend(features)
-    print(f": {recommendation['algorithm_name']}")
-    print(f": {recommendation['confidence']:.1f}%")
-    print(f": {recommendation['explanation']}")
+    print(f"推荐算法: {recommendation['algorithm_name']}")
+    print(f"置信度: {recommendation['confidence']:.1f}%")
+    print(f"解释: {recommendation['explanation']}")
     
     print("\n" + "-" * 50)
     
@@ -320,9 +320,9 @@ if __name__ == "__main__":
     features2 = generate_synthetic_task(n_clients=10, non_iid_level=0.2)
     
     recommendation2 = recommender.recommend(features2)
-    print(f": {recommendation2['algorithm_name']}")
-    print(f": {recommendation2['confidence']:.1f}%")
-    print(f": {recommendation2['explanation']}")
+    print(f"推荐算法: {recommendation2['algorithm_name']}")
+    print(f"置信度: {recommendation2['confidence']:.1f}%")
+    print(f"解释: {recommendation2['explanation']}")
     
     # Task analysis
     print("\n" + "-" * 50)
