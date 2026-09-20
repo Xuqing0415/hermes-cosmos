@@ -5,6 +5,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Make src/ importable and force unbuffered logs
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
     git \
@@ -26,11 +30,11 @@ RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # 暴露端口
-EXPOSE 8000 8501 9090
+EXPOSE 8080 9090 8501
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8080/v1/health || exit 1
 
 # 默认命令
 CMD ["python", "-m", "hermes.gateway.main"]
