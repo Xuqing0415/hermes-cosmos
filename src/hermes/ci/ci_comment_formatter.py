@@ -2,7 +2,8 @@
 CI Comment Formatter - Format proof results for PR comments
 """
 
-from typing import List, Dict, Any
+from typing import List
+
 import structlog
 
 from hermes.ci.types import CIProofReport, ProofResult, ProofResultStatus
@@ -13,57 +14,55 @@ logger = structlog.get_logger()
 class CICommentFormatter:
     """
     Formats proof results into Markdown for GitHub PR comments.
-    
+
     Generates:
     - Summary statistics
     - Detailed table of results
     - Generated test cases
     - Recommendations
     """
-    
+
     def __init__(self):
         self.markers = {
             ProofResultStatus.PROVEN: "[PROVEN]",
             ProofResultStatus.DISPROVEN: "[DISPROVEN]",
             ProofResultStatus.TIMEOUT: "[TIMEOUT]",
             ProofResultStatus.UNKNOWN: "[UNKNOWN]",
-            ProofResultStatus.CACHED: "[CACHED]"
+            ProofResultStatus.CACHED: "[CACHED]",
         }
-    
+
     def format_report(self, report: CIProofReport) -> str:
         """
         Format a CI proof report into Markdown.
-        
+
         Args:
             report: CIProofReport to format
-        
+
         Returns:
             Markdown string for PR comment
         """
         sections = []
-        
+
         sections.append(self._format_header())
         sections.append(self._format_summary(report))
         sections.append(self._format_results_table(report.results))
-        
+
         if report.total_disproven > 0:
             sections.append(self._format_generated_tests(report))
-        
+
         sections.append(self._format_recommendations(report))
         sections.append(self._format_footer(report))
-        
+
         return "\n\n".join(sections)
-    
+
     def _format_header(self) -> str:
         """Format the comment header"""
         return """## AutoTestGen CI Proof Report
 
 This report summarizes the proof verification results for this PR."""
-    
+
     def _format_summary(self, report: CIProofReport) -> str:
         """Format the summary section"""
-        total = report.total_proven + report.total_disproven + report.total_timeout + report.total_unknown
-        
         summary = f"""### Summary
 
 | Metric | Count |
@@ -75,9 +74,9 @@ This report summarizes the proof verification results for this PR."""
 | **Cached** | {report.total_cached} |
 | **Total Duration** | {report.total_duration:.2f}s |
 | **Cache Hit Rate** | {report.cache_hit_rate:.1%} |"""
-        
+
         return summary
-    
+
     def _format_results_table(self, results: List[ProofResult]) -> str:
         """Format the results table"""
         if not results:
@@ -85,25 +84,25 @@ This report summarizes the proof verification results for this PR."""
 
 No results to display.
 """
-        
+
         rows = []
         for result in results:
             marker = self.markers.get(result.status, "[UNKNOWN]")
             status_text = self._get_status_text(result.status)
-            
+
             if result.cached:
                 status_text += " (cached)"
-            
+
             duration = f"{result.duration:.2f}s"
-            
+
             rows.append(f"| `{result.function_name}` | {marker} {status_text} | {duration} | - |")
-        
+
         return f"""### Results
 
 | Function | Status | Duration (s) | Details |
 |------|---------|--------|------|
 {chr(10).join(rows)}"""
-    
+
     def _get_status_text(self, status: ProofResultStatus) -> str:
         """Get human-readable status text"""
         status_map = {
@@ -111,48 +110,51 @@ No results to display.
             ProofResultStatus.DISPROVEN: "Disproven",
             ProofResultStatus.TIMEOUT: "Timeout",
             ProofResultStatus.UNKNOWN: "Unknown",
-            ProofResultStatus.CACHED: "Cached"
+            ProofResultStatus.CACHED: "Cached",
         }
         return status_map.get(status, str(status.value))
-    
+
     def _format_generated_tests(self, report: CIProofReport) -> str:
         """Format generated tests section"""
         all_tests = []
         for result in report.results:
             if result.generated_tests:
                 all_tests.extend(result.generated_tests)
-        
+
         if not all_tests:
             return ""
-        
+
         test_list = "\n".join([f"- `{t}`" for t in all_tests])
-        
+
         return f"""### Generated Tests
 
 The following test cases were generated:
 
 {test_list}"""
-    
+
     def _format_recommendations(self, report: CIProofReport) -> str:
         """Format recommendations section"""
         recommendations = []
-        
+
         if report.total_disproven > 0:
             recommendations.append("- Review disproven functions for potential issues")
-        
+
         if report.total_timeout > 0:
             recommendations.append("- Functions that timed out may need optimization or a longer timeout")
-        
+
         if report.cache_hit_rate < 0.5:
             recommendations.append("- Low cache hit rate suggests many functions have changed signatures")
-        
+
         if not recommendations:
             recommendations.append("- All checks passed")
-        
+
+        # 注意：f-string 的表达式部分不能包含反斜杠（Python < 3.12 语法限制），
+        # 故先拼接换行再插值。
+        joined = "\n".join(recommendations)
         return f"""### Recommendations
 
-{'\n'.join(recommendations)}"""
-    
+{joined}"""
+
     def _format_footer(self, report: CIProofReport) -> str:
         """Format the footer"""
         return """---
@@ -160,57 +162,57 @@ The following test cases were generated:
 *Generated by AutoTestGen CI Pipeline*
 
 [AutoTestGen](https://github.com/AutoTestGen/autotestgen) | [Documentation](https://docs.autotestgen.io)"""
-    
+
     def format_detailed_report(self, report: CIProofReport) -> str:
         """
         Format a detailed report with expanded information.
-        
+
         Args:
             report: CIProofReport to format
-        
+
         Returns:
             Detailed Markdown string
         """
         sections = []
-        
+
         sections.append(self._format_header())
         sections.append(self._format_summary(report))
-        
+
         if report.results:
             sections.append("\n### Detailed Results")
-            
+
             for i, result in enumerate(report.results, 1):
                 marker = self.markers.get(result.status, "[UNKNOWN]")
                 status_text = self._get_status_text(result.status)
-                
+
                 section = f"""#### {i}. `{result.function_name}`
-                
+
 - **Status**: {marker} {status_text}
 - **File**: `{result.filename}`
 - **Duration**: {result.duration:.2f}s
 - **Cached**: {'Yes' if result.cached else 'No'}"""
-                
+
                 if result.generated_tests:
                     tests = ", ".join(result.generated_tests)
                     section += f"\n- **Generated Tests**: {tests}"
-                
+
                 if result.error_message:
                     section += f"\n- **Error**: {result.error_message}"
-                
+
                 sections.append(section)
-        
+
         sections.append(self._format_recommendations(report))
         sections.append(self._format_footer(report))
-        
+
         return "\n\n".join(sections)
-    
+
     def format_error(self, error_message: str) -> str:
         """
         Format an error message for PR comment.
-        
+
         Args:
             error_message: Error message to display
-        
+
         Returns:
             Markdown string with error
         """
