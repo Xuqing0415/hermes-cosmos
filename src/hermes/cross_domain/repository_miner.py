@@ -1,9 +1,8 @@
-from typing import List, Dict, Any, Optional
+import os
+import random
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import os
-import re
-import random
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -192,10 +191,15 @@ class RepositoryMiner:
             return None
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "log", "--oneline", "--since=3.years", "--format=%H|%ai|%s"],
-                capture_output=True, text=True, encoding="utf-8", errors="replace",
-                timeout=30, cwd=repo_path
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+                cwd=repo_path,
             )
             if result.returncode != 0:
                 return None
@@ -218,16 +222,18 @@ class RepositoryMiner:
                 event_type = self._classify_commit(msg)
                 domain = self._detect_domain_from_msg(msg)
 
-                events.append(ExternalEvent(
-                    event_id=f"ext-{sha[:8]}" if sha else f"ext-{len(events)}",
-                    repo_name=os.path.basename(repo_path),
-                    commit_sha=sha[:8] if sha else None,
-                    timestamp=ts,
-                    event_type=event_type,
-                    description=msg[:120],
-                    domain=domain,
-                    pattern_type=self._map_to_pattern(event_type),
-                ))
+                events.append(
+                    ExternalEvent(
+                        event_id=f"ext-{sha[:8]}" if sha else f"ext-{len(events)}",
+                        repo_name=os.path.basename(repo_path),
+                        commit_sha=sha[:8] if sha else None,
+                        timestamp=ts,
+                        event_type=event_type,
+                        description=msg[:120],
+                        domain=domain,
+                        pattern_type=self._map_to_pattern(event_type),
+                    )
+                )
 
             if events:
                 type_counts = {}
@@ -268,18 +274,20 @@ class RepositoryMiner:
 
             resolution = round(rng.uniform(1, 30), 1) if data["severity"] != "low" else None
 
-            events.append(ExternalEvent(
-                event_id=f"ext-demo-{i + 1:04d}",
-                repo_name=repo_name,
-                commit_sha=f"{rng.randint(0, 0xFFFFFFFF):08x}",
-                timestamp=ts,
-                event_type=data["event_type"],
-                description=data["description"],
-                domain=data["domains"][0],
-                pattern_type=data["pattern_type"],
-                resolution_days=resolution,
-                severity=data["severity"],
-            ))
+            events.append(
+                ExternalEvent(
+                    event_id=f"ext-demo-{i + 1:04d}",
+                    repo_name=repo_name,
+                    commit_sha=f"{rng.randint(0, 0xFFFFFFFF):08x}",
+                    timestamp=ts,
+                    event_type=data["event_type"],
+                    description=data["description"],
+                    domain=data["domains"][0],
+                    pattern_type=data["pattern_type"],
+                    resolution_days=resolution,
+                    severity=data["severity"],
+                )
+            )
 
         type_counts = {}
         domain_counts = {}
