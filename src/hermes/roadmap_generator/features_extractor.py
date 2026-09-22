@@ -5,7 +5,13 @@ import os
 import json
 
 from hermes.llm_requirement.self_audit import SelfAuditor, AuditResult, AuditIssue, AuditIssueType, IssueSeverity
-from hermes.llm_requirement.trend_analyzer import TrendAnalyzer, TrendAnalysisResult, TrendItem, TrendCategory
+from hermes.llm_requirement.trend_analyzer import (
+    TrendAnalyzer,
+    TrendAnalysisResult,
+    TrendItem,
+    TrendCategory,
+    TrendSource,
+)
 from hermes.self_refactor.smell_detector import SmellDetector, SmellInstance, SmellType, SmellSeverity
 from hermes.agent_civilization.task_board import TaskBoard, TaskStatus
 from hermes.neural_symbolic.proof_generator import ProofGenerator, ProofReport

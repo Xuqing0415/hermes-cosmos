@@ -180,21 +180,22 @@ class RepositoryMiner:
             return self._generate_demo_report()
 
         # Try local git log mining
-        local_report = self._try_local_mining(repo_url)
+        local_report = self._try_local_mining(repo_url, max_events)
         if local_report:
             return local_report
 
         # Fallback to demo report
         return self._generate_demo_report(repo_name)
 
-    def _try_local_mining(self, repo_path: str) -> Optional[RepoMiningReport]:
+    def _try_local_mining(self, repo_path: str, max_events: int = 50) -> Optional[RepoMiningReport]:
         if not os.path.exists(os.path.join(repo_path, ".git")):
             return None
         try:
             import subprocess
             result = subprocess.run(
                 ["git", "log", "--oneline", "--since=3.years", "--format=%H|%ai|%s"],
-                capture_output=True, text=True, timeout=30, cwd=repo_path
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=30, cwd=repo_path
             )
             if result.returncode != 0:
                 return None

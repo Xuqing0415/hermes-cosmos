@@ -410,6 +410,17 @@ class TestRepositoryMiner:
         assert report.total_events >= 10
         assert len(report.events_by_type) >= 3
 
+    def test_mine_local_repo_honors_max_events(self):
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if not os.path.isdir(os.path.join(repo_root, ".git")):
+            pytest.skip("git working tree not available")
+
+        miner = RepositoryMiner()
+        report = miner.mine(repo_root, max_events=3)
+
+        assert report.mining_method == "git_log"
+        assert 1 <= report.total_events <= 3
+
     def test_get_events_by_type(self):
         miner = RepositoryMiner()
         miner.mine("DEMO")

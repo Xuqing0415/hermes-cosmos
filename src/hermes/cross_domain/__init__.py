@@ -51,10 +51,6 @@ from .gap_analyzer import (
     GapReport,
     GapAnalyzer,
 )
-from .self_improvement_policy import (
-    EvolutionPolicy,
-    SelfImprovementPolicy,
-)
 from .evolution_tracker import (
     EvolutionSnapshot,
     EvolutionTracker,
