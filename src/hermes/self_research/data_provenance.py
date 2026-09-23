@@ -113,6 +113,29 @@ class ProvenanceReport:
             "counts_by_provenance": self.count_by_provenance(),
         }
 
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "ProvenanceReport":
+        """从 `to_dict()` 的结果还原，用于在只拿到落盘产物时重算覆盖率。"""
+
+        entries: Dict[str, ProvenanceEntry] = {}
+        for item in (payload or {}).get("entries") or []:
+            field_name = str(item.get("field") or "")
+            if not field_name:
+                continue
+            entries[field_name] = ProvenanceEntry(
+                field=field_name,
+                provenance=str(item.get("provenance") or UNVERIFIED),
+                detail=str(item.get("detail") or ""),
+                count=int(item.get("count") or 0),
+                source=str(item.get("source") or ""),
+            )
+        return cls(
+            entries=entries,
+            missing_sources=[str(item) for item in (payload or {}).get("missing_sources") or []],
+            git_unavailable=bool((payload or {}).get("git_unavailable")),
+            notes=[str(item) for item in (payload or {}).get("notes") or []],
+        )
+
 
 class DataProvenanceTagger:
     """把采集层盖好的来源标签整理成报告；未标注的字段不会被当成真实数据。"""

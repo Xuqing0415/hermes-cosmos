@@ -19,6 +19,7 @@ Usage:
   python autotestgen.py --introspect
   python autotestgen.py --self-research --format markdown --output paper.md
   python autotestgen.py --self-research --format pdf --output paper.pdf
+  python autotestgen.py --adversarial-review --input papers/paper.md
   python autotestgen.py --list-plugins
 """
 
@@ -871,6 +872,85 @@ def run_self_research(
     print(f"\n[系统] Self-research complete in {report.duration_seconds:.2f}s.")
 
 
+def run_adversarial_review(input_path=None, output_path=None, paper_dir="papers"):
+    """以审稿人的身份攻击自己写出的论文，再以作者身份逐条回应并修订。
+
+    审计只依据论文目录下已落盘的产物（dataset.json / analysis.json /
+    integrity.json / paper.*）；缺失哪一份就如实打印“跳过”，不做推断。
+    """
+    from hermes.self_research import (
+        AdversarialReviewer,
+        PaperRevisionEngine,
+        RebuttalGenerator,
+        ReviewContextLoader,
+        WeaknessRanker,
+    )
+
+    target = input_path or paper_dir
+    print(f"[AdversarialReviewer] Auditing paper at {target}...")
+    context = ReviewContextLoader().load(target)
+
+    audit = AdversarialReviewer().review(context)
+    if audit.attacks:
+        for attack in audit.attacks:
+            target_label = attack.target or "-"
+            print(f"  攻击 {attack.attack_id} [{attack.severity_label}] {attack.label}：{target_label}")
+            print(f"    {attack.statement}")
+            print(f"    证据：{attack.evidence}")
+    else:
+        print("  未发现可攻击的漏洞（这不等于论文没有问题）")
+    for note in audit.skipped:
+        print(f"  [跳过] {note}")
+    if audit.self_limited:
+        print(f"  [已在正文中自我限定，不重复攻击] {'、'.join(audit.self_limited)}")
+
+    ranking = WeaknessRanker().rank(audit)
+    rebuttals = RebuttalGenerator().generate_all(ranking.weaknesses)
+    engine = PaperRevisionEngine()
+    result = engine.revise(context, ranking, rebuttals)
+
+    counts = ranking.severity_counts
+    print(
+        f"\n[WeaknessRanker] {len(ranking.weaknesses)} 条意见"
+        f"（致命 {counts.get('FATAL', 0)}、重大 {counts.get('MAJOR', 0)}、次要 {counts.get('MINOR', 0)}）"
+    )
+    print("[RebuttalGenerator] 作者回应：")
+    for rebuttal in rebuttals:
+        print(f"  - {rebuttal.attack_id}: {rebuttal.stance_label} -> {rebuttal.revision}")
+    print(f"[PaperRevisionEngine] {PaperRevisionEngine.summarise(result, ranking)}")
+
+    destination = ""
+    if context.paper_text:
+        section = engine.audit_section(context, audit, ranking, rebuttals, result)
+        revised = engine.revise_markdown(context.paper_text, result, audit_section=section)
+        destination = output_path or context.paper_path
+        stem, extension = os.path.splitext(destination)
+        backup = f"{stem}.pre_review{extension}"
+        if os.path.abspath(backup) != os.path.abspath(destination):
+            with open(backup, "w", encoding="utf-8") as handle:
+                handle.write(context.paper_text)
+            print(f"  原稿备份：{backup}")
+        with open(destination, "w", encoding="utf-8") as handle:
+            handle.write(revised)
+        print(f"  修订后论文：{destination}")
+    else:
+        print("  [跳过] 没有找到论文正文，仅导出审计结果")
+
+    audit_dir = context.directory or os.path.dirname(os.path.abspath(target)) or "."
+    audit_path = os.path.join(audit_dir, "adversarial_review.json")
+    payload = {
+        "target": target,
+        "paper": destination,
+        "audit": audit.to_dict(),
+        "ranking": ranking.to_dict(),
+        "rebuttals": [item.to_dict() for item in rebuttals],
+        "revision": result.to_dict(),
+    }
+    with open(audit_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    print(f"  审计结果：{audit_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
     parser.add_argument(
@@ -903,6 +983,17 @@ def main():
         help="Output format for --self-research (default: infer from --output)",
     )
     parser.add_argument("--paper-dir", default="papers", help="Directory for paper artifacts (dataset, figures)")
+    parser.add_argument(
+        "--adversarial-review",
+        action="store_true",
+        help="Attack the generated paper as an adversarial reviewer, then revise it "
+        "(in place; the pre-review text is kept as <paper>.pre_review.md)",
+    )
+    parser.add_argument(
+        "--input",
+        default=None,
+        help="Paper file or paper directory for --adversarial-review (default: --paper-dir)",
+    )
     parser.add_argument(
         "--integrity",
         action="store_true",
@@ -956,6 +1047,10 @@ def main():
 
     if args.self_research:
         run_self_research(args.output, args.paper_format, args.paper_dir, integrity_report=args.integrity)
+        return
+
+    if args.adversarial_review:
+        run_adversarial_review(args.input, args.output, args.paper_dir)
         return
 
     if not args.domain:

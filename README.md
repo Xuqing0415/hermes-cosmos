@@ -121,6 +121,32 @@ LaTeX 无法编译时保留 `.tex` 源文件，因此在最小环境下也能完
 python autotestgen.py --introspect
 ```
 
+#### 对抗性审计：系统以审稿人的身份攻击自己
+
+研究完整性引擎回答“这些数据是不是真的”；对抗性审计回答另一个问题：
+**就算数据是真的，这些结论站得住吗？** 审计器只依据论文目录下已落盘的产物
+（`dataset.json` / `analysis.json` / `integrity.json` / `paper.*`），不去解析正文猜数字；
+缺哪份产物就把哪项检查写进 `skipped`，“确实跑过、没发现问题”的检查写进 `checks_run`——
+静默跳过和静默通过都算审计失职。
+
+```bash
+# 以审稿人身份审计已生成的论文，并原地修订（原稿保留为 papers/paper.pre_review.md）
+python autotestgen.py --adversarial-review --input papers/paper.md
+
+# 也可以直接给论文目录，自动发现上述产物
+python autotestgen.py --adversarial-review --paper-dir papers
+```
+
+审计包含七类攻击：样本量、证据等级、无对照组、相关当因果、幸存者偏差、
+多重比较（Bonferroni 校正）、过度泛化。每条意见按 致命 / 重大 / 次要 排序，
+**只有次要意见允许“反驳”**，致命与重大一律只能接受；且任何回应都不会让结论变强——
+撤回、降级、限定范围只会把证据等级往下压。
+
+修订后的置信度由同一套 `ConfidenceScorer` 重算，撤回一条弱结论同样计为一次关键降级，
+因此审计后的分数只会比审计前低。这是少数几次“降分才是进步”的改动。
+意见、排序、作者回应、修订清单与新置信度都会写入 `papers/adversarial_review.json`，
+并在论文里追加“审稿意见与作者回应”一节（插在参考文献之前）。
+
 ## 架构
 
 ### 组件
