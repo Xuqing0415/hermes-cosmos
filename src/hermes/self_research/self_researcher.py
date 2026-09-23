@@ -7,8 +7,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from hermes.self_research.confidence_scorer import ConfidenceBreakdown, ConfidenceScorer
+from hermes.self_research.data_provenance import DataProvenanceTagger, ProvenanceReport
+from hermes.self_research.evidence_grader import GRADE_A, EvidenceGrade, EvidenceGrader
 from hermes.self_research.figure_generator import Figure, FigureGenerator
 from hermes.self_research.finding_extractor import Finding, FindingExtractor
+from hermes.self_research.integrity_checker import IntegrityChecker, IntegrityReport
 from hermes.self_research.latex_compiler import CompileResult, LatexCompiler
 from hermes.self_research.paper_writer import Paper, PaperWriter
 from hermes.self_research.research_data_collector import ResearchDataCollector, ResearchDataset
@@ -24,6 +28,7 @@ class SelfResearchConfig:
     formats: List[str] = field(default_factory=lambda: ["markdown"])
     prefer_png: bool = True
     compile_pdf: bool = False
+    integrity_report: bool = False
     alpha: float = 0.05
     verbose: bool = True
 
@@ -34,6 +39,7 @@ class SelfResearchConfig:
             "formats": list(self.formats),
             "prefer_png": self.prefer_png,
             "compile_pdf": self.compile_pdf,
+            "integrity_report": self.integrity_report,
             "alpha": self.alpha,
         }
 
@@ -49,6 +55,12 @@ class SelfResearchReport:
     figure_paths: List[str] = field(default_factory=list)
     compile_results: List[Dict[str, Any]] = field(default_factory=list)
     findings: List[Dict[str, Any]] = field(default_factory=list)
+    grades: List[Dict[str, Any]] = field(default_factory=list)
+    grade_mix: Dict[str, int] = field(default_factory=dict)
+    disclaimers: List[Dict[str, Any]] = field(default_factory=list)
+    confidence: float = 0.0
+    integrity_path: str = ""
+    integrity_clean: bool = True
     counts: Dict[str, int] = field(default_factory=dict)
     duration_seconds: float = 0.0
 
@@ -63,6 +75,12 @@ class SelfResearchReport:
             "figure_paths": self.figure_paths,
             "compile_results": self.compile_results,
             "findings": self.findings,
+            "grades": self.grades,
+            "grade_mix": self.grade_mix,
+            "disclaimers": self.disclaimers,
+            "confidence": round(self.confidence, 4),
+            "integrity_path": self.integrity_path,
+            "integrity_clean": self.integrity_clean,
             "counts": self.counts,
             "duration_seconds": round(self.duration_seconds, 3),
         }
@@ -82,11 +100,19 @@ class SelfResearcher:
         figure_generator: Optional[FigureGenerator] = None,
         writer: Optional[PaperWriter] = None,
         compiler: Optional[LatexCompiler] = None,
+        tagger: Optional[DataProvenanceTagger] = None,
+        grader: Optional[EvidenceGrader] = None,
+        checker: Optional[IntegrityChecker] = None,
+        scorer: Optional[ConfidenceScorer] = None,
     ):
         self._config = config or SelfResearchConfig()
         self._collector = collector or ResearchDataCollector()
         self._analyzer = analyzer or StatisticalAnalyzer(alpha=self._config.alpha)
         self._extractor = extractor or FindingExtractor(alpha=self._config.alpha)
+        self._tagger = tagger or DataProvenanceTagger()
+        self._grader = grader or EvidenceGrader()
+        self._checker = checker or IntegrityChecker()
+        self._scorer = scorer or ConfidenceScorer()
         self._figures = figure_generator or FigureGenerator(
             output_dir=os.path.join(self._config.output_dir, "figures"),
             prefer_png=self._config.prefer_png,
@@ -98,10 +124,15 @@ class SelfResearcher:
         started = time.perf_counter()
 
         dataset = self._collect()
+        provenance = self._tag_provenance(dataset)
         analysis = self._analyze(dataset)
         findings = self._extract(analysis, dataset)
+        grades = self._grade(findings, provenance)
+        integrity = self._check_integrity(grades, provenance)
+        confidence = self._score_confidence(grades, provenance, integrity)
+        bundle = self._bundle(provenance, grades, integrity, confidence)
         figures = self._figures_step(dataset, analysis)
-        paper = self._write(dataset, analysis, findings, figures)
+        paper = self._write(dataset, analysis, findings, figures, bundle)
         compile_results = self._render(paper)
 
         dataset_path = self._save_json(os.path.join(self._config.output_dir, "dataset.json"), dataset.to_dict())
@@ -109,6 +140,14 @@ class SelfResearcher:
             os.path.join(self._config.output_dir, "analysis.json"),
             {"analysis": analysis.to_dict(), "findings": [item.to_dict() for item in findings]},
         )
+
+        integrity_path = ""
+        if self._config.integrity_report:
+            integrity_path = self._save_json(
+                os.path.join(self._config.output_dir, "integrity.json"),
+                bundle,
+            )
+            self._log(f"[IntegrityChecker] 完整性报告已写入 {integrity_path}")
 
         paper_paths = [result.output_path for result in compile_results]
         figure_paths = [figure.path for figure in figures if figure.path]
@@ -123,6 +162,12 @@ class SelfResearcher:
             figure_paths=figure_paths,
             compile_results=[result.to_dict() for result in compile_results],
             findings=[item.to_dict() for item in findings],
+            grades=[grade.to_dict() for grade in grades],
+            grade_mix=EvidenceGrader.summarise(grades),
+            disclaimers=[item.to_dict() for item in integrity.disclaimers],
+            confidence=confidence.score,
+            integrity_path=integrity_path,
+            integrity_clean=integrity.is_clean,
             counts=dataset.counts(),
             duration_seconds=time.perf_counter() - started,
         )
@@ -130,9 +175,73 @@ class SelfResearcher:
         self._log(
             f"[SelfResearcher] Paper generated: {paper_paths[0] if paper_paths else '(none)'} "
             f"({len(paper.sections)} sections, {len(figures)} figures, {len(paper.references)} references, "
-            f"{report.duration_seconds:.2f}s)"
+            f"置信度 {confidence.score:.2f}, {report.duration_seconds:.2f}s)"
         )
         return report
+
+    # ------------------------------------------------------------------ 研究完整性
+
+    def _tag_provenance(self, dataset: ResearchDataset) -> ProvenanceReport:
+        report = self._tagger.tag(dataset)
+        self._log("[DataProvenance] Tagging data sources...")
+        for field_name, entry in report.entries.items():
+            self._log(f"  - {entry.count} {field_name}: {entry.provenance} ({entry.detail})")
+        for warning in report.missing_sources:
+            self._log(f"  ! 数据源缺失：{warning}")
+        return report
+
+    def _grade(self, findings: List[Finding], provenance: ProvenanceReport) -> List[EvidenceGrade]:
+        grades = self._grader.grade_all([item.to_dict() for item in findings], provenance)
+        self._log("[EvidenceGrader] Grading findings...")
+        for grade in grades:
+            self._log(f'  - {grade.finding_id}: "{grade.statement}" → GRADE {grade.grade}' f" ({grade.provenance})")
+        return grades
+
+    def _check_integrity(
+        self,
+        grades: List[EvidenceGrade],
+        provenance: ProvenanceReport,
+    ) -> IntegrityReport:
+        report = self._checker.check(grades, provenance)
+        self._log(f"[IntegrityChecker] {IntegrityChecker.summary_line(report)}")
+        for disclaimer in report.disclaimers:
+            mark = "⚠️ " if disclaimer.severity == "critical" else ""
+            self._log(f"  {mark}{disclaimer.text}")
+        return report
+
+    def _score_confidence(
+        self,
+        grades: List[EvidenceGrade],
+        provenance: ProvenanceReport,
+        integrity: IntegrityReport,
+    ) -> ConfidenceBreakdown:
+        breakdown = self._scorer.score(grades, provenance, critical_count=integrity.critical_count)
+        self._log(f"[ConfidenceScorer] 论文整体置信度: {breakdown.score:.2f} / 1.00")
+        for suggestion in breakdown.suggestions:
+            self._log(f"  建议: {suggestion}")
+        return breakdown
+
+    @staticmethod
+    def _bundle(
+        provenance: ProvenanceReport,
+        grades: List[EvidenceGrade],
+        integrity: IntegrityReport,
+        confidence: ConfidenceBreakdown,
+    ) -> Dict[str, Any]:
+        return {
+            "provenance": provenance.to_dict(),
+            "grades": [grade.to_dict() for grade in grades],
+            "grade_mix": EvidenceGrader.summarise(grades),
+            "disclaimers": [item.to_dict() for item in integrity.disclaimers],
+            "data_warnings": list(integrity.data_warnings),
+            "critical_findings": list(integrity.critical_findings),
+            "critical_count": integrity.critical_count,
+            "missing_sources": list(integrity.missing_sources),
+            "is_clean": integrity.is_clean,
+            "confidence": confidence.to_dict(),
+            "summary": IntegrityChecker.summary_line(integrity),
+            "grade_a": EvidenceGrader.summarise(grades).get(GRADE_A, 0),
+        }
 
     # ------------------------------------------------------------------ 各步骤
 
@@ -194,6 +303,7 @@ class SelfResearcher:
         analysis: StatisticalAnalysis,
         findings: List[Finding],
         figures: List[Figure],
+        integrity: Dict[str, Any],
     ) -> Paper:
         mode = "LLM" if self._writer.llm_enabled else "templates"
         self._log(f"[PaperWriter] Generating sections with {mode}...")
@@ -202,6 +312,7 @@ class SelfResearcher:
             analysis,
             [item.to_dict() for item in findings],
             [figure.to_dict() for figure in figures],
+            integrity,
         )
 
     def _render(self, paper: Paper) -> List[CompileResult]:

@@ -302,10 +302,12 @@ class ComparisonResult:
     t_statistic: float
     p_value: float
     significant: bool
+    basis: str = "snapshots"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "label": self.label,
+            "basis": self.basis,
             "group_a": self.group_a,
             "group_b": self.group_b,
             "mean_a": round(self.mean_a, 4),
@@ -330,6 +332,8 @@ class StatisticalAnalysis:
     similarity_correlation: Optional[CorrelationResult] = None
     mental_model_accuracy: float = 0.0
     mental_model_samples: int = 0
+    #: True 表示 mental_model_accuracy 不是实测值（样本不足，未做留出评测）
+    mental_model_estimated: bool = False
     corrections: int = 0
     best_strategy: Optional[str] = None
     worst_strategy: Optional[str] = None
@@ -349,6 +353,7 @@ class StatisticalAnalysis:
             "similarity_correlation": self.similarity_correlation.to_dict() if self.similarity_correlation else None,
             "mental_model_accuracy": round(self.mental_model_accuracy, 4),
             "mental_model_samples": self.mental_model_samples,
+            "mental_model_estimated": self.mental_model_estimated,
             "corrections": self.corrections,
             "best_strategy": self.best_strategy,
             "worst_strategy": self.worst_strategy,
@@ -384,6 +389,7 @@ class StatisticalAnalyzer:
             ),
             mental_model_accuracy=float(dataset.mental_model.get("accuracy", 0.0) or 0.0),
             mental_model_samples=int(dataset.mental_model.get("training_samples", 0) or 0),
+            mental_model_estimated=bool(dataset.mental_model.get("estimated")),
             corrections=sum(1 for s in dataset.snapshots if (s.get("metadata") or {}).get("corrected")),
             best_strategy=strategy_stats[0].strategy_type if strategy_stats else None,
             worst_strategy=strategy_stats[-1].strategy_type if strategy_stats else None,
@@ -421,21 +427,23 @@ class StatisticalAnalyzer:
     ) -> List[ComparisonResult]:
         comparisons: List[ComparisonResult] = []
 
-        # 阶段对比：快照序列的早半段 vs 晚半段
+        # 快照前后期对比：快照序列的早半段 vs 晚半段。
+        # 注意：这是按快照序号切分的，与 git 演化阶段无关，命名和基都必须如实说明。
         if len(success) >= 6:
             half = len(success) // 2
             t_statistic, p_value = welch_t_test(success[half:], success[:half])
             comparisons.append(
                 ComparisonResult(
-                    label="阶段对比（后期 vs 前期）",
-                    group_a="后期阶段",
-                    group_b="前期阶段",
+                    label="快照前后期对比（早半段 vs 晚半段）",
+                    group_a="快照后半段",
+                    group_b="快照前半段",
                     mean_a=statistics.fmean(success[half:]),
                     mean_b=statistics.fmean(success[:half]),
                     difference=statistics.fmean(success[half:]) - statistics.fmean(success[:half]),
                     t_statistic=t_statistic,
                     p_value=p_value,
                     significant=p_value < self._alpha,
+                    basis="snapshots",
                 )
             )
 
@@ -457,6 +465,7 @@ class StatisticalAnalyzer:
                     t_statistic=t_statistic,
                     p_value=p_value,
                     significant=p_value < self._alpha,
+                    basis="strategy_observations",
                 )
             )
 

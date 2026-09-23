@@ -1,13 +1,13 @@
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-from .gap_calibrator import CalibrationSuggestion, GapCalibrator
 from .evolution_compare_engine import ComparisonReport
-from .mental_model_trainer import MentalModelTrainer
 from .evolution_tracker import EvolutionTracker
-from .self_improvement_policy import SelfImprovementPolicy
+from .gap_calibrator import GapCalibrator
+from .mental_model_trainer import MentalModelTrainer
 from .notification_dispatcher import notify
+from .self_improvement_policy import SelfImprovementPolicy
 
 
 @dataclass
@@ -27,9 +27,12 @@ class CalibrationResult:
 
 
 class RecursiveInsightInjector:
-    def __init__(self, tracker: Optional[EvolutionTracker] = None,
-                 trainer: Optional[MentalModelTrainer] = None,
-                 policy_loader: Optional[SelfImprovementPolicy] = None):
+    def __init__(
+        self,
+        tracker: Optional[EvolutionTracker] = None,
+        trainer: Optional[MentalModelTrainer] = None,
+        policy_loader: Optional[SelfImprovementPolicy] = None,
+    ):
         self._tracker = tracker
         self._trainer = trainer
         self._policy_loader = policy_loader
@@ -54,13 +57,13 @@ class RecursiveInsightInjector:
                             event_type="model_calibrated",
                             title=f"校准: {suggestion.target}",
                             message=f"{suggestion.description[:60]}..."
-                                    f" (预计准确率 +{suggestion.expected_accuracy_gain:.0%})",
+                            f" (预计准确率 +{suggestion.expected_accuracy_gain:.0%})",
                             severity="info",
-                            metadata={"target": suggestion.target,
-                                      "old_value": old_val, "new_value": new_val},
+                            metadata={"target": suggestion.target, "old_value": old_val, "new_value": new_val},
                         )
 
-                if applied > 0:
+                # estimated=True 表示 accuracy 不是实测值（样本不足），不得在此基础上“提升”它
+                if applied > 0 and not model.estimated:
                     model.accuracy = min(0.95, model.accuracy + total_gain * 0.3)
 
         if self._policy_loader:

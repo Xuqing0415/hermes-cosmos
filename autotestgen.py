@@ -780,10 +780,18 @@ def run_introspect():
     miner = SelfRepositoryMiner(repo_path)
     stages = miner.mine_self()
 
-    print(f"  Detected {len(stages)} evolution stages:")
-    for stage in stages:
-        print(f"  - Stage {stage.stage_id} ({stage.commit_range}): {stage.name}")
-        print(f"    Focus: {', '.join(stage.dominant_types[:3])}")
+    if stages:
+        detection = miner.detection
+        print(
+            f"  Detected {len(stages)} evolution stages from "
+            f"{detection.commit_count} commits (method: {detection.method}):"
+        )
+        for stage in stages:
+            print(f"  - Stage {stage.stage_id} ({stage.commit_range}): {stage.name}")
+            print(f"    Focus: {', '.join(stage.dominant_types[:3])}")
+    else:
+        print(f"  No evolution stages: {miner.unavailable_reason}")
+        print("  (git history unavailable - no synthetic stages are fabricated)")
 
     tracker = EvolutionTracker("loop_output/evolution_tracker.db")
     trainer = MentalModelTrainer(tracker)
@@ -793,22 +801,17 @@ def run_introspect():
     comparator = EvolutionCompareEngine(tracker, trainer)
     report = comparator.compare(stages)
 
+    if not report.comparisons:
+        print("  No stage comparison was produced:")
     for comp in report.comparisons:
-        label = (
-            "overestimated"
-            if comp.over_under == "overestimated"
-            else "underestimated" if comp.over_under == "underestimated" else "accurate"
-        )
-        print(f"  - {comp.stage_name} ({comp.stage_id}):")
+        print(f"  - {comp.stage_name} ({comp.stage_id}, {comp.snapshot_count} snapshots):")
         print(
-            f"    Mental model predicted: cross-domain transfer should peak in stage "
-            f"{comp.stage_id} (accuracy {comp.accuracy:.0%})"
+            f"    Actual mean success rate {comp.actual_success_rate:.0%}, "
+            f"mental model predicted {comp.predicted_success_rate:.0%}"
         )
-        print(
-            f"    Actual history: cross-domain transfer matured in stage "
-            f"{comp.stage_id} (accuracy {comp.accuracy:.0%})"
-        )
-        print(f"    Gap: model {label} (delta: {comp.delta:+.0%})")
+        print(f"    Gap: model {comp.over_under} (delta: {comp.delta:+.0%})")
+    for note in report.notes:
+        print(f"  note: {note}")
 
     print("\n[GapCalibrator] Calibration suggestions:")
     calibrator = GapCalibrator(trainer)
@@ -839,7 +842,12 @@ def _resolve_paper_formats(paper_format: str, output_path):
     return [LatexCompiler.resolve_format(output_path, "auto")]
 
 
-def run_self_research(output_path=None, paper_format: str = "auto", paper_dir: str = "papers"):
+def run_self_research(
+    output_path=None,
+    paper_format: str = "auto",
+    paper_dir: str = "papers",
+    integrity_report: bool = False,
+):
     """让系统分析自身演化历史，自动撰写一篇学术论文。"""
     from hermes.self_research import (
         SelfResearchConfig,
@@ -852,6 +860,7 @@ def run_self_research(output_path=None, paper_format: str = "auto", paper_dir: s
         paper_path=output_path,
         formats=formats,
         compile_pdf="pdf" in formats,
+        integrity_report=integrity_report,
     )
 
     report = SelfResearcher(config).run()
@@ -894,6 +903,12 @@ def main():
         help="Output format for --self-research (default: infer from --output)",
     )
     parser.add_argument("--paper-dir", default="papers", help="Directory for paper artifacts (dataset, figures)")
+    parser.add_argument(
+        "--integrity",
+        action="store_true",
+        help="Write integrity_report.json and print per-finding evidence grades "
+        "(provenance tagging and grading are always applied inside the paper)",
+    )
     parser.add_argument(
         "--output",
         "-o",
@@ -940,7 +955,7 @@ def main():
         return
 
     if args.self_research:
-        run_self_research(args.output, args.paper_format, args.paper_dir)
+        run_self_research(args.output, args.paper_format, args.paper_dir, integrity_report=args.integrity)
         return
 
     if not args.domain:

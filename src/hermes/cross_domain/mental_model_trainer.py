@@ -1,10 +1,15 @@
-from typing import List, Dict, Any, Optional, Tuple
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import random
-import math
+from typing import Any, Dict, List, Optional, Tuple
 
-from .evolution_tracker import EvolutionTracker, EvolutionSnapshot
+from .evolution_tracker import EvolutionSnapshot, EvolutionTracker
+
+#: 低于该样本量不做训练/评测：此时给出的 accuracy 是占位值，不代表实测准确率
+MIN_TRAINING_SAMPLES = 5
+
+#: 低于该样本量无法做留出评测，accuracy 视为未评测
+MIN_EVAL_SAMPLES = 3
 
 
 @dataclass
@@ -13,13 +18,15 @@ class PredictionModel:
     feature_importance: Dict[str, float]
     training_samples: int
     last_trained: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    #: True 表示 accuracy 不是实测值（样本不足，未做留出评测），调用方不得把它当作结论
+    estimated: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "accuracy": round(self.accuracy, 2),
+            "estimated": self.estimated,
             "feature_importance": {
-                k: round(v, 3) for k, v in
-                sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)
+                k: round(v, 3) for k, v in sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)
             },
             "training_samples": self.training_samples,
             "last_trained": self.last_trained.isoformat(),
@@ -28,9 +35,13 @@ class PredictionModel:
 
 class MentalModelTrainer:
     FEATURES = [
-        "success_rate", "cross_domain_success", "pattern_coverage",
-        "total_patterns", "total_relationships",
-        "policy_mutation_rate", "policy_exploration_factor",
+        "success_rate",
+        "cross_domain_success",
+        "pattern_coverage",
+        "total_patterns",
+        "total_relationships",
+        "policy_mutation_rate",
+        "policy_exploration_factor",
     ]
 
     def __init__(self, tracker: Optional[EvolutionTracker] = None):
@@ -42,11 +53,13 @@ class MentalModelTrainer:
         if self._tracker:
             snapshots = self._tracker.get_recent_snapshots(100)
 
-        if len(snapshots) < 5:
+        if len(snapshots) < MIN_TRAINING_SAMPLES:
+            # 样本不足：不编造准确率，只标记为未评测
             self._model = PredictionModel(
-                accuracy=0.75,
+                accuracy=0.0,
                 feature_importance={f: 1.0 / len(self.FEATURES) for f in self.FEATURES},
                 training_samples=len(snapshots),
+                estimated=True,
             )
             return self._model
 
@@ -54,18 +67,19 @@ class MentalModelTrainer:
         accuracy = self._evaluate(X, y)
 
         self._model = PredictionModel(
-            accuracy=accuracy,
+            accuracy=0.0 if accuracy is None else accuracy,
             feature_importance=self._compute_importance(X, y),
             training_samples=len(snapshots),
+            estimated=accuracy is None,
         )
         return self._model
 
     def get_model(self) -> Optional[PredictionModel]:
         return self._model
 
-    def predict_success_rate(self, current_state: Dict[str, float],
-                             strategy_type: str, target: str,
-                             adjustment: float) -> float:
+    def predict_success_rate(
+        self, current_state: Dict[str, float], strategy_type: str, target: str, adjustment: float
+    ) -> float:
         """Predict the success rate change given a strategy."""
         if self._model is None:
             return 0.05
@@ -73,17 +87,14 @@ class MentalModelTrainer:
         base = current_state.get("success_rate", 0.7)
 
         # Simulate feature changes based on strategy type
-        predicted_delta = self._estimate_delta(
-            base, current_state, strategy_type, target, adjustment
-        )
+        predicted_delta = self._estimate_delta(base, current_state, strategy_type, target, adjustment)
 
         predicted = min(1.0, max(0.0, base + predicted_delta))
         return predicted
 
-    def _estimate_delta(self, base_sr: float,
-                        state: Dict[str, float],
-                        strategy_type: str, target: str,
-                        adjustment: float) -> float:
+    def _estimate_delta(
+        self, base_sr: float, state: Dict[str, float], strategy_type: str, target: str, adjustment: float
+    ) -> float:
         """Estimate the delta based on strategy type and current state."""
         sr = state.get("success_rate", base_sr)
         cd = state.get("cross_domain_success", 0.5)
@@ -128,7 +139,7 @@ class MentalModelTrainer:
 
         # Apply model accuracy as confidence scaling
         if self._model:
-            delta *= (0.5 + self._model.accuracy * 0.5)
+            delta *= 0.5 + self._model.accuracy * 0.5
 
         return delta
 
@@ -156,9 +167,11 @@ class MentalModelTrainer:
 
         return X, y
 
-    def _evaluate(self, X: List, y: List) -> float:
-        if len(X) < 3:
-            return 0.7
+    def _evaluate(self, X: List, y: List) -> Optional[float]:
+        """留出评测准确率；样本不足时返回 None（不返回编造的准确率）。"""
+
+        if len(X) < MIN_EVAL_SAMPLES:
+            return None
 
         n = len(X)
         test_size = max(1, n // 5)
@@ -180,7 +193,9 @@ class MentalModelTrainer:
                 if (predicted >= 0 and actual >= 0) or (predicted < 0 and actual < 0):
                     correct += 1
 
-        loo_accuracy = correct / n if n > 0 else 0.7
+        if n == 0:
+            return None
+        loo_accuracy = correct / n
         return max(0.5, min(0.95, loo_accuracy))
 
     def _compute_importance(self, X: List, y: List) -> Dict[str, float]:
@@ -197,7 +212,9 @@ class MentalModelTrainer:
             if max(col_values) == min(col_values):
                 importances[fname] = 0.05
                 continue
-            corr_numerator = sum((X[j][fi] - sum(col_values) / n_samples) * (y[j] - base_pred) for j in range(n_samples))
+            corr_numerator = sum(
+                (X[j][fi] - sum(col_values) / n_samples) * (y[j] - base_pred) for j in range(n_samples)
+            )
             x_var = sum((X[j][fi] - sum(col_values) / n_samples) ** 2 for j in range(n_samples))
             y_var = sum((y[j] - base_pred) ** 2 for j in range(n_samples))
             if x_var * y_var > 0:

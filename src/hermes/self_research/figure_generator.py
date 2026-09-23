@@ -210,34 +210,42 @@ class FigureGenerator:
         summary = ""
         if comparison is not None:
             summary = (
-                f"前后期成功率对比：{comparison.group_a} 均值 {comparison.mean_a:.3f} vs "
+                f"快照前后期成功率对比（与演化阶段无关）：{comparison.group_a} 均值 {comparison.mean_a:.3f} vs "
                 f"{comparison.group_b} 均值 {comparison.mean_b:.3f}"
                 f"（p={comparison.p_value:.4f}，{'显著' if comparison.significant else '不显著'}）"
             )
 
-        art = ascii_bar_chart(commit_items, title="各阶段提交数")
+        if phases:
+            art = ascii_bar_chart(commit_items, title="各演化阶段提交数")
+            caption = "图 2：演化阶段提交分布（阶段由真实 git 历史推导）与快照前后期成功率对比"
+        else:
+            art = "（无可用 git 历史：本次未划分演化阶段，不做任何阶段对比）"
+            caption = "图 2：无可用 git 历史，未划分演化阶段；下方仅为基于快照的对比"
         if summary:
             art = f"{art}\n{summary}"
 
         figure = Figure(
             name="phase_comparison",
             kind="bar",
-            caption="图 2：演化阶段对比（各阶段提交量与前/后期成功率对比）",
+            caption=caption,
             ascii_art=art,
             data={
                 "phases": [phase.get("name") for phase in phases],
                 "commits": [float(phase.get("total_commits", 0)) for phase in phases],
+                "phases_available": bool(phases),
+                "phase_detection": dataset.phase_detection,
                 "comparison": comparison.to_dict() if comparison else None,
             },
         )
-        self._render_png(
-            figure,
-            plot=self._plot_bar,
-            x_values=[point[0] for point in commit_items],
-            y_values=[point[1] for point in commit_items],
-            x_label="phase",
-            y_label="commits",
-        )
+        if commit_items:
+            self._render_png(
+                figure,
+                plot=self._plot_bar,
+                x_values=[point[0] for point in commit_items],
+                y_values=[point[1] for point in commit_items],
+                x_label="phase",
+                y_label="commits",
+            )
         return figure
 
     def _similarity_scatter(self, dataset: ResearchDataset) -> Figure:

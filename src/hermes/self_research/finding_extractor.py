@@ -6,8 +6,9 @@
 
 import statistics
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from hermes.self_research.data_provenance import REAL, UNVERIFIED, worst
 from hermes.self_research.research_data_collector import ResearchDataset
 from hermes.self_research.statistical_analyzer import StatisticalAnalysis
 
@@ -25,6 +26,11 @@ class Finding:
     confidence: float
     significant: bool
     tags: List[str] = field(default_factory=list)
+    data_fields: List[str] = field(default_factory=list)
+    provenance: str = REAL
+    sample_size: Optional[int] = None
+    required_sample: Optional[int] = None
+    caveats: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -37,6 +43,11 @@ class Finding:
             "confidence": round(self.confidence, 2),
             "significant": self.significant,
             "tags": self.tags,
+            "data_fields": self.data_fields,
+            "provenance": self.provenance,
+            "sample_size": self.sample_size,
+            "required_sample": self.required_sample,
+            "caveats": self.caveats,
         }
 
 
@@ -51,6 +62,7 @@ class FindingExtractor:
         similarity_threshold: float = 0.7,
         success_threshold: float = 0.8,
         max_findings: int = 12,
+        min_samples: int = 3,
     ):
         self._alpha = alpha
         self._strategy_threshold = strategy_threshold
@@ -58,6 +70,7 @@ class FindingExtractor:
         self._similarity_threshold = similarity_threshold
         self._success_threshold = success_threshold
         self._max_findings = max_findings
+        self._min_samples = min_samples
 
     def extract(self, analysis: StatisticalAnalysis, dataset: ResearchDataset) -> List[Finding]:
         findings: List[Finding] = []
@@ -70,7 +83,18 @@ class FindingExtractor:
         findings.extend(self._policy_findings(dataset))
 
         findings = findings[: self._max_findings]
+        findings = [self._resolve_provenance(finding, dataset) for finding in findings]
         return [replace(finding, finding_id=f"F-{index:02d}") for index, finding in enumerate(findings, 1)]
+
+    @staticmethod
+    def _resolve_provenance(finding: Finding, dataset: ResearchDataset) -> Finding:
+        """按数据字段的来源标签定下这条发现的来源（取最不可信的那个）。"""
+
+        if not finding.data_fields:
+            return finding if finding.provenance != REAL else replace(finding, provenance=UNVERIFIED)
+        declared = [(dataset.provenance or {}).get(name) for name in finding.data_fields]
+        resolved = worst(item for item in declared if item)
+        return replace(finding, provenance=resolved)
 
     # ------------------------------------------------------------------ 规则
 
@@ -102,6 +126,9 @@ class FindingExtractor:
                 confidence=max(0.0, min(1.0, 1.0 - trend.p_value)),
                 significant=trend.significant,
                 tags=["trend", "success_rate"],
+                data_fields=["snapshots"],
+                sample_size=trend.n,
+                required_sample=self._min_samples,
             )
         ]
 
@@ -130,6 +157,9 @@ class FindingExtractor:
                         confidence=0.9 if stat.instances >= 3 else 0.6,
                         significant=True,
                         tags=["strategy", stat.strategy_type],
+                        data_fields=["strategies"],
+                        sample_size=stat.instances,
+                        required_sample=self._min_samples,
                     )
                 )
 
@@ -148,6 +178,9 @@ class FindingExtractor:
                     confidence=0.6,
                     significant=False,
                     tags=["strategy", "negative"],
+                    data_fields=["strategies"],
+                    sample_size=worst.instances,
+                    required_sample=self._min_samples,
                 )
             )
 
@@ -182,6 +215,9 @@ class FindingExtractor:
                     confidence=0.85,
                     significant=True,
                     tags=["transfer", "strong"],
+                    data_fields=["similarity_pairs", "pattern_success_rates", "knowledge_graph"],
+                    sample_size=len(pairs),
+                    required_sample=self._min_samples,
                 )
             )
 
@@ -201,6 +237,9 @@ class FindingExtractor:
                     confidence=max(0.0, min(1.0, 1.0 - correlation.p_value)),
                     significant=correlation.significant,
                     tags=["transfer", "correlation"],
+                    data_fields=["similarity_pairs"],
+                    sample_size=correlation.n,
+                    required_sample=self._min_samples,
                 )
             )
         elif correlation is not None:
@@ -215,6 +254,10 @@ class FindingExtractor:
                     confidence=0.4,
                     significant=False,
                     tags=["transfer", "limitation"],
+                    data_fields=["similarity_pairs"],
+                    sample_size=correlation.n,
+                    required_sample=self._min_samples,
+                    caveats=["样本量不足以支撑相关性结论"],
                 )
             )
 
@@ -226,7 +269,8 @@ class FindingExtractor:
             return []
 
         total_commits = sum(int(phase.get("total_commits", 0)) for phase in phases)
-        names = "、".join(str(phase.get("name")) for phase in phases)
+        # 带上阶段编号：不同阶段可能由同一种提交类型主导，只报名字会分不清
+        names = "、".join(f"阶段{phase.get('stage_id')} {phase.get('name')}" for phase in phases)
         evidence = "；".join(f"{phase.get('name')}: {', '.join(phase.get('dominant_types') or [])}" for phase in phases)
 
         return [
@@ -240,11 +284,36 @@ class FindingExtractor:
                 confidence=0.8,
                 significant=False,
                 tags=["evolution", "phases"],
+                data_fields=["phases"],
+                sample_size=total_commits,
+                required_sample=self._min_samples,
             )
         ]
 
     def _metacognition_findings(self, analysis: StatisticalAnalysis) -> List[Finding]:
         findings: List[Finding] = []
+
+        if analysis.mental_model_samples > 0 and analysis.mental_model_estimated:
+            return [
+                Finding(
+                    finding_id="",
+                    statement=(
+                        f"心智模型基于 {analysis.mental_model_samples} 个快照训练，"
+                        "但样本量不足以做留出评测，本次不报告预测准确率"
+                    ),
+                    evidence="样本量低于 MentalModelTrainer 的最低评测门槛，accuracy 是占位值",
+                    category="metacognition",
+                    metric="prediction_accuracy",
+                    value=0.0,
+                    confidence=0.2,
+                    significant=False,
+                    tags=["metacognition", "prediction", "insufficient_data"],
+                    data_fields=["mental_model"],
+                    sample_size=analysis.mental_model_samples,
+                    required_sample=self._min_samples,
+                    caveats=["样本不足：accuracy 为占位值，不代表实测准确率"],
+                )
+            ]
 
         if analysis.mental_model_samples > 0:
             findings.append(
@@ -261,6 +330,9 @@ class FindingExtractor:
                     confidence=0.7,
                     significant=analysis.mental_model_accuracy > 0.6,
                     tags=["metacognition", "prediction"],
+                    data_fields=["mental_model"],
+                    sample_size=analysis.mental_model_samples,
+                    required_sample=self._min_samples,
                 )
             )
 
@@ -276,6 +348,7 @@ class FindingExtractor:
                     confidence=0.75,
                     significant=True,
                     tags=["self_repair"],
+                    data_fields=["snapshots"],
                 )
             )
 
@@ -310,6 +383,10 @@ class FindingExtractor:
                 confidence=0.5,
                 significant=False,
                 tags=["transfer", "latency", "estimate"],
+                data_fields=["events"],
+                sample_size=len(gaps),
+                required_sample=5,
+                caveats=["以事件日志位置为计时单位，属于估计值而非实测延迟"],
             )
         ]
 
@@ -332,5 +409,6 @@ class FindingExtractor:
                 confidence=0.65,
                 significant=False,
                 tags=["policy"],
+                data_fields=["policy"],
             )
         ]

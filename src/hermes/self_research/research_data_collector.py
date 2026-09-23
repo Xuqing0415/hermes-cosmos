@@ -6,10 +6,13 @@
 * 策略事件：`loop_output/notifications.log` 的 JSON Lines 日志
 * 改进策略：`SelfImprovementPolicy` 的 JSON 策略文件
 * 知识图谱：`KnowledgeAmalgamator` 的 JSON 图谱
-* 演化阶段：`SelfRepositoryMiner` 对自身 Git 历史的划分
+* 演化阶段：`GitPhaseDetector` 对自身 Git 历史的划分（git 不可用时不划分，也不伪造）
 
 所有数据源都是可选的：文件缺失或损坏时退化为空集合而不是抛错，
 这样在没有任何历史产物的环境下也能跑完整条论文生成流水线。
+
+采集的同时会给每个字段盖上来源标签（见 `data_provenance`），
+让下游能区分“真实数据”和“降级/合成数据”。
 """
 
 import json
@@ -17,13 +20,14 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from hermes.cross_domain.evolution_tracker import EvolutionSnapshot, EvolutionTracker
+from hermes.cross_domain.git_phase_detector import GitPhaseDetector, PhaseDetectionResult
 from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
 from hermes.cross_domain.mental_model_trainer import MentalModelTrainer
 from hermes.cross_domain.self_improvement_policy import SelfImprovementPolicy
-from hermes.cross_domain.self_repository_miner import SelfRepositoryMiner
+from hermes.self_research.data_provenance import REAL
 
 DEFAULT_SNAPSHOT_DB = "loop_output/evolution_tracker.db"
 DEFAULT_POLICY_PATH = "loop_output/self_improvement_policy.json"
@@ -127,6 +131,10 @@ class ResearchDataset:
     knowledge_graph: Dict[str, Any] = field(default_factory=dict)
     mental_model: Dict[str, Any] = field(default_factory=dict)
     sources: Dict[str, bool] = field(default_factory=dict)
+    phase_detection: Dict[str, Any] = field(default_factory=dict)
+    provenance: Dict[str, str] = field(default_factory=dict)
+    provenance_notes: Dict[str, str] = field(default_factory=dict)
+    provenance_counts: Dict[str, int] = field(default_factory=dict)
 
     def counts(self) -> Dict[str, int]:
         return {
@@ -151,6 +159,10 @@ class ResearchDataset:
             "knowledge_graph": self.knowledge_graph,
             "mental_model": self.mental_model,
             "events": self.events,
+            "phase_detection": self.phase_detection,
+            "provenance": self.provenance,
+            "provenance_notes": self.provenance_notes,
+            "provenance_counts": self.provenance_counts,
         }
 
 
@@ -175,6 +187,8 @@ class ResearchDataCollector:
         notification_log: Optional[str] = None,
         graph_path: Optional[str] = None,
         repo_path: Optional[str] = None,
+        phase_detector: Optional[GitPhaseDetector] = None,
+        provenance: Optional[Dict[str, str]] = None,
     ):
         self._base_dir = base_dir
         self._snapshot_db = self._resolve(snapshot_db or DEFAULT_SNAPSHOT_DB)
@@ -182,6 +196,8 @@ class ResearchDataCollector:
         self._notification_log = self._resolve(notification_log or DEFAULT_NOTIFICATION_LOG)
         self._graph_path = self._resolve(graph_path or DEFAULT_GRAPH_PATH)
         self._repo_path = repo_path or base_dir
+        self._phase_detector = phase_detector or GitPhaseDetector(self._repo_path)
+        self._forced_provenance = dict(provenance or {})
 
     def _resolve(self, path: str) -> str:
         if os.path.isabs(path) or self._base_dir in ("", "."):
@@ -192,26 +208,137 @@ class ResearchDataCollector:
         snapshots = self._load_snapshots()
         events = self._load_events()
         graph = self._load_graph()
+        policy = self._load_policy()
+        phase_result = self._detect_phases()
+        mental_model = self._train_mental_model(snapshots)
+        strategies = self._derive_strategies(events)
+        pattern_rates = self._latest_pattern_success_rates(snapshots)
+        similarity_pairs = self._derive_similarity_pairs(snapshots, graph)
+
+        sources = {
+            "snapshot_db": os.path.exists(self._snapshot_db),
+            "policy": os.path.exists(self._policy_path),
+            "notification_log": os.path.exists(self._notification_log),
+            "knowledge_graph": os.path.exists(self._graph_path),
+            "git_history": not phase_result.git_unavailable,
+        }
+        counts = {
+            "snapshots": len(snapshots),
+            "events": len(events),
+            "strategies": len(strategies),
+            "similarity_pairs": len(similarity_pairs),
+            "policy": len(policy.get("pattern_weights") or {}),
+            "knowledge_graph": len(graph.get("nodes") or []),
+            "pattern_success_rates": len(pattern_rates),
+            "mental_model": int(mental_model.get("training_samples", 0) or 0),
+            "phases": len(phase_result.phases),
+        }
+        provenance, provenance_notes = self._stamp_provenance(
+            sources=sources,
+            phase_result=phase_result,
+            counts=counts,
+            mental_model=mental_model,
+        )
 
         return ResearchDataset(
             generated_at=datetime.now(timezone.utc).isoformat(),
             snapshots=[s.to_dict() for s in snapshots],
-            strategies=[o.to_dict() for o in self._derive_strategies(events)],
-            similarity_pairs=[p.to_dict() for p in self._derive_similarity_pairs(snapshots, graph)],
-            phases=self._load_phases(),
-            policy=self._load_policy(),
-            pattern_success_rates=self._latest_pattern_success_rates(snapshots),
+            strategies=[o.to_dict() for o in strategies],
+            similarity_pairs=[p.to_dict() for p in similarity_pairs],
+            phases=[phase.to_dict() for phase in phase_result.phases],
+            policy=policy,
+            pattern_success_rates=pattern_rates,
             events=events,
             knowledge_graph=graph,
-            mental_model=self._train_mental_model(snapshots),
-            sources={
-                "snapshot_db": os.path.exists(self._snapshot_db),
-                "policy": os.path.exists(self._policy_path),
-                "notification_log": os.path.exists(self._notification_log),
-                "knowledge_graph": os.path.exists(self._graph_path),
-                "git_history": os.path.isdir(os.path.join(self._repo_path, ".git")),
-            },
+            mental_model=mental_model,
+            sources=sources,
+            phase_detection=phase_result.to_dict(),
+            provenance=provenance,
+            provenance_notes=provenance_notes,
+            provenance_counts=counts,
         )
+
+    # ------------------------------------------------------------------ 来源标注
+
+    def _stamp_provenance(
+        self,
+        sources: Dict[str, bool],
+        phase_result: PhaseDetectionResult,
+        counts: Dict[str, int],
+        mental_model: Dict[str, Any],
+    ) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """给每个字段盖上来源标签。
+
+        原则：有数据才谈来源；数据源不可用时返回空集合，标签保持 REAL 但备注写明
+        “无数据、未做任何推断”，绝不把缺失数据伪装成结论。
+        """
+
+        provenance: Dict[str, str] = {}
+        notes: Dict[str, str] = {}
+
+        def stamp(field_name: str, source: str, real_detail: str, missing_detail: str) -> None:
+            if sources.get(source):
+                provenance[field_name] = REAL
+                notes[field_name] = f"{counts.get(field_name, 0)} 条来自{real_detail}"
+            else:
+                provenance[field_name] = REAL
+                notes[field_name] = f"无数据：{missing_detail}，未做任何推断"
+
+        stamp("snapshots", "snapshot_db", f" SQLite 快照库（{self._snapshot_db}）", "快照库不可用")
+        stamp("events", "notification_log", f" 事件日志（{self._notification_log}）", "事件日志不可用")
+        stamp("strategies", "notification_log", " 事件日志中带收益字段的事件", "事件日志不可用")
+        stamp("policy", "policy", f" 改进策略文件（{self._policy_path}）", "策略文件不可用")
+        stamp("knowledge_graph", "knowledge_graph", f" 知识图谱文件（{self._graph_path}）", "知识图谱不可用")
+        stamp("pattern_success_rates", "snapshot_db", " 快照元数据中的模式成功率", "快照库不可用")
+        stamp("mental_model", "snapshot_db", " 快照上的心智模型训练", "快照库不可用")
+        notes["mental_model"] = self._mental_model_note(sources, mental_model)
+
+        if sources.get("knowledge_graph") and sources.get("snapshot_db"):
+            provenance["similarity_pairs"] = REAL
+            notes["similarity_pairs"] = f"{counts.get('similarity_pairs', 0)} 组来自知识图谱边与快照模式成功率的配对"
+        else:
+            provenance["similarity_pairs"] = REAL
+            notes["similarity_pairs"] = "无数据：知识图谱或快照库不可用，未做任何推断"
+
+        if sources.get("git_history"):
+            provenance["phases"] = REAL
+            notes["phases"] = (
+                f"{len(phase_result.phases)} 个阶段由真实 git 历史推导"
+                f"（{phase_result.commit_count} 次提交，方法 {phase_result.method}）"
+            )
+        else:
+            provenance["phases"] = REAL
+            notes["phases"] = f"无数据：{phase_result.reason}，本次不划分演化阶段"
+
+        for field_name, label in self._forced_provenance.items():
+            provenance[field_name] = label
+            notes[field_name] = f"调用方声明为 {label}"
+
+        return provenance, notes
+
+    @staticmethod
+    def _mental_model_note(sources: Dict[str, bool], mental_model: Dict[str, Any]) -> str:
+        """心智模型的来源备注：样本不足时必须说明“未做留出评测”。"""
+
+        if not sources.get("snapshot_db"):
+            return "无数据：快照库不可用，未训练心智模型，未做任何推断"
+
+        samples = int(mental_model.get("training_samples", 0) or 0)
+        if not mental_model:
+            return "无数据：快照不足以训练心智模型，未做任何推断"
+        if mental_model.get("estimated"):
+            return f"{samples} 个真实快照：样本不足，未做留出评测，不报告准确率"
+        return f"{samples} 个真实快照上的 MentalModelTrainer 留出评测"
+
+    def _detect_phases(self) -> PhaseDetectionResult:
+        try:
+            return self._phase_detector.detect()
+        except Exception as error:
+            return PhaseDetectionResult(
+                git_unavailable=True,
+                reason=f"阶段检测失败：{error}",
+                method="unavailable",
+            )
 
     # ------------------------------------------------------------------ 数据源读取
 
@@ -259,12 +386,6 @@ class ResearchDataCollector:
             return amalgamator.get_graph().to_dict()
         except Exception:
             return {}
-
-    def _load_phases(self) -> List[Dict[str, Any]]:
-        try:
-            return [stage.to_dict() for stage in SelfRepositoryMiner(self._repo_path).mine_self()]
-        except Exception:
-            return []
 
     def _train_mental_model(self, snapshots: List[EvolutionSnapshot]) -> Dict[str, Any]:
         if len(snapshots) < 2:

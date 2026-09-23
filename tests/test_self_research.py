@@ -12,13 +12,24 @@ import pathlib
 import shutil
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from hermes.cross_domain import EvolutionTracker
+from hermes.cross_domain import EvolutionTracker, GitPhaseDetector
+from hermes.cross_domain.git_phase_detector import CommitRecord, classify_commit
 from hermes.self_research import (
+    FALLBACK,
+    REAL,
+    SYNTHETIC,
+    UNVERIFIED,
+    ConfidenceScorer,
+    DataProvenanceTagger,
+    EvidenceGrade,
+    EvidenceGrader,
     FigureGenerator,
     FindingExtractor,
+    IntegrityChecker,
     LatexCompiler,
     PaperWriter,
     ResearchDataCollector,
@@ -27,6 +38,7 @@ from hermes.self_research import (
     SelfResearcher,
     StatisticalAnalyzer,
 )
+from hermes.self_research.data_provenance import worst
 from hermes.self_research.figure_generator import ascii_bar_chart, ascii_line_chart, ascii_scatter
 from hermes.self_research.latex_compiler import latex_escape
 from hermes.self_research.statistical_analyzer import (
@@ -187,6 +199,46 @@ def _build_sources(base: str) -> None:
     }
     with open(os.path.join(loop_dir, "self_improvement_policy.json"), "w", encoding="utf-8") as handle:
         json.dump(policy, handle, ensure_ascii=False)
+
+
+def _synthetic_commits(subjects, gap_days: float = 0.0, mid_gap_days: float = 0.0):
+    """按给定提交主题造一段确定的提交历史。"""
+
+    commits = []
+    moment = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    middle = len(subjects) // 2
+    for index, subject in enumerate(subjects):
+        moment = moment + timedelta(days=gap_days)
+        if index == middle:
+            moment = moment + timedelta(days=mid_gap_days)
+        commits.append(
+            CommitRecord(
+                sha=f"{index:040d}",
+                date=moment,
+                subject=subject,
+                category=classify_commit(subject),
+            )
+        )
+    return commits
+
+
+class _FrozenCollector:
+    """返回固定数据集的采集器替身，用于端到端验证给定来源标注下的论文输出。"""
+
+    def __init__(self, dataset: ResearchDataset):
+        self._dataset = dataset
+
+    def collect(self) -> ResearchDataset:
+        return self._dataset
+
+
+ALL_SOURCES = {
+    "snapshot_db": True,
+    "notification_log": True,
+    "policy": True,
+    "knowledge_graph": True,
+    "git_history": True,
+}
 
 
 class TestStatisticalAnalyzer:
@@ -404,6 +456,288 @@ class TestResearchDataCollector:
             assert dataset.sources[source] is False
 
 
+class TestGitPhaseDetector:
+    def test_unavailable_repository_reports_no_phases(self):
+        result = GitPhaseDetector(str(pathlib.Path(REPO_ROOT) / "no-such-repo")).detect()
+        assert result.git_unavailable is True
+        assert result.phases == []
+        assert result.reason
+        assert result.commit_count == 0
+        assert result.to_dict()["phases"] == []
+
+    def test_empty_history_reports_no_phases(self):
+        result = GitPhaseDetector(".").detect_from_commits([])
+        assert result.git_unavailable is True
+        assert result.phases == []
+
+    def test_missing_git_never_fabricates_stage_counts(self):
+        """回归：旧实现凭空给出 12/15/10 次提交的三个阶段。"""
+
+        result = GitPhaseDetector("/nonexistent-repository").detect()
+        assert [phase.total_commits for phase in result.phases] == []
+        assert result.commit_count == 0
+
+    def test_phases_follow_real_theme_changes(self):
+        subjects = ["feat: 初始化模块"] * 10 + ["fix: 修复CI门禁"] * 10 + ["feat: 跨领域知识蒸馏"] * 6
+        result = GitPhaseDetector(".").detect_from_commits(_synthetic_commits(subjects))
+
+        assert result.git_unavailable is False
+        assert result.method == "git_log_theme_and_gap"
+        assert result.boundaries == [10, 20]
+        assert [phase.stage_id for phase in result.phases] == [1, 2, 3]
+        assert [phase.name for phase in result.phases] == ["基础构建期", "CI与修复期", "智能扩展期"]
+        assert [phase.total_commits for phase in result.phases] == [10, 10, 6]
+        assert sum(phase.total_commits for phase in result.phases) == len(subjects)
+        assert all(phase.category_share > 0 for phase in result.phases)
+        assert result.phases[0].boundary_signal == "start"
+
+    def test_time_gap_alone_does_not_split_a_single_theme(self):
+        """同一主题的两段历史即使间隔很久也合并为一个阶段（不做无依据的切分）。"""
+
+        subjects = ["docs: 补充说明"] * 20
+        result = GitPhaseDetector(".").detect_from_commits(
+            _synthetic_commits(subjects, gap_days=0.5, mid_gap_days=30.0)
+        )
+        assert len(result.phases) == 1
+        assert result.phases[0].total_commits == 20
+        assert result.boundaries == []
+
+    def test_detection_is_deterministic(self):
+        subjects = ["feat: 新模块"] * 8 + ["fix: 修复门禁"] * 8
+        commits = _synthetic_commits(subjects)
+        first = GitPhaseDetector(".").detect_from_commits(commits)
+        second = GitPhaseDetector(".").detect_from_commits(list(commits))
+        assert first.to_dict() == second.to_dict()
+
+    def test_phase_count_is_bounded_and_complete(self):
+        subjects = ["feat: 新模块" if index % 2 else "fix: 修复门禁" for index in range(80)]
+        result = GitPhaseDetector(".").detect_from_commits(_synthetic_commits(subjects))
+        assert 1 <= len(result.phases) <= 6
+        assert sum(phase.total_commits for phase in result.phases) == 80
+        assert [phase.stage_id for phase in result.phases] == list(range(1, len(result.phases) + 1))
+
+
+class TestDataProvenance:
+    def test_undeclared_sources_are_missing_and_fields_unverified(self):
+        dataset = ResearchDataset(snapshots=[{"success_rate": 0.5}])
+        report = DataProvenanceTagger().tag(dataset)
+
+        assert report.provenance_of("snapshots") == UNVERIFIED
+        assert report.git_unavailable is True
+        assert set(report.missing_sources) == {
+            "snapshot_db",
+            "notification_log",
+            "policy",
+            "knowledge_graph",
+            "git_history",
+        }
+        assert report.count_by_provenance()[UNVERIFIED] == 1
+
+    def test_absent_data_is_not_called_verified_or_unverified(self):
+        """没有数据时不做推断：来源保持 REAL，备注写明“无数据”。"""
+
+        report = DataProvenanceTagger().tag(ResearchDataset(sources=dict(ALL_SOURCES)))
+        assert report.provenance_of("phases") == REAL
+        assert "无数据" in report.entries["phases"].detail
+        assert report.missing_sources == []
+
+    def test_stamped_fallback_is_preserved(self):
+        dataset = ResearchDataset(
+            snapshots=[{"success_rate": 0.5}],
+            provenance={"snapshots": FALLBACK},
+            provenance_notes={"snapshots": "回退分支合成"},
+        )
+        report = DataProvenanceTagger().tag(dataset)
+        assert report.provenance_of("snapshots") == FALLBACK
+        assert report.entries["snapshots"].detail == "回退分支合成"
+        assert any("降级数据" in note for note in report.notes)
+
+    def test_worst_picks_the_least_trustworthy_label(self):
+        assert worst([REAL, FALLBACK]) == FALLBACK
+        assert worst([FALLBACK, SYNTHETIC]) == SYNTHETIC
+        assert worst([UNVERIFIED, SYNTHETIC]) == SYNTHETIC
+        assert worst([REAL, UNVERIFIED]) == UNVERIFIED
+        assert worst([]) == UNVERIFIED
+
+    def test_collector_stamps_real_sources(self, work_dir):
+        base = str(work_dir)
+        _build_sources(base)
+        dataset = ResearchDataCollector(base_dir=base, repo_path=base).collect()
+        report = DataProvenanceTagger().tag(dataset)
+
+        assert report.provenance_of("snapshots") == REAL
+        assert report.provenance_of("strategies") == REAL
+        assert report.provenance_of("phases") == REAL
+        assert "无数据" in report.entries["phases"].detail
+        assert "git_history" in report.missing_sources
+
+
+class TestEvidenceGrader:
+    _grader = EvidenceGrader()
+
+    @staticmethod
+    def _report(**stamps) -> object:
+        return DataProvenanceTagger().tag(ResearchDataset(sources=dict(ALL_SOURCES), provenance=dict(stamps)))
+
+    def _grade(self, stamps, **finding):
+        payload = {
+            "finding_id": "F-01",
+            "statement": "结论",
+            "data_fields": ["strategies"],
+            "sample_size": 5,
+            "required_sample": 3,
+        }
+        payload.update(finding)
+        return self._grader.grade(payload, self._report(**stamps))
+
+    def test_all_real_and_enough_samples_earns_grade_a(self):
+        grade = self._grade({"strategies": REAL})
+        assert grade.grade == "A"
+        assert grade.provenance == REAL
+
+    def test_fallback_data_downgrades_to_b(self):
+        assert self._grade({"strategies": FALLBACK}).grade == "B"
+
+    def test_unverified_data_downgrades_to_b(self):
+        assert self._grade({"strategies": UNVERIFIED}).grade == "B"
+
+    def test_synthetic_data_downgrades_to_c(self):
+        assert self._grade({"strategies": SYNTHETIC}).grade == "C"
+
+    def test_insufficient_sample_downgrades_to_c(self):
+        grade = self._grade({"strategies": REAL}, sample_size=2)
+        assert grade.grade == "C"
+        assert any("样本量不足" in reason for reason in grade.reasons)
+
+    def test_caveat_downgrades_to_b(self):
+        grade = self._grade({"strategies": REAL}, caveats=["以事件序号计时，属估计值"])
+        assert grade.grade == "B"
+        assert any("估计值" in reason for reason in grade.reasons)
+
+    def test_unknown_field_falls_back_to_unverified(self):
+        grade = self._grade({}, data_fields=["unknown_field"])
+        assert grade.provenance == UNVERIFIED
+        assert grade.grade == "B"
+
+    def test_worst_of_several_fields_wins(self):
+        grade = self._grade({"strategies": REAL, "phases": SYNTHETIC}, data_fields=["strategies", "phases"])
+        assert grade.provenance == SYNTHETIC
+        assert grade.grade == "C"
+
+    def test_summarise_counts_every_grade(self):
+        grades = [
+            self._grade({"strategies": REAL}),
+            self._grade({"strategies": FALLBACK}),
+            self._grade({"strategies": SYNTHETIC}),
+        ]
+        assert EvidenceGrader.summarise(grades) == {"A": 1, "B": 1, "C": 1}
+
+
+class TestIntegrityChecker:
+    _checker = IntegrityChecker()
+
+    @staticmethod
+    def _report(**stamps):
+        return DataProvenanceTagger().tag(ResearchDataset(sources=dict(ALL_SOURCES), provenance=dict(stamps)))
+
+    @staticmethod
+    def _grade(grade: str, provenance: str, category: str, finding_id: str = "F-01") -> EvidenceGrade:
+        return EvidenceGrade(
+            finding_id=finding_id,
+            statement="结论",
+            grade=grade,
+            provenance=provenance,
+            reasons=["原因"],
+            category=category,
+        )
+
+    def test_grade_a_findings_produce_no_disclaimer(self):
+        report = self._checker.check([self._grade("A", REAL, "strategy")], self._report())
+        assert report.disclaimers == []
+        assert report.critical_findings == []
+        assert report.critical_count == 0
+        assert report.is_clean is True
+
+    def test_downgraded_critical_category_is_flagged(self):
+        report = self._checker.check([self._grade("B", FALLBACK, "evolution", "F-07")], self._report())
+        assert report.critical_count == 1
+        assert report.critical_findings == ["F-07"]
+        assert report.disclaimers[0].severity == "critical"
+        assert "待真实数据验证" in report.disclaimers[0].text
+        assert "5 结果与分析" in report.disclaimers[0].target
+        assert report.is_clean is False
+
+    def test_downgraded_non_critical_category_is_only_a_caution(self):
+        report = self._checker.check([self._grade("C", SYNTHETIC, "strategy")], self._report())
+        assert report.disclaimers[0].severity == "caution"
+        assert report.critical_count == 0
+
+    def test_missing_source_produces_a_data_warning(self):
+        dataset = ResearchDataset(sources={**ALL_SOURCES, "git_history": False})
+        report = self._checker.check([], DataProvenanceTagger().tag(dataset))
+        assert any("git 历史不可用" in warning for warning in report.data_warnings)
+        assert report.is_clean is False
+
+    def test_summary_line_mentions_counts(self):
+        grades = [self._grade("B", FALLBACK, "evolution")]
+        report = self._checker.check(grades, self._report())
+        line = IntegrityChecker.summary_line(report)
+        assert "1 条" in line
+
+
+class TestConfidenceScorer:
+    _scorer = ConfidenceScorer()
+
+    @staticmethod
+    def _report(**sources):
+        return DataProvenanceTagger().tag(ResearchDataset(sources={**ALL_SOURCES, **sources}))
+
+    @staticmethod
+    def _grade(grade: str) -> EvidenceGrade:
+        return EvidenceGrade(
+            finding_id="F-01",
+            statement="结论",
+            grade=grade,
+            provenance=REAL,
+            reasons=[],
+            category="strategy",
+        )
+
+    def test_all_real_with_full_coverage_scores_one(self):
+        breakdown = self._scorer.score([self._grade("A")], self._report())
+        assert breakdown.score == pytest.approx(1.0)
+        assert breakdown.coverage == pytest.approx(1.0)
+        assert breakdown.suggestions == []
+
+    def test_grade_weights_are_averaged(self):
+        breakdown = self._scorer.score([self._grade("A"), self._grade("B"), self._grade("C")], self._report())
+        assert breakdown.evidence_score == pytest.approx((1.0 + 0.6 + 0.3) / 3)
+        assert breakdown.score == pytest.approx(0.7 * (1.0 + 0.6 + 0.3) / 3 + 0.3)
+
+    def test_missing_source_lowers_coverage_and_suggests_a_fix(self):
+        breakdown = self._scorer.score([self._grade("A")], self._report(git_history=False))
+        assert breakdown.coverage == pytest.approx(0.8)
+        assert breakdown.score == pytest.approx(0.7 + 0.3 * 0.8)
+        assert breakdown.missing_sources == ["git_history"]
+        assert any("补齐数据源" in suggestion for suggestion in breakdown.suggestions)
+        assert any("git" in suggestion for suggestion in breakdown.suggestions)
+
+    def test_critical_downgrades_apply_a_penalty(self):
+        grades = [self._grade("A"), self._grade("B")]
+        without = self._scorer.score(grades, self._report(), critical_count=0)
+        with_penalty = self._scorer.score(grades, self._report(), critical_count=2)
+        assert with_penalty.score == pytest.approx(without.score - 0.1)
+
+    def test_no_findings_scores_zero_evidence(self):
+        breakdown = self._scorer.score([], self._report())
+        assert breakdown.evidence_score == 0.0
+        assert breakdown.score == pytest.approx(0.3)
+
+    def test_score_never_leaves_the_unit_interval(self):
+        breakdown = self._scorer.score([self._grade("C")], self._report(git_history=False), critical_count=99)
+        assert 0.0 <= breakdown.score <= 1.0
+
+
 class TestSelfResearcherPipeline:
     def test_empty_environment_still_writes_a_paper(self, work_dir):
         empty = str(work_dir / "empty")
@@ -440,6 +774,92 @@ class TestSelfResearcherPipeline:
         for path in report.paper_paths:
             assert os.path.exists(path)
 
+    def test_pipeline_reports_grades_confidence_and_no_integrity_file_by_default(self, work_dir):
+        base = str(work_dir)
+        _build_sources(base)
+        config = SelfResearchConfig(output_dir=str(work_dir / "out"), formats=["markdown"], verbose=False)
+        collector = ResearchDataCollector(base_dir=base, repo_path=base)
+
+        report = SelfResearcher(config=config, collector=collector).run()
+
+        assert report.grades
+        assert set(report.grade_mix) == {"A", "B", "C"}
+        assert 0.0 <= report.confidence <= 1.0
+        assert report.integrity_path == ""
+        # git 历史不可用：论文不能声称通过完整性检查
+        assert report.integrity_clean is False
+
+        dataset_payload = json.loads(pathlib.Path(report.dataset_path).read_text(encoding="utf-8"))
+        assert dataset_payload["provenance"]["phases"] == REAL
+        assert "无数据" in dataset_payload["provenance_notes"]["phases"]
+        assert dataset_payload["sources"]["git_history"] is False
+
+    def test_fallback_phase_data_forces_a_disclaimer_in_the_paper(self, work_dir):
+        """关键结论（演化阶段）依赖回退数据时，论文必须显式声明。"""
+
+        dataset = _synthetic_dataset()
+        dataset.phases = [
+            {
+                "stage_id": 1,
+                "name": "基础构建期",
+                "commit_range": "a..b",
+                "dominant_types": ["foundation"],
+                "total_commits": 6,
+            },
+            {
+                "stage_id": 2,
+                "name": "CI与修复期",
+                "commit_range": "c..d",
+                "dominant_types": ["ci_build"],
+                "total_commits": 9,
+            },
+        ]
+        dataset.provenance = {"phases": FALLBACK}
+        dataset.provenance_notes = {"phases": "git 不可用，阶段来自回退分支"}
+        dataset.sources = {**ALL_SOURCES, "git_history": False}
+
+        config = SelfResearchConfig(
+            output_dir=str(work_dir / "out"),
+            formats=["markdown"],
+            verbose=False,
+            integrity_report=True,
+        )
+        report = SelfResearcher(config=config, collector=_FrozenCollector(dataset)).run()
+
+        evolution = [item for item in report.grades if item["category"] == "evolution"]
+        assert evolution
+        assert all(item["grade"] != "A" for item in evolution)
+        assert report.integrity_clean is False
+        assert any(item["severity"] == "critical" for item in report.disclaimers)
+        assert report.confidence < 1.0
+        assert os.path.exists(report.integrity_path)
+
+        markdown = pathlib.Path(report.paper_paths[0]).read_text(encoding="utf-8")
+        assert "待真实数据验证" in markdown
+        assert "置信度" in markdown
+        assert "数据来源" in markdown
+
+    def test_real_phase_data_is_graded_a_and_not_disclaimed(self, work_dir):
+        dataset = _synthetic_dataset()
+        dataset.phases = [
+            {
+                "stage_id": 1,
+                "name": "基础构建期",
+                "commit_range": "a..b",
+                "dominant_types": ["foundation"],
+                "total_commits": 6,
+            },
+        ]
+        dataset.provenance = {"phases": REAL}
+        dataset.sources = dict(ALL_SOURCES)
+
+        config = SelfResearchConfig(output_dir=str(work_dir / "out"), formats=["markdown"], verbose=False)
+        report = SelfResearcher(config=config, collector=_FrozenCollector(dataset)).run()
+
+        evolution = [item for item in report.grades if item["category"] == "evolution"]
+        assert evolution and evolution[0]["grade"] == "A"
+        assert all(item["finding_ids"] != evolution[0]["finding_id"] for item in report.disclaimers)
+
 
 class TestSelfResearchCLI:
     def test_resolve_paper_formats(self):
@@ -458,4 +878,24 @@ class TestSelfResearchCLI:
         assert target.exists()
         assert (work_dir / "dataset.json").exists()
         assert (work_dir / "analysis.json").exists()
+        assert not (work_dir / "integrity.json").exists()
         assert "SelfResearcher" in capsys.readouterr().out
+
+    def test_run_self_research_with_integrity_writes_the_report(self, work_dir, capsys):
+        module = _import_autotestgen()
+        target = work_dir / "paper.md"
+
+        module.run_self_research(str(target), "markdown", str(work_dir), True)
+
+        assert target.exists()
+        integrity = json.loads((work_dir / "integrity.json").read_text(encoding="utf-8"))
+        assert "confidence" in integrity
+        assert "provenance" in integrity
+        assert "grades" in integrity
+        assert "disclaimers" in integrity
+        assert "数据源" in integrity["summary"]
+
+        output = capsys.readouterr().out
+        assert "DataProvenance" in output
+        assert "EvidenceGrader" in output
+        assert "ConfidenceScorer" in output

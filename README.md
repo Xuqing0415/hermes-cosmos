@@ -92,10 +92,34 @@ python autotestgen.py --self-research --format pdf -o papers/paper.pdf
 
 # 同时输出 Markdown 与 LaTeX
 python autotestgen.py --self-research --format both
+
+# 附带研究完整性报告（papers/integrity.json）
+python autotestgen.py --self-research --integrity --format markdown -o papers/paper.md
 ```
 
 统计部分只依赖标准库（不依赖 numpy），图表在没有 matplotlib 时降级为字符画，
 LaTeX 无法编译时保留 `.tex` 源文件，因此在最小环境下也能完整跑通。
+
+#### 研究完整性引擎
+
+论文里的每个数字都必须能回答“它从哪来”。因此 Self-Researcher 在生成论文前会先跑一遍完整性检查：
+
+- **数据来源标注**：采集层给每个字段盖上 `REAL`（来自 git / SQLite / 日志等可外部核对的数据源）、
+  `FALLBACK`（主数据源不可用时的降级路径）、`SYNTHETIC`（合成数据）或 `UNVERIFIED`（未标注来源）标签。
+  没有标注的字段一律按不可信处理，不会被默认当成真实数据。
+- **证据分级**：每条发现按“数据可不可信 + 样本够不够”评为 A / B / C
+  （A = 全部真实数据且样本达标；B = 含降级或未标注数据，或有保留意见；C = 含合成数据或样本不足）。
+- **强制免责声明**：凡是核心结论（演化阶段、跨域迁移）依赖非真实数据，论文中必须显式写出
+  “本结论待真实数据验证”，不允许悄悄当成结论发表。
+- **置信度评分**：`0.7 × 证据分 + 0.3 × 数据覆盖率 − 0.05 × 关键降级结论数`，并给出“补齐什么能把分数提到多少”。
+
+演化阶段由 `GitPhaseDetector` 从真实 git 历史推导（按提交主题分类，用主导类型翻转与提交时间间隔定边界）。
+**git 不可用时不会伪造阶段**：直接返回空结果并标记 `git_unavailable`，论文中也不出现任何阶段对比结论。
+
+```bash
+# 查看自身演化阶段与心智模型预测-实际对比（同样不做任何数据填充）
+python autotestgen.py --introspect
+```
 
 ## 架构
 

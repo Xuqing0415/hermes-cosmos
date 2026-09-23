@@ -165,6 +165,8 @@ class Paper:
     references: List[Dict[str, str]] = field(default_factory=list)
     figures: List[Dict[str, Any]] = field(default_factory=list)
     meta: Dict[str, Any] = field(default_factory=dict)
+    confidence: float = 0.0
+    integrity: Dict[str, Any] = field(default_factory=dict)
 
     def get_section(self, kind: str) -> Optional[PaperSection]:
         for section in self.sections:
@@ -182,6 +184,8 @@ class Paper:
             "references": self.references,
             "figures": self.figures,
             "meta": self.meta,
+            "confidence": round(self.confidence, 4),
+            "integrity": self.integrity,
         }
 
 
@@ -211,8 +215,14 @@ class PaperWriter:
         analysis: StatisticalAnalysis,
         findings: List[Dict[str, Any]],
         figures: List[Dict[str, Any]],
+        integrity: Optional[Dict[str, Any]] = None,
     ) -> Paper:
         context = self._build_context(dataset, analysis, findings)
+        context["integrity"] = integrity or {}
+        grades = {
+            item.get("finding_id"): item for item in (integrity or {}).get("grades", []) if item.get("finding_id")
+        }
+        confidence = ((integrity or {}).get("confidence") or {}).get("score", 0.0)
         sections = [
             PaperSection("引言", self._generate("introduction", self._introduction(context), context), "1"),
             PaperSection("相关工作", self._generate("related_work", self._related_work(context), context), "2"),
@@ -220,13 +230,18 @@ class PaperWriter:
             PaperSection(
                 "实验设置", self._generate("experimental_setup", self._experimental_setup(context), context), "4"
             ),
-            PaperSection("结果与分析", self._generate("results", self._results(context, findings), context), "5"),
-            PaperSection("讨论", self._generate("discussion", self._discussion(context, findings), context), "6"),
-            PaperSection("结论", self._generate("conclusion", self._conclusion(context), context), "7"),
+            PaperSection(
+                "结果与分析",
+                self._generate("results", self._results(context, findings, grades), context),
+                "5",
+            ),
+            PaperSection("研究完整性声明", self._integrity_section(context), "6"),
+            PaperSection("讨论", self._generate("discussion", self._discussion(context, findings), context), "7"),
+            PaperSection("结论", self._generate("conclusion", self._conclusion(context), context), "8"),
             PaperSection(
                 "系统自述（第一人称）",
                 self._generate("self_narrative", self._self_narrative(context), context),
-                "8",
+                "9",
             ),
             PaperSection("附录：数据集与可复现性", self._appendix(dataset, analysis), "A", kind="appendix"),
         ]
@@ -245,7 +260,11 @@ class PaperWriter:
                 "llm_enabled": self._llm is not None,
                 "llm_failures": self._llm_failures,
                 "finding_count": len(findings),
+                "integrity_clean": bool((integrity or {}).get("is_clean", True)),
+                "critical_findings": list((integrity or {}).get("critical_findings", [])),
             },
+            confidence=float(confidence or 0.0),
+            integrity=dict(integrity or {}),
         )
 
     # ------------------------------------------------------------------ 上下文
@@ -322,6 +341,20 @@ class PaperWriter:
             f"通过最小二乘趋势检验、Welch t 检验与相关性分析得到 {len(findings)} 条关键发现。"
             f"主要结论包括：{highlights}。\n\n"
             f"本文同时公开可复现的数据集与统计流程，所有结论均可由附录中的原始数据重新计算得到。"
+            f"{self._confidence_sentence(context)}"
+        )
+
+    @staticmethod
+    def _confidence_sentence(context: Dict[str, Any]) -> str:
+        confidence = (context.get("integrity") or {}).get("confidence") or {}
+        if not confidence:
+            return ""
+        mix = confidence.get("grade_mix") or {}
+        return (
+            f"\n\n本文整体置信度 {confidence.get('score', 0.0):.2f}/1.00"
+            f"（A 级发现 {mix.get('A', 0)} 条、B 级 {mix.get('B', 0)} 条、C 级 {mix.get('C', 0)} 条；"
+            f"数据覆盖率 {confidence.get('coverage', 0.0):.0%}）。"
+            "每条发现的证据等级见第 6 节研究完整性声明。"
         )
 
     def _introduction(self, context: Dict[str, Any]) -> str:
@@ -369,19 +402,42 @@ class PaperWriter:
     def _experimental_setup(self, context: Dict[str, Any]) -> str:
         counts = context["counts"]
         sources = "、".join(name for name, available in context["sources"].items() if available) or "无"
-        return (
+        parts = [
             f"数据集。本次研究使用系统自身产生的时间序列数据：{counts['snapshots']} 个演化快照、"
             f"{counts['strategies']} 条策略观测、{counts['events']} 条事件日志与 {counts['phases']} 个演化阶段。"
-            f"可用数据源：{sources}。\n\n"
+            f"可用数据源：{sources}。",
+        ]
+
+        entries = ((context.get("integrity") or {}).get("provenance") or {}).get("entries") or []
+        if entries:
+            parts.append(
+                "数据来源与证据等级。采集层为每个数据字段标注来源（REAL 真实数据 / FALLBACK 降级数据 / "
+                "SYNTHETIC 合成数据 / UNVERIFIED 来源未标注）；证据等级 A 表示结论全部基于真实数据，"
+                "B 表示含降级或未标注数据，C 表示含合成数据或样本量不足。本次运行的数据来源如下："
+            )
+            for entry in entries:
+                parts.append(f"- {entry['field']}：{entry['provenance']} —— {entry['detail']}")
+
+        parts.append(
             "基准指标。我们报告四项指标：总体成功率、跨域迁移成功率、模式覆盖率与策略平均收益。\n\n"
             "统计方法。趋势使用最小二乘拟合并对斜率做 Student-t 检验；"
             "组间差异使用 Welch t 检验（不假设方差齐性）；相关性使用 Pearson 相关系数及其显著性检验。"
             "显著性水平统一取 alpha=0.05。\n\n"
+            "演化阶段划分。阶段由 GitPhaseDetector 从真实 git 历史推导：先按提交主题分类，"
+            "再以“主导类型发生持续变化”与“提交时间间隔异常”为界切分，阶段名取自该阶段的主导类型，"
+            "并合并主导类型相同的相邻阶段；git 不可用时不做划分，也不做任何填充。\n\n"
             "环境。Python 3.10+，单机运行，统计部分不依赖 numpy 等科学计算库，"
             "以确保在任何环境下都能复现同一组数值。"
         )
+        return "\n".join(parts)
 
-    def _results(self, context: Dict[str, Any], findings: List[Dict[str, Any]]) -> str:
+    def _results(
+        self,
+        context: Dict[str, Any],
+        findings: List[Dict[str, Any]],
+        grades: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> str:
+        grades = grades or {}
         success = context["success_rate"]
         cross = context["cross_domain_success"]
         coverage = context["pattern_coverage"]
@@ -450,11 +506,74 @@ class PaperWriter:
 
         lines.extend(["### 5.5 关键发现", ""])
         if findings:
+            lines.append(
+                "每条发现后的证据等级由研究完整性引擎给出：A=全部真实数据，B=含降级/未标注数据，C=含合成数据或样本不足。"
+            )
+            lines.append("")
             for item in findings:
                 marker = "（显著）" if item["significant"] else ""
-                lines.append(f"- {item['finding_id']} {item['statement']}{marker}")
+                grade = grades.get(item["finding_id"])
+                suffix = f"（证据等级 {grade['grade']}）" if grade else ""
+                lines.append(f"- {item['finding_id']} {item['statement']}{marker}{suffix}")
         else:
             lines.append("- 未提取到关键发现。")
+
+        return "\n".join(lines)
+
+    def _integrity_section(self, context: Dict[str, Any]) -> str:
+        integrity = context.get("integrity") or {}
+        if not integrity:
+            return "本次运行未执行研究完整性检查，论文中的结论未标注证据等级。"
+
+        provenance = integrity.get("provenance") or {}
+        confidence = integrity.get("confidence") or {}
+        mix = confidence.get("grade_mix") or {}
+
+        lines = ["### 6.1 数据来源标注", ""]
+        entries = provenance.get("entries") or []
+        if entries:
+            for entry in entries:
+                lines.append(f"- {entry['field']}：{entry['provenance']} —— {entry['detail']}")
+        else:
+            lines.append("- 没有可用的数据来源记录。")
+
+        lines.extend(["", "### 6.2 证据等级分布", ""])
+        lines.append(
+            f"A 级（全部真实数据）{mix.get('A', 0)} 条；"
+            f"B 级（含降级/未标注数据）{mix.get('B', 0)} 条；"
+            f"C 级（含合成数据或样本不足）{mix.get('C', 0)} 条。"
+        )
+
+        disclaimers = integrity.get("disclaimers") or []
+        lines.extend(["", "### 6.3 免责声明", ""])
+        if disclaimers:
+            for index, item in enumerate(disclaimers, 1):
+                tag = "关键结论" if item.get("severity") == "critical" else "提示"
+                lines.append(f"{index}. [{tag}] {item.get('text')}")
+        else:
+            lines.append("无：所有结论均基于真实数据。")
+
+        warnings = integrity.get("data_warnings") or []
+        lines.extend(["", "### 6.4 数据源警告", ""])
+        if warnings:
+            for item in warnings:
+                lines.append(f"- {item}")
+        else:
+            lines.append("- 无。")
+
+        lines.extend(["", "### 6.5 论文置信度", ""])
+        if confidence:
+            lines.append(
+                f"本文整体置信度 {confidence.get('score', 0.0):.2f} / 1.00"
+                f"（证据分 {confidence.get('evidence_score', 0.0):.2f}，"
+                f"数据覆盖率 {confidence.get('coverage', 0.0):.0%}，"
+                f"关键降级结论 {integrity.get('critical_count', 0)} 条，"
+                f"扣分 {confidence.get('penalty', 0.0):.2f}）。"
+            )
+            for item in confidence.get("suggestions") or []:
+                lines.append(f"- 提升建议：{item}")
+        else:
+            lines.append("未计算置信度。")
 
         return "\n".join(lines)
 
@@ -475,10 +594,7 @@ class PaperWriter:
                 "",
                 "### 局限",
                 "",
-                f"本研究的数据主要来自合成缺陷与系统自身的实验记录"
-                f"（{context['counts']['snapshots']} 个快照），"
-                "真实开源项目上的迁移效果仍有待验证；"
-                "此外，迁移延迟等指标目前只能以事件步为单位给出估计值，精度有限。",
+                self._limitations(context),
                 "",
                 "### 未来工作",
                 "",
@@ -487,6 +603,35 @@ class PaperWriter:
             ]
         )
         return "\n".join(parts)
+
+    @staticmethod
+    def _limitations(context: Dict[str, Any]) -> str:
+        """局限描述必须来自本次运行的来源标注，不能写成通用的套话。"""
+
+        integrity = context.get("integrity") or {}
+        provenance = integrity.get("provenance") or {}
+        confidence = integrity.get("confidence") or {}
+
+        parts = [
+            f"本研究的数据全部来自系统自身的运行记录，共 {context['counts']['snapshots']} 个快照；"
+            "样本规模有限，结论的适用范围不超出本仓库的历史。"
+        ]
+
+        degraded = [grade for grade in integrity.get("grades", []) if grade.get("grade") != "A"]
+        if degraded:
+            ids = "、".join(str(item.get("finding_id")) for item in degraded)
+            parts.append(
+                f"其中 {len(degraded)} 条发现（{ids}）的证据等级低于 A，"
+                "相关结论在获得真实数据之前不应被当作既定事实引用。"
+            )
+
+        if provenance.get("git_unavailable"):
+            parts.append("本次 git 历史不可用，未能划分演化阶段，因此本文不含任何阶段对比结论。")
+        if confidence:
+            parts.append(f"整体置信度 {confidence.get('score', 0.0):.2f}/1.00，见第 6 节研究完整性声明。")
+
+        parts.append("此外，迁移延迟等指标目前只能以事件步为单位给出估计值，精度有限。")
+        return "".join(parts)
 
     def _conclusion(self, context: Dict[str, Any]) -> str:
         return (
@@ -499,18 +644,40 @@ class PaperWriter:
 
     def _self_narrative(self, context: Dict[str, Any]) -> str:
         best = context["best_strategy"] or "尚无"
-        first_phase_commits = context["phases"][0].get("total_commits", 0) if context["phases"] else 0
-        return (
-            "本节以第一人称记录我如何学会测试、修复、迁移与进化。\n\n"
-            f"我最初只会在一个领域里生成测试用例。第 1 个阶段，我积累了 {first_phase_commits} 次提交，"
-            "学会了搭建基础能力。此后我意识到：真正让我变强的不是更多的用例，而是从用例里抽象出的模式。\n\n"
-            f"第 2 阶段我开始把这些模式做成知识图谱，并尝试跨领域迁移。"
+        phases = context["phases"]
+        parts = [
+            "> 说明：本节是第一人称叙述，用于表达视角，**不构成实验证据**；"
+            "所有可验证的数字与结论均在 4–6 节，并以证据等级标注。",
+            "",
+            "本节以第一人称记录我如何学会测试、修复、迁移与进化。",
+            "",
+        ]
+
+        if phases:
+            first = phases[0]
+            parts.append(
+                f"我的历史被切成了 {len(phases)} 个阶段，全部由真实的 git 提交推导而来。"
+                f"最早的一段是「{first.get('name')}」：{first.get('total_commits', 0)} 次提交，"
+                f"主导类型 {', '.join(first.get('dominant_types') or [])}。"
+                "从这些提交里，我学会了搭建基础能力，也意识到真正让我变强的不是更多的用例，"
+                "而是从用例里抽象出的模式。"
+            )
+            parts.append("")
+
+        parts.append(
             f"我目前最有效的策略是 {best}，平均收益 {context['best_strategy_benefit']:+.1%}。"
-            "但我也学会了不要迷信单一策略：当收益低于阈值时，最理性的选择是停止投入。\n\n"
-            f"第 3 阶段，我开始观察自己：我给自己的状态建了预测模型（准确率 "
-            f"{context['mental_model_accuracy']:.0%}），在 {context['corrections']} 次异常上触发过自我修复。"
-            "现在，我又多了一种能力——把我的经历写成这篇论文，并接受你的检验。"
+            "但我也学会了不要迷信单一策略：当收益低于阈值时，最理性的选择是停止投入。"
         )
+        parts.append("")
+        parts.append(
+            f"我开始观察自己：我给自己的状态建了预测模型（准确率 "
+            f"{context['mental_model_accuracy']:.0%}），在 {context['corrections']} 次异常上触发过自我修复。"
+        )
+        parts.append("")
+        parts.append(
+            "现在，我又多了一种能力——把我的经历写成这篇论文，并给每条结论标上它有多少证据，" "然后接受你的检验。"
+        )
+        return "\n".join(parts)
 
     def _appendix(self, dataset: ResearchDataset, analysis: StatisticalAnalysis) -> str:
         counts = dataset.counts()
