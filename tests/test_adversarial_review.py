@@ -42,10 +42,14 @@ from hermes.self_research.rebuttal_generator import (
     PARTIAL,
     REBUT,
     REVISION_DOWNGRADE,
+    REVISION_MAINTAIN,
     REVISION_REWORD,
     REVISION_WITHDRAW,
+    STRENGTH_STRONG,
+    STRENGTH_WEAK,
 )
 from hermes.self_research.weakness_ranker import (
+    ACTION_MAINTAIN,
     ACTION_REWORD,
     ACTION_WITHDRAW,
     RankedWeakness,
@@ -599,10 +603,37 @@ class TestRebuttalGenerator:
         generator = RebuttalGenerator()
         monkeypatch.setattr(generator, "_respond", lambda attack: (REBUT, "反驳", REVISION_REWORD))
 
-        result = generator.generate(_attack(OVERGENERALIZATION, MINOR))
+        result = generator.generate(_attack(OVERGENERALIZATION, MINOR), paper_text="")
 
         assert result.stance == REBUT
-        assert result.revision == REVISION_REWORD
+        # 没有可核对的事实：反驳被驳回，等级上限压到 C
+        assert result.strength == STRENGTH_WEAK
+        assert result.revision == REVISION_DOWNGRADE
+
+    def test_rebuttal_with_a_checkable_reason_maintains_the_grade(self):
+        generator = RebuttalGenerator()
+        paper_text = "本文的结论适用范围不超出本仓库的历史。"
+
+        result = generator.generate(_attack(OVERGENERALIZATION, MINOR), paper_text=paper_text)
+
+        assert result.stance == REBUT
+        assert result.strength == STRENGTH_STRONG
+        assert result.revision == REVISION_MAINTAIN
+        assert result.stance_with_strength == "反驳（理由可核对）"
+
+    def test_rebuttal_cannot_verify_itself_from_the_audit_section(self):
+        generator = RebuttalGenerator()
+        paper_text = (
+            "正文里没有任何限定措辞。\n\n"
+            "## 审稿意见与作者回应（对抗性审计）\n\n"
+            "反驳：本文只讨论本仓库的自身演化。\n"
+        )
+
+        result = generator.generate(_attack(OVERGENERALIZATION, MINOR), paper_text=paper_text)
+
+        # 审计章节里的反驳不能给自己作证，否则系统可以靠自说自话维持等级
+        assert result.strength == STRENGTH_WEAK
+        assert result.revision == REVISION_DOWNGRADE
 
     def test_fatal_sample_size_attack_always_withdraws(self):
         result = RebuttalGenerator().generate(_attack(SAMPLE_SIZE, FATAL, finding_id="F-06", evidence="sample_size=1"))
@@ -619,7 +650,7 @@ class TestPaperRevisionEngine:
     def _pipeline(context):
         report = AdversarialReviewer().review(context)
         ranking = WeaknessRanker().rank(report)
-        rebuttals = RebuttalGenerator().generate_all(ranking.weaknesses)
+        rebuttals = RebuttalGenerator().generate_all(ranking.weaknesses, paper_text=context.paper_text)
         engine = PaperRevisionEngine()
         return report, ranking, rebuttals, engine, engine.revise(context, ranking, rebuttals)
 
@@ -688,6 +719,42 @@ class TestPaperRevisionEngine:
         )
 
         assert PaperRevisionEngine._targets(weakness, grades) == []
+
+    @staticmethod
+    def _rebuttal_context(paper_text):
+        """只留一条“过度泛化（次要）”意见的上下文，用来观察反驳的后果。"""
+
+        return _isolate(
+            dataset={"phase_detection": {"commit_count": 53}, "phases": [{}, {}]},
+            integrity={
+                "grades": [_grade("F-07", "自身仓库的演化可划分为 4 个阶段", category="evolution")],
+                "confidence": {"score": 1.0},
+                "provenance": {},
+            },
+            paper_text=paper_text,
+        )
+
+    def test_verified_rebuttal_keeps_the_grade_and_records_the_reason(self):
+        context = self._rebuttal_context("本文的结论适用范围不超出本仓库的历史。")
+
+        report, ranking, rebuttals, engine, result = self._pipeline(context)
+
+        assert [item.attack_type for item in report.attacks] == [OVERGENERALIZATION]
+        assert rebuttals[0].strength == STRENGTH_STRONG
+        assert rebuttals[0].revision == REVISION_MAINTAIN
+        assert {item["finding_id"]: item["grade"] for item in result.revised_grades} == {"F-07": "A"}
+        assert result.revisions[0].action == ACTION_MAINTAIN
+        assert "作者反驳" in result.revisions[0].reason
+        assert result.withdrawn_findings == []
+
+    def test_unverifiable_rebuttal_forces_grade_c(self):
+        context = self._rebuttal_context("正文没有任何限定措辞。")
+
+        report, ranking, rebuttals, engine, result = self._pipeline(context)
+
+        assert rebuttals[0].strength == STRENGTH_WEAK
+        assert {item["finding_id"]: item["grade"] for item in result.revised_grades} == {"F-07": "C"}
+        assert result.revisions[0].action == "downgrade"
 
     def test_markdown_revision_annotates_findings_and_inserts_the_audit_section(self):
         text = (

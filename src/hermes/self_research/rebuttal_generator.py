@@ -3,10 +3,14 @@
 有两条硬规则，写在代码里也写在测试里：
 
 1. **只有次要（MINOR）意见允许反驳**。致命/重大意见一律不接受“反驳”这个选项——
-   一个能随手驳回自己致命缺陷的系统，等于没有审稿。
-2. **任何回应都不能把结论改得更好**。反驳只影响措辞，并且**不免掉**该条意见对应的
-   论文修订：证据等级的修订权只属于 `PaperRevisionEngine`，它按排序结果执行动作，
-   且只会往下调——所以一条被反驳的次要意见仍可能把结论的证据等级上限压到 B。
+  一个能随手驳回自己致命缺陷的系统，等于没有审稿。
+2. **反驳是论证，不是降级开关**。反驳必须给出可核对的事实（本模块只核对“论文是否
+   真的已经限定过适用范围”这类能对着正文验证的理由），因此每条回应都带一个
+   `strength`：
+   * `strong`（理由可核对）——维持原始证据等级，但论文里必须附上反驳理由；
+   * `weak`（理由无法核对）——按作者强辩处理，证据等级上限压到 C。
+   没有反驳（`accept` / `partial` / `needs_evidence`）时等级上限仍由该条意见的
+   排序动作决定，`PaperRevisionEngine` 只会往下调，绝不会因为回应而升上去。
 
 回应措辞是规则生成的，不调用任何模型，因此可复现、可审计。
 """
@@ -48,6 +52,25 @@ REVISION_DOWNGRADE = "downgrade"
 REVISION_REWORD = "reword"
 REVISION_SCOPE = "scope"
 REVISION_DECLARE_LIMIT = "declare_limit"
+#: 反驳理由成立：不降级，但论文里必须附上理由
+REVISION_MAINTAIN = "maintain"
+
+#: 反驳理由的可核对程度
+STRENGTH_NONE = "none"
+STRENGTH_STRONG = "strong"
+STRENGTH_WEAK = "weak"
+
+STRENGTH_LABELS = {
+    STRENGTH_NONE: "不适用",
+    STRENGTH_STRONG: "理由可核对",
+    STRENGTH_WEAK: "理由无法核对",
+}
+
+#: 审计章节的标题：核对反驳理由时必须把审计章节排除，否则反驳会“自我作证”
+AUDIT_SECTION_MARKER = "审稿意见与作者回应"
+
+#: 能证明“适用范围已被限定”的措辞（用于核对过度泛化类反驳）
+SCOPE_LIMIT_MARKERS = ("本系统", "本仓库", "自身演化", "不声称", "仅限", "不超出")
 
 
 @dataclass
@@ -58,10 +81,23 @@ class Rebuttal:
     stance: str
     response: str
     revision: str
+    strength: str = STRENGTH_NONE
 
     @property
     def stance_label(self) -> str:
         return STANCE_LABELS.get(self.stance, self.stance)
+
+    @property
+    def strength_label(self) -> str:
+        return STRENGTH_LABELS.get(self.strength, self.strength)
+
+    @property
+    def stance_with_strength(self) -> str:
+        """表格/终端里显示的回应标签：反驳会带上理由是否可核对。"""
+
+        if self.stance != REBUT:
+            return self.stance_label
+        return f"{self.stance_label}（{self.strength_label}）"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -70,16 +106,18 @@ class Rebuttal:
             "severity": self.severity,
             "stance": self.stance,
             "stance_label": self.stance_label,
+            "strength": self.strength,
+            "strength_label": self.strength_label,
             "response": self.response,
             "revision": self.revision,
         }
 
 
 class RebuttalGenerator:
-    def generate_all(self, attacks: List[Attack]) -> List[Rebuttal]:
-        return [self.generate(attack) for attack in attacks]
+    def generate_all(self, attacks: List[Attack], paper_text: str = "") -> List[Rebuttal]:
+        return [self.generate(attack, paper_text=paper_text) for attack in attacks]
 
-    def generate(self, attack: Attack) -> Rebuttal:
+    def generate(self, attack: Attack, paper_text: str = "") -> Rebuttal:
         stance, response, revision = self._respond(attack)
         if attack.severity not in REBUTTABLE_SEVERITIES and stance == REBUT:
             # 兜底：致命/重大意见不允许被反驳
@@ -88,6 +126,10 @@ class RebuttalGenerator:
                 f"该意见无法反驳，接受修改：{attack.suggested_fix}",
                 REVISION_DOWNGRADE,
             )
+        strength = self._strength(attack, stance, paper_text)
+        if stance == REBUT:
+            # 反驳是否降级，取决于理由能不能被核对，而不是“有没有反驳”
+            revision = REVISION_MAINTAIN if strength == STRENGTH_STRONG else REVISION_DOWNGRADE
         return Rebuttal(
             attack_id=attack.attack_id,
             finding_id=attack.finding_id,
@@ -95,9 +137,28 @@ class RebuttalGenerator:
             stance=stance,
             response=response,
             revision=revision,
+            strength=strength,
         )
 
     # ------------------------------------------------------------------ 规则
+
+    def _strength(self, attack: Attack, stance: str, paper_text: str) -> str:
+        """核对反驳理由。核对不了就按“作者强辩”处理，这是唯一安全的默认值。"""
+
+        if stance != REBUT:
+            return STRENGTH_NONE
+        verifiers = {OVERGENERALIZATION: self._verify_scope_claim}
+        verifier = verifiers.get(attack.attack_type)
+        if verifier is None:
+            return STRENGTH_WEAK
+        return STRENGTH_STRONG if verifier(paper_text) else STRENGTH_WEAK
+
+    @staticmethod
+    def _verify_scope_claim(paper_text: str) -> bool:
+        """核对“本文已限定适用范围”这一理由，只看审计章节之前的正文。"""
+
+        body = str(paper_text or "").split(AUDIT_SECTION_MARKER)[0]
+        return any(marker in body for marker in SCOPE_LIMIT_MARKERS)
 
     def _respond(self, attack: Attack) -> Any:
         handler = {

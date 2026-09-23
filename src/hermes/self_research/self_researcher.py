@@ -205,7 +205,8 @@ class SelfResearcher:
         report = self._checker.check(grades, provenance)
         self._log(f"[IntegrityChecker] {IntegrityChecker.summary_line(report)}")
         for disclaimer in report.disclaimers:
-            mark = "⚠️ " if disclaimer.severity == "critical" else ""
+            # 用 ASCII 标记：终端字体/宽度差异下，ASCII 永远比 emoji 可靠
+            mark = "[!] " if disclaimer.severity == "critical" else ""
             self._log(f"  {mark}{disclaimer.text}")
         return report
 

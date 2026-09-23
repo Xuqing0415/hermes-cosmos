@@ -24,11 +24,34 @@ Usage:
 """
 
 import argparse
+import io
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+
+def _use_utf8_console() -> None:
+    """让 Windows 控制台按 UTF-8 输出，避免 GBK 编码下打印中文/符号直接抛异常。
+
+    Python 在 Windows 上默认用控制台的 ANSI 代码页（简体中文环境通常是 GBK），
+    一旦输出 GBK 覆盖不到的字符就会 `UnicodeEncodeError`，整个流水线中断。
+    这里把标准输出/错误换成 UTF-8 且 `errors="replace"`——最坏情况是显示成
+    问号，而不是让程序崩掉。
+    """
+
+    if sys.platform != "win32":
+        return
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        buffer = getattr(stream, "buffer", None)
+        if buffer is None:
+            continue
+        setattr(sys, stream_name, io.TextIOWrapper(buffer, encoding="utf-8", errors="replace"))
+
+
+_use_utf8_console()
 
 
 def run_domain_analysis(domain: str, path: str, cross_domain: bool = False, **kwargs):
@@ -905,7 +928,7 @@ def run_adversarial_review(input_path=None, output_path=None, paper_dir="papers"
         print(f"  [已在正文中自我限定，不重复攻击] {'、'.join(audit.self_limited)}")
 
     ranking = WeaknessRanker().rank(audit)
-    rebuttals = RebuttalGenerator().generate_all(ranking.weaknesses)
+    rebuttals = RebuttalGenerator().generate_all(ranking.weaknesses, paper_text=context.paper_text)
     engine = PaperRevisionEngine()
     result = engine.revise(context, ranking, rebuttals)
 
@@ -916,7 +939,7 @@ def run_adversarial_review(input_path=None, output_path=None, paper_dir="papers"
     )
     print("[RebuttalGenerator] 作者回应：")
     for rebuttal in rebuttals:
-        print(f"  - {rebuttal.attack_id}: {rebuttal.stance_label} -> {rebuttal.revision}")
+        print(f"  - {rebuttal.attack_id}: {rebuttal.stance_with_strength} -> {rebuttal.revision}")
     print(f"[PaperRevisionEngine] {PaperRevisionEngine.summarise(result, ranking)}")
 
     destination = ""

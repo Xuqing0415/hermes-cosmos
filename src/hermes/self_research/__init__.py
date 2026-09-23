@@ -43,7 +43,14 @@ from .paper_revision_engine import (
     RevisionResult,
 )
 from .paper_writer import Paper, PaperSection, PaperWriter
-from .rebuttal_generator import Rebuttal, RebuttalGenerator
+from .rebuttal_generator import (
+    STRENGTH_LABELS,
+    STRENGTH_NONE,
+    STRENGTH_STRONG,
+    STRENGTH_WEAK,
+    Rebuttal,
+    RebuttalGenerator,
+)
 from .research_data_collector import (
     ResearchDataCollector,
     ResearchDataset,
@@ -122,6 +129,10 @@ __all__ = [
     "WeaknessRanking",
     "RebuttalGenerator",
     "Rebuttal",
+    "STRENGTH_NONE",
+    "STRENGTH_STRONG",
+    "STRENGTH_WEAK",
+    "STRENGTH_LABELS",
     "PaperRevisionEngine",
     "Revision",
     "RevisionResult",

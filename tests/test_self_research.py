@@ -43,7 +43,7 @@ from hermes.self_research import (
     SelfResearcher,
     StatisticalAnalyzer,
 )
-from hermes.self_research.data_provenance import worst
+from hermes.self_research.data_provenance import FIELD_SOURCES, worst
 from hermes.self_research.figure_generator import ascii_bar_chart, ascii_line_chart, ascii_scatter
 from hermes.self_research.latex_compiler import latex_escape
 from hermes.self_research.statistical_analyzer import (
@@ -620,13 +620,17 @@ class TestDataProvenance:
             "knowledge_graph",
             "git_history",
         }
-        assert report.count_by_provenance()[UNVERIFIED] == 1
+        # 有数据的字段未标注 -> UNVERIFIED；空字段同样是 UNVERIFIED，一份什么都
+        # 没声明的数据集里不允许出现 REAL
+        counts = report.count_by_provenance()
+        assert counts[UNVERIFIED] == len(FIELD_SOURCES)
+        assert counts[REAL] == 0
 
-    def test_absent_data_is_not_called_verified_or_unverified(self):
-        """没有数据时不做推断：来源保持 REAL，备注写明“无数据”。"""
+    def test_absent_data_is_never_labelled_real(self):
+        """没有数据时不做推断：空字段是 UNVERIFIED（来源不可核对），不是 REAL。"""
 
         report = DataProvenanceTagger().tag(ResearchDataset(sources=dict(ALL_SOURCES)))
-        assert report.provenance_of("phases") == REAL
+        assert report.provenance_of("phases") == UNVERIFIED
         assert "无数据" in report.entries["phases"].detail
         assert report.missing_sources == []
 
@@ -656,7 +660,8 @@ class TestDataProvenance:
 
         assert report.provenance_of("snapshots") == REAL
         assert report.provenance_of("strategies") == REAL
-        assert report.provenance_of("phases") == REAL
+        # git 历史不可用：阶段数据不存在，标签必须是 UNVERIFIED 而不是 REAL
+        assert report.provenance_of("phases") == UNVERIFIED
         assert "无数据" in report.entries["phases"].detail
         assert "git_history" in report.missing_sources
 
@@ -879,7 +884,7 @@ class TestSelfResearcherPipeline:
         assert report.integrity_clean is False
 
         dataset_payload = json.loads(pathlib.Path(report.dataset_path).read_text(encoding="utf-8"))
-        assert dataset_payload["provenance"]["phases"] == REAL
+        assert dataset_payload["provenance"]["phases"] == UNVERIFIED
         assert "无数据" in dataset_payload["provenance_notes"]["phases"]
         assert dataset_payload["sources"]["git_history"] is False
 

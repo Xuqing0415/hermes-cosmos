@@ -27,7 +27,7 @@ from hermes.cross_domain.git_phase_detector import GitPhaseDetector, PhaseDetect
 from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
 from hermes.cross_domain.mental_model_trainer import MentalModelTrainer
 from hermes.cross_domain.self_improvement_policy import SelfImprovementPolicy
-from hermes.self_research.data_provenance import REAL
+from hermes.self_research.data_provenance import REAL, UNVERIFIED
 
 DEFAULT_SNAPSHOT_DB = "loop_output/evolution_tracker.db"
 DEFAULT_POLICY_PATH = "loop_output/self_improvement_policy.json"
@@ -269,8 +269,9 @@ class ResearchDataCollector:
     ) -> Tuple[Dict[str, str], Dict[str, str]]:
         """给每个字段盖上来源标签。
 
-        原则：有数据才谈来源；数据源不可用时返回空集合，标签保持 REAL 但备注写明
-        “无数据、未做任何推断”，绝不把缺失数据伪装成结论。
+        原则：`REAL` 只能用在“数据确实来自可外部核对的来源”上。数据源不可用时字段是
+        空的，标签必须是 `UNVERIFIED`（来源不可核对）并写明“无数据、未做任何推断”：
+        给空数据盖 `REAL`，等于宣称一份并不存在的数据来自真实来源。
         """
 
         provenance: Dict[str, str] = {}
@@ -281,7 +282,7 @@ class ResearchDataCollector:
                 provenance[field_name] = REAL
                 notes[field_name] = f"{counts.get(field_name, 0)} 条来自{real_detail}"
             else:
-                provenance[field_name] = REAL
+                provenance[field_name] = UNVERIFIED
                 notes[field_name] = f"无数据：{missing_detail}，未做任何推断"
 
         stamp("snapshots", "snapshot_db", f" SQLite 快照库（{self._snapshot_db}）", "快照库不可用")
@@ -297,7 +298,7 @@ class ResearchDataCollector:
             provenance["similarity_pairs"] = REAL
             notes["similarity_pairs"] = f"{counts.get('similarity_pairs', 0)} 组来自知识图谱边与快照模式成功率的配对"
         else:
-            provenance["similarity_pairs"] = REAL
+            provenance["similarity_pairs"] = UNVERIFIED
             notes["similarity_pairs"] = "无数据：知识图谱或快照库不可用，未做任何推断"
 
         if sources.get("git_history"):
@@ -307,7 +308,7 @@ class ResearchDataCollector:
                 f"（{phase_result.commit_count} 次提交，方法 {phase_result.method}）"
             )
         else:
-            provenance["phases"] = REAL
+            provenance["phases"] = UNVERIFIED
             notes["phases"] = f"无数据：{phase_result.reason}，本次不划分演化阶段"
 
         for field_name, label in self._forced_provenance.items():

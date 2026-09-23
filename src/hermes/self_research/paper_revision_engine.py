@@ -21,8 +21,18 @@ from hermes.self_research.confidence_scorer import ConfidenceScorer
 from hermes.self_research.data_provenance import ProvenanceReport
 from hermes.self_research.evidence_grader import GRADE_A, GRADE_B, GRADE_C, EvidenceGrade
 from hermes.self_research.integrity_checker import IntegrityChecker
+from hermes.self_research.rebuttal_generator import (
+    REVISION_DECLARE_LIMIT,
+    REVISION_DOWNGRADE,
+    REVISION_MAINTAIN,
+    REVISION_REWORD,
+    REVISION_SCOPE,
+    REVISION_WITHDRAW,
+)
 from hermes.self_research.weakness_ranker import (
     ACTION_DOWNGRADE,
+    ACTION_LABELS,
+    ACTION_MAINTAIN,
     ACTION_REWORD,
     ACTION_SCOPE,
     ACTION_WITHDRAW,
@@ -32,13 +42,33 @@ from hermes.self_research.weakness_ranker import (
 GRADE_ORDER = (GRADE_A, GRADE_B, GRADE_C)
 
 #: 给单条结论定性时，修订动作的轻重顺序（越靠后越重）
-ACTION_SEVERITY = (ACTION_REWORD, ACTION_SCOPE, ACTION_DOWNGRADE, ACTION_WITHDRAW)
+ACTION_SEVERITY = (ACTION_MAINTAIN, ACTION_REWORD, ACTION_SCOPE, ACTION_DOWNGRADE, ACTION_WITHDRAW)
 
 ACTION_ANNOTATIONS = {
+    ACTION_MAINTAIN: "维持（反驳成立）",
     ACTION_WITHDRAW: "已撤回",
     ACTION_DOWNGRADE: "降级",
     ACTION_REWORD: "限定",
     ACTION_SCOPE: "限定",
+}
+
+#: 作者回应 -> 论文必须做的动作（有回应时以回应为准，没有回应才用排序动作）
+REVISION_ACTIONS = {
+    REVISION_MAINTAIN: ACTION_MAINTAIN,
+    REVISION_WITHDRAW: ACTION_WITHDRAW,
+    REVISION_DOWNGRADE: ACTION_DOWNGRADE,
+    REVISION_REWORD: ACTION_REWORD,
+    REVISION_SCOPE: ACTION_SCOPE,
+    REVISION_DECLARE_LIMIT: ACTION_REWORD,
+}
+
+#: 动作 -> 证据等级上限（A 表示不降级）
+ACTION_CEILINGS = {
+    ACTION_MAINTAIN: GRADE_A,
+    ACTION_WITHDRAW: GRADE_C,
+    ACTION_DOWNGRADE: GRADE_C,
+    ACTION_REWORD: GRADE_B,
+    ACTION_SCOPE: GRADE_B,
 }
 
 FINDING_LINE_RE = re.compile(r"^\s*-\s*(F-\d+)\s")
@@ -122,9 +152,11 @@ class PaperRevisionEngine:
         revisions: List[Revision] = []
         withdrawn: List[str] = []
         notes: List[str] = []
+        by_attack = {str(item.attack_id): item for item in rebuttals}
 
         for weakness in ranking.weaknesses:
-            action = weakness.required_action
+            rebuttal = by_attack.get(weakness.attack_id)
+            action = self._action_for(weakness, rebuttal)
             targets = self._targets(weakness, grades)
             if not targets:
                 revisions.append(
@@ -145,7 +177,8 @@ class PaperRevisionEngine:
                 before = str(grade.get("grade") or GRADE_A)
                 revised = self._revised_grade(action, before)
                 grade["grade"] = revised
-                grade["reasons"] = list(grade.get("reasons") or []) + [f"审稿后修订：{weakness.statement}"]
+                reason = self._reason(weakness, action, rebuttal)
+                grade["reasons"] = list(grade.get("reasons") or []) + [f"审稿后修订：{reason}"]
                 grade["review_action"] = action
                 if action == ACTION_WITHDRAW and finding_id not in withdrawn:
                     withdrawn.append(finding_id)
@@ -157,7 +190,7 @@ class PaperRevisionEngine:
                     action=action,
                     before=before,
                     after=after,
-                    reason=weakness.statement,
+                    reason=reason,
                     attack_id=weakness.attack_id,
                     category=str(grade.get("category") or "other"),
                 )
@@ -190,6 +223,28 @@ class PaperRevisionEngine:
     # ------------------------------------------------------------------ 内部
 
     @staticmethod
+    def _action_for(weakness: Any, rebuttal: Any) -> str:
+        """有回应时以回应为准，没有回应才用排序给出的动作。
+
+        反驳成立（`maintain`）维持原等级，反驳无法核对（`downgrade`）压到 C——
+        是否降级取决于反驳理由的质量，而不是“是否反驳”。
+        """
+
+        if rebuttal is not None:
+            mapped = REVISION_ACTIONS.get(str(getattr(rebuttal, "revision", "")))
+            if mapped:
+                return mapped
+        return weakness.required_action
+
+    @staticmethod
+    def _reason(weakness: Any, action: str, rebuttal: Any) -> str:
+        """维持原等级时，论文里必须带上作者的反驳理由（否则等于白反驳）。"""
+
+        if action == ACTION_MAINTAIN and rebuttal is not None:
+            return f"{weakness.statement}；作者反驳：{rebuttal.response}"
+        return weakness.statement
+
+    @staticmethod
     def _targets(weakness: Any, grades: Dict[str, Dict[str, Any]]) -> List[str]:
         if weakness.finding_id:
             return [weakness.finding_id] if weakness.finding_id in grades else []
@@ -201,14 +256,12 @@ class PaperRevisionEngine:
 
     @staticmethod
     def _revised_grade(action: str, before: str) -> str:
-        if action == ACTION_WITHDRAW:
-            return GRADE_C
-        if action == ACTION_DOWNGRADE:
-            return _weaken(before, GRADE_C)
-        return _weaken(before, GRADE_B)
+        return _weaken(before, ACTION_CEILINGS.get(action, GRADE_B))
 
     @staticmethod
     def _after_text(action: str, before: str, after: str) -> str:
+        if action == ACTION_MAINTAIN:
+            return f"维持 {before}（反驳理由成立，不降级）"
         if action == ACTION_WITHDRAW:
             return "已撤回（不再作为结论）"
         if before == after:
@@ -354,15 +407,22 @@ class PaperRevisionEngine:
         lines.append("| 编号 | 类型 | 严重度 | 对象 | 审稿意见 | 作者回应 | 论文修订 |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- |")
         by_attack = {item.attack_id: item for item in rebuttals}
+        # “论文修订”一列要写实际落地的动作，而不是排序建议的动作：
+        # 反驳成立时实际动作是“维持原等级”，写“限定适用范围”会误导读者
+        applied: Dict[str, str] = {}
+        for item in result.revisions:
+            for attack_id in item.attack_ids:
+                applied.setdefault(attack_id, item.action)
         for weakness in ranking.weaknesses:
             rebuttal = by_attack.get(weakness.attack_id)
-            stance = rebuttal.stance_label if rebuttal else "未回应"
+            stance = rebuttal.stance_with_strength if rebuttal else "未回应"
             response = self._escape_cell(rebuttal.response if rebuttal else "")
             target = self._escape_cell(weakness.finding_id or weakness.target or "—")
+            action_label = ACTION_LABELS.get(applied.get(weakness.attack_id, ""), weakness.action_label)
             lines.append(
                 f"| {weakness.attack_id} | {weakness.attack_label} | {weakness.severity_label} | "
                 f"{target} | {self._escape_cell(weakness.statement)} | "
-                f"{stance}：{response} | {weakness.action_label} |"
+                f"{stance}：{response} | {action_label} |"
             )
         lines.append("")
         if result.revisions:

@@ -24,12 +24,14 @@ from hermes.self_research.adversarial_reviewer import (
 )
 
 # 审稿意见 -> 论文必须做的动作
+ACTION_MAINTAIN = "maintain"  # 维持原等级（反驳理由成立）
 ACTION_WITHDRAW = "withdraw"  # 撤回结论
 ACTION_DOWNGRADE = "downgrade"  # 降级为初步观察
 ACTION_REWORD = "reword"  # 改写措辞（保留结论）
 ACTION_SCOPE = "scope"  # 限定适用范围
 
 ACTION_LABELS = {
+    ACTION_MAINTAIN: "维持原等级（反驳成立）",
     ACTION_WITHDRAW: "撤回结论",
     ACTION_DOWNGRADE: "降级为初步观察",
     ACTION_REWORD: "改写措辞",

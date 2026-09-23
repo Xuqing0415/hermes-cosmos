@@ -155,7 +155,8 @@ class DataProvenanceTagger:
 
             if label is None:
                 if count == 0:
-                    label = REAL
+                    # 没有数据就不谈“真实来源”：空字段只能是 UNVERIFIED
+                    label = UNVERIFIED
                     default_detail = "无数据：该数据源不可用，未做任何推断"
                 else:
                     label = UNVERIFIED
