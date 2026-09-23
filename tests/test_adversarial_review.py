@@ -711,6 +711,19 @@ class TestPaperRevisionEngine:
         assert "| 编号 | 类型 | 严重度 | 对象 | 审稿意见 | 作者回应 | 论文修订 |" in revised
         assert "| A-01 | 样本量攻击 | 重大 | F-02 |" in revised
 
+    def test_markdown_revision_is_idempotent(self):
+        text = "# 论文\n\n## 5 结果与分析\n\n- F-02 策略 x 平均收益 +46.9%（证据等级 A）\n\n## 参考文献\n\n[1] 某文献\n"
+        context = _rich_context()
+
+        report, ranking, rebuttals, engine, result = self._pipeline(context)
+        section = engine.audit_section(context, report, ranking, rebuttals, result)
+        once = engine.revise_markdown(text, result, audit_section=section)
+        twice = engine.revise_markdown(once, result, audit_section=section)
+
+        # 重复审计不能把标注叠加成一串，也不能把审计章节插两次
+        assert twice == once
+        assert twice.count("## 审稿意见与作者回应（对抗性审计）") == 1
+
     def test_missing_baseline_confidence_is_reported_not_assumed(self):
         context = _isolate(
             findings=[_finding("F-02", "策略 x 平均收益 +46.9%", sample_size=2)],

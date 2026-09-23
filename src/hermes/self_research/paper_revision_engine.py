@@ -42,6 +42,9 @@ ACTION_ANNOTATIONS = {
 }
 
 FINDING_LINE_RE = re.compile(r"^\s*-\s*(F-\d+)\s")
+ANNOTATION_RE = re.compile(r"\s*〔审稿后[^〕]*〕")
+AUDIT_HEADING_RE = re.compile(r"^#{1,3}\s*审稿意见与作者回应.*$")
+HEADING_RE = re.compile(r"^#{1,3}\s+\S")
 REFERENCES_HEADING_RE = re.compile(r"^#{1,3}\s*(参考文献|References)\s*$", re.IGNORECASE)
 
 
@@ -250,6 +253,9 @@ class PaperRevisionEngine:
     # ------------------------------------------------------------------ 正文改写
 
     def revise_markdown(self, text: str, result: RevisionResult, audit_section: str = "") -> str:
+        if audit_section:
+            # 重复审计时先摘掉上一次的审计章节，否则会在论文里插第二次
+            text = self._strip_audit_section(text)
         by_finding: Dict[str, List[Revision]] = {}
         for item in result.revisions:
             if item.finding_id:
@@ -269,11 +275,13 @@ class PaperRevisionEngine:
             originals = [item.before for item in items if item.before in GRADE_ORDER]
             before = min(originals, key=GRADE_ORDER.index) if originals else ""
             after = revised_grades.get(strongest.finding_id, before)
+            # 对同一篇论文重复审计时，先去掉上一次的标注再写，避免叠加成一串
+            text_line = ANNOTATION_RE.sub("", line.rstrip())
             # 行内的“（证据等级 X）”是审稿前的标注，修订后必须同步，否则正文与
             # 审计表自相矛盾：读者会以为论文仍在主张 A 级证据。
             if before and after and before != after:
-                line = line.replace(f"（证据等级 {before}）", f"（证据等级 {before} → {after}）")
-            lines.append(f"{line.rstrip()} 〔审稿后{ACTION_ANNOTATIONS[strongest.action]}：{reasons}〕")
+                text_line = text_line.replace(f"（证据等级 {before}）", f"（证据等级 {before} → {after}）")
+            lines.append(f"{text_line} 〔审稿后{ACTION_ANNOTATIONS[strongest.action]}：{reasons}〕")
 
         revised = "\n".join(lines)
         if not audit_section:
@@ -292,6 +300,22 @@ class PaperRevisionEngine:
                 return offset
             offset += len(line)
         return None
+
+    @staticmethod
+    def _strip_audit_section(text: str) -> str:
+        """删掉已有的“审稿意见与作者回应”章节，让重复审计保持幂等。"""
+
+        lines = text.splitlines()
+        start = next((index for index, line in enumerate(lines) if AUDIT_HEADING_RE.match(line.strip())), None)
+        if start is None:
+            return text
+
+        end = len(lines)
+        for index in range(start + 1, len(lines)):
+            if HEADING_RE.match(lines[index].strip()):
+                end = index
+                break
+        return "\n".join(lines[:start] + lines[end:])
 
     def audit_section(
         self,
