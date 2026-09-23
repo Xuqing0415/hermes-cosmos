@@ -270,10 +270,16 @@ class SelfResearcher:
         if analysis.strategy_stats:
             top = analysis.strategy_stats[0]
             self._log(f"  - Top strategy: {top.strategy_type} ({top.avg_benefit:+.1%} avg gain, n={top.instances})")
-        self._log(
-            f"  - Mental model accuracy: {analysis.mental_model_accuracy:.0%} "
-            f"({analysis.mental_model_samples} samples)"
-        )
+        if analysis.mental_model_reportable:
+            self._log(
+                f"  - Mental model accuracy: {analysis.mental_model_accuracy:.0%} "
+                f"({analysis.mental_model_samples} snapshots, eval n={analysis.mental_model_eval_samples})"
+            )
+        elif analysis.mental_model_samples > 0:
+            self._log(
+                f"  - Mental model accuracy: not reportable "
+                f"({analysis.mental_model_samples} snapshots; {analysis.mental_model_note})"
+            )
         return analysis
 
     def _extract(self, analysis: StatisticalAnalysis, dataset: ResearchDataset) -> List[Finding]:

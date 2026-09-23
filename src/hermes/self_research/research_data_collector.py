@@ -328,6 +328,8 @@ class ResearchDataCollector:
             return "无数据：快照不足以训练心智模型，未做任何推断"
         if mental_model.get("estimated"):
             return f"{samples} 个真实快照：样本不足，未做留出评测，不报告准确率"
+        if not mental_model.get("reliable", False):
+            return f"{samples} 个真实快照：留出评测样本不足，准确率不具统计意义，论文不引用"
         return f"{samples} 个真实快照上的 MentalModelTrainer 留出评测"
 
     def _detect_phases(self) -> PhaseDetectionResult:

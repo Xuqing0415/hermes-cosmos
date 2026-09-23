@@ -295,6 +295,9 @@ class PaperWriter:
             "correlation": analysis.similarity_correlation.to_dict() if analysis.similarity_correlation else None,
             "mental_model_accuracy": analysis.mental_model_accuracy,
             "mental_model_samples": analysis.mental_model_samples,
+            "mental_model_reportable": analysis.mental_model_reportable,
+            "mental_model_eval_samples": analysis.mental_model_eval_samples,
+            "mental_model_note": analysis.mental_model_note,
             "corrections": analysis.corrections,
             "phases": dataset.phases,
             "policy": dataset.policy,
@@ -488,10 +491,20 @@ class PaperWriter:
         lines.append("")
 
         lines.extend(["### 5.4 自我认知与自修复", ""])
-        lines.append(
-            f"心智模型基于 {context['mental_model_samples']} 个快照训练，预测准确率 "
-            f"{context['mental_model_accuracy']:.0%}；自修复机制在 {context['corrections']} 个快照上被触发。"
-        )
+        if context["mental_model_reportable"]:
+            lines.append(
+                f"心智模型基于 {context['mental_model_samples']} 个快照训练，预测准确率 "
+                f"{context['mental_model_accuracy']:.0%}"
+                f"（留出评测 n={context['mental_model_eval_samples']}）；"
+                f"自修复机制在 {context['corrections']} 个快照上被触发。"
+            )
+        else:
+            lines.append(
+                f"心智模型基于 {context['mental_model_samples']} 个快照训练，"
+                "但样本量不足以支撑准确率结论，本文不报告预测准确率，也不据此校准模型"
+                f"（{context['mental_model_note'] or '样本量不足'}）；"
+                f"自修复机制在 {context['corrections']} 个快照上被触发。"
+            )
         if comparisons:
             lines.append("")
             lines.append("组间对比：")
@@ -669,10 +682,19 @@ class PaperWriter:
             "但我也学会了不要迷信单一策略：当收益低于阈值时，最理性的选择是停止投入。"
         )
         parts.append("")
-        parts.append(
-            f"我开始观察自己：我给自己的状态建了预测模型（准确率 "
-            f"{context['mental_model_accuracy']:.0%}），在 {context['corrections']} 次异常上触发过自我修复。"
-        )
+        if context["mental_model_reportable"]:
+            parts.append(
+                f"我开始观察自己：我给自己的状态建了预测模型（准确率 "
+                f"{context['mental_model_accuracy']:.0%}，留出评测 n={context['mental_model_eval_samples']}），"
+                f"在 {context['corrections']} 次异常上触发过自我修复。"
+            )
+        else:
+            parts.append(
+                "我开始观察自己：我给自己的状态建了预测模型，但样本量太薄，"
+                "所以我只能说“我还不确定自己有多准”，而不是编一个准确率给自己看"
+                f"（{context['mental_model_note'] or '样本量不足'}）。"
+                f"我在 {context['corrections']} 次异常上触发过自我修复。"
+            )
         parts.append("")
         parts.append(
             "现在，我又多了一种能力——把我的经历写成这篇论文，并给每条结论标上它有多少证据，" "然后接受你的检验。"

@@ -8,6 +8,7 @@ import statistics
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional
 
+from hermes.cross_domain.mental_model_trainer import MIN_RELIABLE_SAMPLES
 from hermes.self_research.data_provenance import REAL, UNVERIFIED, worst
 from hermes.self_research.research_data_collector import ResearchDataset
 from hermes.self_research.statistical_analyzer import StatisticalAnalysis
@@ -293,15 +294,17 @@ class FindingExtractor:
     def _metacognition_findings(self, analysis: StatisticalAnalysis) -> List[Finding]:
         findings: List[Finding] = []
 
-        if analysis.mental_model_samples > 0 and analysis.mental_model_estimated:
+        if analysis.mental_model_samples > 0 and not analysis.mental_model_reportable:
             return [
                 Finding(
                     finding_id="",
                     statement=(
                         f"心智模型基于 {analysis.mental_model_samples} 个快照训练，"
-                        "但样本量不足以做留出评测，本次不报告预测准确率"
+                        "但样本量不足以支撑准确率结论，本文不报告该指标"
                     ),
-                    evidence="样本量低于 MentalModelTrainer 的最低评测门槛，accuracy 是占位值",
+                    evidence=(
+                        "样本量低于 MentalModelTrainer 的可引用门槛" f"（{analysis.mental_model_note or '样本不足'}）"
+                    ),
                     category="metacognition",
                     metric="prediction_accuracy",
                     value=0.0,
@@ -310,8 +313,8 @@ class FindingExtractor:
                     tags=["metacognition", "prediction", "insufficient_data"],
                     data_fields=["mental_model"],
                     sample_size=analysis.mental_model_samples,
-                    required_sample=self._min_samples,
-                    caveats=["样本不足：accuracy 为占位值，不代表实测准确率"],
+                    required_sample=MIN_RELIABLE_SAMPLES,
+                    caveats=[analysis.mental_model_note or "样本量不足，准确率不具统计意义，不作为结论"],
                 )
             ]
 

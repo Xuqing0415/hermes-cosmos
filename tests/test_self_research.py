@@ -139,7 +139,12 @@ def _synthetic_dataset() -> ResearchDataset:
             }
         ],
         policy={"update_count": 3, "mutation_rate": 0.18},
-        mental_model={"accuracy": 0.8, "training_samples": 10},
+        mental_model={
+            "accuracy": 0.8,
+            "training_samples": 40,
+            "evaluation_samples": 39,
+            "reliable": True,
+        },
         sources={"snapshot_db": True},
     )
 
@@ -307,10 +312,30 @@ class TestStatisticalAnalyzer:
         assert analysis.best_strategy == "reset_similarity"
         assert analysis.worst_strategy == "increase_weight"
         assert analysis.mental_model_accuracy == pytest.approx(0.8)
-        assert analysis.mental_model_samples == 10
+        assert analysis.mental_model_samples == 40
+        assert analysis.mental_model_reportable is True
         assert analysis.success_rate.count == 10
         assert analysis.similarity_correlation is not None
         assert analysis.similarity_correlation.n == 3
+
+    def test_accuracy_is_not_reportable_without_an_explicit_reliable_flag(self):
+        dataset = _synthetic_dataset()
+        dataset.mental_model = {"accuracy": 0.9, "training_samples": 12, "evaluation_samples": 11}
+        analysis = StatisticalAnalyzer().analyze(dataset)
+        assert analysis.mental_model_reliable is False
+        assert analysis.mental_model_reportable is False
+
+    def test_estimated_model_is_not_reportable(self):
+        dataset = _synthetic_dataset()
+        dataset.mental_model = {
+            "accuracy": 0.0,
+            "training_samples": 3,
+            "evaluation_samples": 0,
+            "estimated": True,
+            "reliable": False,
+        }
+        analysis = StatisticalAnalyzer().analyze(dataset)
+        assert analysis.mental_model_reportable is False
 
 
 class TestAsciiFigures:
@@ -378,6 +403,31 @@ class TestFindingExtractor:
         findings = FindingExtractor().extract(StatisticalAnalyzer().analyze(dataset), dataset)
         assert any(item.metric == "similarity_pairs" for item in findings)
         assert not any(item.metric == "transfer_strength" for item in findings)
+
+    def test_unreliable_accuracy_is_not_stated_as_a_result(self):
+        dataset = _synthetic_dataset()
+        dataset.mental_model = {
+            "accuracy": 0.5,
+            "training_samples": 12,
+            "evaluation_samples": 11,
+            "reliable": False,
+            "note": "留出评测样本 n=11 < 20，准确率不具统计意义，仅供内部参考",
+        }
+        findings = FindingExtractor().extract(StatisticalAnalyzer().analyze(dataset), dataset)
+
+        metacognition = [item for item in findings if item.category == "metacognition"]
+        assert metacognition
+        assert "不报告该指标" in metacognition[0].statement
+        assert "50%" not in metacognition[0].statement
+        assert metacognition[0].required_sample == 20
+        assert metacognition[0].caveats
+
+    def test_reliable_accuracy_is_stated_with_its_evaluation_size(self):
+        dataset = _synthetic_dataset()
+        findings = FindingExtractor().extract(StatisticalAnalyzer().analyze(dataset), dataset)
+        metacognition = [item for item in findings if item.category == "metacognition"]
+        assert "80%" in metacognition[0].statement
+        assert metacognition[0].sample_size == 40
 
     def test_empty_dataset_yields_no_findings(self):
         empty = ResearchDataset()
@@ -898,6 +948,43 @@ class TestSelfResearcherPipeline:
         evolution = [item for item in report.grades if item["category"] == "evolution"]
         assert evolution and evolution[0]["grade"] == "A"
         assert all(item["finding_ids"] != evolution[0]["finding_id"] for item in report.disclaimers)
+
+    def test_unreliable_accuracy_is_withheld_from_the_paper(self, work_dir):
+        """样本不足的准确率不得写进论文：改为“不报告”。"""
+
+        dataset = _synthetic_dataset()
+        dataset.sources = dict(ALL_SOURCES)
+        dataset.mental_model = {
+            "accuracy": 0.5,
+            "training_samples": 12,
+            "evaluation_samples": 11,
+            "reliable": False,
+            "note": "留出评测样本 n=11 < 20，准确率不具统计意义，仅供内部参考",
+        }
+
+        config = SelfResearchConfig(output_dir=str(work_dir / "out"), formats=["markdown"], verbose=False)
+        report = SelfResearcher(config=config, collector=_FrozenCollector(dataset)).run()
+
+        markdown = pathlib.Path(report.paper_paths[0]).read_text(encoding="utf-8")
+        assert "本文不报告预测准确率" in markdown
+        assert "准确率不具统计意义" in markdown
+
+        metacognition = [item for item in report.grades if item["category"] == "metacognition"]
+        assert metacognition
+        assert metacognition[0]["grade"] == "C"
+        assert any("n=11 < 20" in reason for reason in metacognition[0]["reasons"])
+
+    def test_reliable_accuracy_is_written_into_the_paper(self, work_dir):
+        dataset = _synthetic_dataset()
+        dataset.sources = dict(ALL_SOURCES)
+
+        config = SelfResearchConfig(output_dir=str(work_dir / "out"), formats=["markdown"], verbose=False)
+        report = SelfResearcher(config=config, collector=_FrozenCollector(dataset)).run()
+
+        markdown = pathlib.Path(report.paper_paths[0]).read_text(encoding="utf-8")
+        assert "预测准确率 80%" in markdown
+        assert "留出评测 n=39" in markdown
+        assert "本文不报告预测准确率" not in markdown
 
 
 class TestSelfResearchCLI:

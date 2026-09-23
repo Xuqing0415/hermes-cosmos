@@ -62,8 +62,8 @@ class RecursiveInsightInjector:
                             metadata={"target": suggestion.target, "old_value": old_val, "new_value": new_val},
                         )
 
-                # estimated=True 表示 accuracy 不是实测值（样本不足），不得在此基础上“提升”它
-                if applied > 0 and not model.estimated:
+                # estimated/reliable 表示 accuracy 不是可信的实测值，不得在此基础上“提升”它
+                if applied > 0 and not model.estimated and model.reliable:
                     model.accuracy = min(0.95, model.accuracy + total_gain * 0.3)
 
         if self._policy_loader:

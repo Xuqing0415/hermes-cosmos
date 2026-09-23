@@ -11,6 +11,9 @@ MIN_TRAINING_SAMPLES = 5
 #: 低于该样本量无法做留出评测，accuracy 视为未评测
 MIN_EVAL_SAMPLES = 3
 
+#: 低于该样本量时准确率仍会算出，但不具统计意义，调用方不得引用
+MIN_RELIABLE_SAMPLES = 20
+
 
 @dataclass
 class PredictionModel:
@@ -20,11 +23,19 @@ class PredictionModel:
     last_trained: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     #: True 表示 accuracy 不是实测值（样本不足，未做留出评测），调用方不得把它当作结论
     estimated: bool = False
+    #: 实际参与留出评测的样本数（快照对数），可能小于 training_samples
+    evaluation_samples: int = 0
+    #: False 表示准确率不具统计意义（样本量低于 MIN_RELIABLE_SAMPLES），调用方不得引用
+    reliable: bool = False
+    note: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "accuracy": round(self.accuracy, 2),
             "estimated": self.estimated,
+            "evaluation_samples": self.evaluation_samples,
+            "reliable": self.reliable,
+            "note": self.note,
             "feature_importance": {
                 k: round(v, 3) for k, v in sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)
             },
@@ -60,17 +71,32 @@ class MentalModelTrainer:
                 feature_importance={f: 1.0 / len(self.FEATURES) for f in self.FEATURES},
                 training_samples=len(snapshots),
                 estimated=True,
+                evaluation_samples=0,
+                reliable=False,
+                note=f"快照数 {len(snapshots)} < {MIN_TRAINING_SAMPLES}，未做留出评测",
             )
             return self._model
 
         X, y = self._prepare_training_data(snapshots)
         accuracy = self._evaluate(X, y)
+        evaluation_samples = len(X)
+        reliable = accuracy is not None and evaluation_samples >= MIN_RELIABLE_SAMPLES
+
+        if accuracy is None:
+            note = f"可评测样本 {evaluation_samples} < {MIN_EVAL_SAMPLES}，未做留出评测"
+        elif not reliable:
+            note = f"留出评测样本 n={evaluation_samples} < {MIN_RELIABLE_SAMPLES}，" "准确率不具统计意义"
+        else:
+            note = ""
 
         self._model = PredictionModel(
             accuracy=0.0 if accuracy is None else accuracy,
             feature_importance=self._compute_importance(X, y),
             training_samples=len(snapshots),
             estimated=accuracy is None,
+            evaluation_samples=evaluation_samples,
+            reliable=reliable,
+            note=note,
         )
         return self._model
 
@@ -168,7 +194,11 @@ class MentalModelTrainer:
         return X, y
 
     def _evaluate(self, X: List, y: List) -> Optional[float]:
-        """留出评测准确率；样本不足时返回 None（不返回编造的准确率）。"""
+        """留出评测准确率（方向命中率）。
+
+        不做任何钳制：返回值就是实测命中率。样本不足时返回 None，
+        不返回占位值；样本量是否足以支撑结论由 `MIN_RELIABLE_SAMPLES` 单独标记。
+        """
 
         if len(X) < MIN_EVAL_SAMPLES:
             return None
@@ -195,8 +225,7 @@ class MentalModelTrainer:
 
         if n == 0:
             return None
-        loo_accuracy = correct / n
-        return max(0.5, min(0.95, loo_accuracy))
+        return correct / n
 
     def _compute_importance(self, X: List, y: List) -> Dict[str, float]:
         if not X or len(X) < 2:

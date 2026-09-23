@@ -22,6 +22,7 @@ from hermes.cross_domain import (
     RepositoryMiner,
     SelfGuidedEvolver,
     SelfRepositoryMiner,
+    StageComparison,
     StrategyEvaluator,
     StrategySandbox,
     TrackedChange,
@@ -422,6 +423,38 @@ class TestMentalModelTrainer:
         # 样本不足时不允许编造准确率：只标记为未评测
         assert model.estimated is True
         assert model.to_dict()["estimated"] is True
+        assert model.reliable is False
+        assert model.to_dict()["reliable"] is False
+
+    def test_accuracy_is_not_clamped(self):
+        """回归：旧实现把命中率钳到 [0.5, 0.95]，系统性抬高/压低了这个指标。"""
+
+        trainer = MentalModelTrainer()
+        # 预测方向全错 → 实测 0.0（旧实现会抬到 0.5）
+        assert trainer._evaluate([[0.0]] * 3, [1.0, -1.0, -1.0]) == pytest.approx(0.0)
+        # 全对 → 实测 1.0（旧实现会压到 0.95）
+        assert trainer._evaluate([[0.0]] * 3, [-1.0, -1.0, -1.0]) == pytest.approx(1.0)
+
+    def test_evaluate_returns_none_below_three_samples(self):
+        assert MentalModelTrainer()._evaluate([[0.0], [0.0]], [1.0, -1.0]) is None
+
+    def test_five_snapshots_are_measured_but_not_reliable(self):
+        trainer = MentalModelTrainer(_StubSnapshotHistory([0.60, 0.62, 0.61, 0.63, 0.62]))
+        model = trainer.train()
+        assert model.training_samples == 5
+        assert model.evaluation_samples == 4
+        assert model.estimated is False  # 确实做了留出评测
+        assert model.reliable is False  # 但样本量不足以引用
+        assert "n=4 < 20" in model.note
+        assert 0.0 <= model.accuracy <= 1.0
+
+    def test_twenty_plus_evaluation_samples_are_reliable(self):
+        trainer = MentalModelTrainer(_StubSnapshotHistory([0.9, 0.6] * 13))
+        model = trainer.train()
+        assert model.evaluation_samples == 25
+        assert model.reliable is True
+        assert model.note == ""
+        assert model.to_dict()["reliable"] is True
 
     def test_predict_returns_value(self):
         trainer = MentalModelTrainer()
@@ -558,6 +591,29 @@ class TestCrossEntityLearner:
 class _StubSnapshot:
     def __init__(self, success_rate: float):
         self.success_rate = success_rate
+
+
+class _StubTrainingSnapshot:
+    """MentalModelTrainer 需要的快照特征替身。"""
+
+    def __init__(self, success_rate: float):
+        self.success_rate = success_rate
+        self.cross_domain_success = 0.5
+        self.pattern_coverage = 0.5
+        self.total_patterns = 5
+        self.total_relationships = 3
+        self.policy_mutation_rate = 0.1
+        self.policy_exploration_factor = 0.2
+
+
+class _StubSnapshotHistory:
+    """只需要 get_recent_snapshots 的快照来源替身。"""
+
+    def __init__(self, success_rates):
+        self._snapshots = [_StubTrainingSnapshot(rate) for rate in success_rates]
+
+    def get_recent_snapshots(self, n: int = 100):
+        return self._snapshots[:n]
 
 
 class _StubTracker:
@@ -734,3 +790,50 @@ class TestRecursiveInsightInjector:
         result = injector.inject(report)
         assert result.calibrations_applied == 0
         assert "已校准" in result.message
+
+    @staticmethod
+    def _balanced_report():
+        from hermes.cross_domain.evolution_compare_engine import ComparisonReport
+
+        report = ComparisonReport(model_bias="balanced")
+        report.comparisons = [
+            StageComparison(
+                stage_id=1,
+                stage_name="test",
+                actual_success_rate=0.60,
+                predicted_success_rate=0.62,
+                delta=0.02,
+                accuracy=0.98,
+                over_under="accurate",
+                evidence="test",
+            ),
+        ]
+        return report
+
+    @staticmethod
+    def _trainer_with_calibratable_target(success_rates):
+        trainer = MentalModelTrainer(_StubSnapshotHistory(success_rates))
+        trainer.train()
+        model = trainer.get_model()
+        # 让 "balanced" 的校准目标能命中特征表，否则 applied 恒为 0，测不到这条路径
+        model.feature_importance["fine_tune"] = 0.5
+        return trainer, model
+
+    def test_injector_does_not_calibrate_an_unreliable_accuracy(self):
+        trainer, model = self._trainer_with_calibratable_target([0.60, 0.62, 0.61, 0.63, 0.62])
+        assert model.reliable is False
+        before = model.accuracy
+
+        result = RecursiveInsightInjector(trainer=trainer).inject(self._balanced_report())
+
+        assert result.calibrations_applied == 1
+        assert model.accuracy == before  # 不基于噪声“提升”准确率
+
+    def test_injector_updates_accuracy_when_it_is_reliable(self):
+        trainer, model = self._trainer_with_calibratable_target([0.9, 0.6] * 13)
+        assert model.reliable is True
+        before = model.accuracy
+
+        RecursiveInsightInjector(trainer=trainer).inject(self._balanced_report())
+
+        assert model.accuracy > before

@@ -334,7 +334,18 @@ class StatisticalAnalysis:
     mental_model_samples: int = 0
     #: True 表示 mental_model_accuracy 不是实测值（样本不足，未做留出评测）
     mental_model_estimated: bool = False
+    #: False 表示准确率不具统计意义（样本量不足），论文中不得引用
+    mental_model_reliable: bool = False
+    mental_model_eval_samples: int = 0
+    mental_model_note: str = ""
     corrections: int = 0
+
+    @property
+    def mental_model_reportable(self) -> bool:
+        """准确率是否可以写进论文：必须是实测值、样本充足、且确实训练过。"""
+
+        return self.mental_model_samples > 0 and not self.mental_model_estimated and self.mental_model_reliable
+
     best_strategy: Optional[str] = None
     worst_strategy: Optional[str] = None
     alpha: float = 0.05
@@ -354,6 +365,10 @@ class StatisticalAnalysis:
             "mental_model_accuracy": round(self.mental_model_accuracy, 4),
             "mental_model_samples": self.mental_model_samples,
             "mental_model_estimated": self.mental_model_estimated,
+            "mental_model_reliable": self.mental_model_reliable,
+            "mental_model_eval_samples": self.mental_model_eval_samples,
+            "mental_model_note": self.mental_model_note,
+            "mental_model_reportable": self.mental_model_reportable,
             "corrections": self.corrections,
             "best_strategy": self.best_strategy,
             "worst_strategy": self.worst_strategy,
@@ -390,6 +405,10 @@ class StatisticalAnalyzer:
             mental_model_accuracy=float(dataset.mental_model.get("accuracy", 0.0) or 0.0),
             mental_model_samples=int(dataset.mental_model.get("training_samples", 0) or 0),
             mental_model_estimated=bool(dataset.mental_model.get("estimated")),
+            # 未声明 reliable 的模型一律按“不可引用”处理
+            mental_model_reliable=bool(dataset.mental_model.get("reliable", False)),
+            mental_model_eval_samples=int(dataset.mental_model.get("evaluation_samples", 0) or 0),
+            mental_model_note=str(dataset.mental_model.get("note") or ""),
             corrections=sum(1 for s in dataset.snapshots if (s.get("metadata") or {}).get("corrected")),
             best_strategy=strategy_stats[0].strategy_type if strategy_stats else None,
             worst_strategy=strategy_stats[-1].strategy_type if strategy_stats else None,
