@@ -43,6 +43,15 @@ from .paper_revision_engine import (
     RevisionResult,
 )
 from .paper_writer import Paper, PaperSection, PaperWriter
+from .real_defect_benchmark import (
+    BenchmarkReport,
+    CaseResult,
+    DefectCase,
+    DefectSampler,
+    GitRepo,
+    RealDefectBenchmark,
+    TestOutcome,
+)
 from .rebuttal_generator import (
     STRENGTH_LABELS,
     STRENGTH_NONE,
@@ -74,6 +83,13 @@ __all__ = [
     "ResearchDataCollector",
     "StrategyObservation",
     "SimilarityObservation",
+    "RealDefectBenchmark",
+    "BenchmarkReport",
+    "CaseResult",
+    "DefectCase",
+    "DefectSampler",
+    "GitRepo",
+    "TestOutcome",
     "DescriptiveStats",
     "TrendResult",
     "CorrelationResult",

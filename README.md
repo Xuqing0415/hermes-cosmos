@@ -151,6 +151,36 @@ python autotestgen.py --adversarial-review --paper-dir papers
 意见、排序、作者回应、修订清单与新置信度都会写入 `papers/adversarial_review.json`，
 并在论文里追加“审稿意见与作者回应”一节（插在参考文献之前）。
 
+### 真实缺陷基准：把系统指向真实项目的历史缺陷
+
+`loop_output/` 里的缺陷都是自己造的，所以论文里的成功率只说明系统在自己出的题上表现如何。
+`--real-benchmark` 换一批题：从一个真实开源仓库的 git 历史里挑出「修 bug 且带测试」的提交，
+再用**项目自己的测试**来判定。
+
+```bash
+# 先把目标仓库克隆到本地（基准只读本地仓库，不做任何网络推断）
+git clone --depth 200 https://github.com/pallets/click .tmp_test/real_bench/click
+
+python autotestgen.py --real-benchmark --repo .tmp_test/real_bench/click --cases 10
+```
+
+每个用例的判据全部有 git 与测试输出作证：
+
+- **可复现**：把修复提交带的测试拿到父提交上跑，确实失败；
+- **对照组**：同一测试在修复提交上通过；不通过则该用例标记 `inconclusive`
+  并排除出所有比率的分母（把环境问题算成成功率就是编数据）；
+- **检出**：系统的 Perceiver 报出的位置是否真的指向缺陷文件；
+- **真正修好**：系统跑完之后这些测试是否通过；
+- **自称 vs 实际**：系统声称执行/验证成功、测试却仍然失败，记一次 `false_claim`。
+
+实测（`pallets/click`，最近 600 次提交里采样 10 例）：可复现 10/10、有结论 4/10
+（其余 6 例项目自身测试在本机环境跑不过，已排除）、**系统检出 0/4、真正修好 0/4、
+自称成功但没修好 4/4**。
+
+结论：在真实缺陷上系统目前检出率与修复率都是 0，却 100% 自称成功。原因是默认域的
+Perceiver / Sage / Knight 仍是硬编码假桩（固定报 `api/handler.py`、Knight 无条件返回成功
+并打印固定的测试结果）。基准把这个差距变成了可复现的数字，而不是靠读代码猜。
+
 ## 架构
 
 ### 组件

@@ -20,6 +20,7 @@ Usage:
   python autotestgen.py --self-research --format markdown --output paper.md
   python autotestgen.py --self-research --format pdf --output paper.pdf
   python autotestgen.py --adversarial-review --input papers/paper.md
+  python autotestgen.py --real-benchmark --repo C:/path/to/real-project --cases 5
   python autotestgen.py --list-plugins
 """
 
@@ -974,6 +975,42 @@ def run_adversarial_review(input_path=None, output_path=None, paper_dir="papers"
     print(f"  审计结果：{audit_path}")
 
 
+def run_real_benchmark(repo_path=None, cases: int = 5, output_path=None, work_dir=None, timeout: int = 300):
+    """在真实开源仓库的历史缺陷上跑基准，只统计有 git 与测试输出作证的结果。"""
+    from hermes.self_research import RealDefectBenchmark
+
+    if not repo_path:
+        print("Error: --real-benchmark requires --repo (a local clone of a real project)")
+        return 1
+
+    work_root = work_dir or os.path.join(".tmp_test", "real_benchmark")
+    print(f"[RealDefectBenchmark] repo={repo_path} cases={cases} worktree={work_root}")
+    benchmark = RealDefectBenchmark(
+        repo_path,
+        work_root,
+        cases=cases,
+        timeout=timeout,
+        log=lambda message: print(message),
+    )
+    report = benchmark.run()
+
+    for note in report.notes:
+        print(f"  [说明] {note}")
+    print(f"\n[RealDefectBenchmark] {report.summary_line()}")
+    for item in report.cases:
+        print(
+            f"  - {item.case.sha[:8]} 可复现={item.reproduced} 对照组={item.confirmed} "
+            f"检出={item.detected} 修好={item.repaired} 自称成功={item.claimed_success}"
+        )
+
+    destination = output_path or os.path.join("papers", "real_benchmark.json")
+    os.makedirs(os.path.dirname(destination) or ".", exist_ok=True)
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(report.to_dict(), handle, ensure_ascii=False, indent=2)
+    print(f"  基准结果：{destination}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
     parser.add_argument(
@@ -1016,6 +1053,23 @@ def main():
         "--input",
         default=None,
         help="Paper file or paper directory for --adversarial-review (default: --paper-dir)",
+    )
+    parser.add_argument(
+        "--real-benchmark",
+        action="store_true",
+        help="Measure the system on real historical defects from a local clone of a real project",
+    )
+    parser.add_argument("--cases", type=int, default=5, help="Defect cases to sample for --real-benchmark")
+    parser.add_argument(
+        "--case-timeout",
+        type=int,
+        default=300,
+        help="Per-case test timeout in seconds for --real-benchmark",
+    )
+    parser.add_argument(
+        "--benchmark-work-dir",
+        default=None,
+        help="Where --real-benchmark creates git worktrees (default: .tmp_test/real_benchmark)",
     )
     parser.add_argument(
         "--integrity",
@@ -1074,6 +1128,18 @@ def main():
 
     if args.adversarial_review:
         run_adversarial_review(args.input, args.output, args.paper_dir)
+        return
+
+    if args.real_benchmark:
+        code = run_real_benchmark(
+            args.repo or args.path,
+            cases=args.cases,
+            output_path=args.output,
+            work_dir=args.benchmark_work_dir,
+            timeout=args.case_timeout,
+        )
+        if code:
+            sys.exit(code)
         return
 
     if not args.domain:
