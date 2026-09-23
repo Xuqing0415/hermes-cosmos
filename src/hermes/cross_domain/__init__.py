@@ -78,6 +78,8 @@ from .git_phase_detector import (
     GitPhaseDetector,
     PhaseDetectionResult,
     classify_commit,
+    parse_git_date,
+    parse_git_log,
 )
 from .insight_extractor import (
     Insight,
@@ -270,6 +272,8 @@ __all__ = [
     "GitPhaseDetector",
     "PhaseDetectionResult",
     "classify_commit",
+    "parse_git_date",
+    "parse_git_log",
     "StageComparison",
     "ComparisonReport",
     "EvolutionCompareEngine",

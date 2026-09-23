@@ -277,13 +277,39 @@ def parse_git_log(stdout: str) -> List[CommitRecord]:
         if len(parts) < 3:
             continue
         sha, raw_date, subject = parts[0], parts[1], parts[2]
-        date: Optional[datetime] = None
-        try:
-            date = datetime.fromisoformat(raw_date.strip())
-        except ValueError:
-            date = None
-        commits.append(CommitRecord(sha=sha, date=date, subject=subject, category=classify_commit(subject)))
+        commits.append(
+            CommitRecord(
+                sha=sha,
+                date=parse_git_date(raw_date),
+                subject=subject,
+                category=classify_commit(subject),
+            )
+        )
     return commits
+
+
+def parse_git_date(raw_date: str) -> Optional[datetime]:
+    """解析 git `%ai` / `%ci` 时间戳（形如 `2026-01-02 10:20:30 +0800`）。
+
+    不能直接用 `datetime.fromisoformat`：Python 3.10 及更早版本不接受
+    `+0800` 这种紧凑时区写法（3.11 才放宽），那会让所有提交时间静默变成 None，
+    进而让阶段边界丢失时间信号。这里先用 `%z` 显式解析。
+    """
+
+    text = (raw_date or "").strip()
+    if not text:
+        return None
+
+    for fmt in ("%Y-%m-%d %H:%M:%S %z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 class GitPhaseDetector:

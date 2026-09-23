@@ -17,7 +17,12 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from hermes.cross_domain import EvolutionTracker, GitPhaseDetector
-from hermes.cross_domain.git_phase_detector import CommitRecord, classify_commit
+from hermes.cross_domain.git_phase_detector import (
+    CommitRecord,
+    classify_commit,
+    parse_git_date,
+    parse_git_log,
+)
 from hermes.self_research import (
     FALLBACK,
     REAL,
@@ -457,6 +462,40 @@ class TestResearchDataCollector:
 
 
 class TestGitPhaseDetector:
+    def test_git_author_dates_keep_their_offsets(self):
+        """回归：Python 3.10 的 fromisoformat 不接受 `+0800`，提交时间会全部变成 None。"""
+
+        parsed = parse_git_date("2026-01-02 10:20:30 +0800")
+        assert parsed is not None
+        assert parsed.utcoffset() == timedelta(hours=8)
+        assert parsed.astimezone(timezone.utc).hour == 2
+        assert parse_git_date("2026-01-02T10:20:30+08:00") == parsed
+        assert parse_git_date("2026-01-02 10:20:30") == datetime(2026, 1, 2, 10, 20, 30)
+        assert parse_git_date("not-a-date") is None
+        assert parse_git_date("") is None
+
+    def test_parse_git_log_reads_shas_subjects_and_dates(self):
+        stdout = (
+            "1111111111111111111111111111111111111111|2026-01-02 10:20:30 +0800|feat: 初始化模块\n"
+            "2222222222222222222222222222222222222222|2026-01-03 11:00:00 -0500|fix: 修复CI门禁\n"
+        )
+        commits = parse_git_log(stdout)
+        assert len(commits) == 2
+        assert [commit.category for commit in commits] == ["foundation", "ci_build"]
+        assert all(commit.date is not None for commit in commits)
+        assert commits[1].date.astimezone(timezone.utc).hour == 16
+
+    def test_phases_carry_real_commit_dates(self):
+        stdout = (
+            "1111111111111111111111111111111111111111|2026-01-02 10:20:30 +0800|feat: 初始化模块\n"
+            "2222222222222222222222222222222222222222|2026-01-03 11:00:00 +0800|fix: 修复CI门禁\n"
+        )
+        result = GitPhaseDetector(".").detect_from_commits(parse_git_log(stdout))
+        assert result.git_unavailable is False
+        assert result.phases[0].start_date is not None
+        assert result.phases[0].end_date is not None
+        assert result.phases[0].to_dict()["start_date"] is not None
+
     def test_unavailable_repository_reports_no_phases(self):
         result = GitPhaseDetector(str(pathlib.Path(REPO_ROOT) / "no-such-repo")).detect()
         assert result.git_unavailable is True
