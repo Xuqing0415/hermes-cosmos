@@ -78,6 +78,25 @@ hermes-cli jobs list
 hermes-cli resources summary
 ```
 
+### Self-Researcher：让系统撰写关于自身的论文
+
+`autotestgen.py` 内置的 Self-Researcher 会读取系统自身的演化历史（`loop_output/` 下的快照、事件日志、
+策略与知识图谱，以及自身 Git 提交记录），做统计检验、提炼可验证的发现，并自动生成一篇论文。
+
+```bash
+# 生成 Markdown 论文（同时输出 dataset.json / analysis.json / figures/）
+python autotestgen.py --self-research --format markdown -o papers/paper.md
+
+# 生成 LaTeX 源码；环境里有 pdflatex/xelatex/tectonic 时会继续编译成 PDF
+python autotestgen.py --self-research --format pdf -o papers/paper.pdf
+
+# 同时输出 Markdown 与 LaTeX
+python autotestgen.py --self-research --format both
+```
+
+统计部分只依赖标准库（不依赖 numpy），图表在没有 matplotlib 时降级为字符画，
+LaTeX 无法编译时保留 `.tex` 源文件，因此在最小环境下也能完整跑通。
+
 ## 架构
 
 ### 组件

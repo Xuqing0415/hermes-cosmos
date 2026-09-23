@@ -17,24 +17,26 @@ Usage:
   python autotestgen.py --mental-sim
   python autotestgen.py --learn-from <repo_url>
   python autotestgen.py --introspect
+  python autotestgen.py --self-research --format markdown --output paper.md
+  python autotestgen.py --self-research --format pdf --output paper.pdf
   python autotestgen.py --list-plugins
 """
 
 import argparse
-import sys
-import os
 import json
+import os
+import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 
 def run_domain_analysis(domain: str, path: str, cross_domain: bool = False, **kwargs):
     from hermes.core.plugin_manager import PluginManager
-    
+
     plugin_manager = PluginManager()
-    
+
     print(f"[AutoTestGen Kernel] Loading domain plugin: {domain}...")
-    
+
     plugin = plugin_manager.get_plugin(domain)
     if not plugin:
         print(f"[ERROR] Plugin not found for domain: {domain}")
@@ -42,63 +44,63 @@ def run_domain_analysis(domain: str, path: str, cross_domain: bool = False, **kw
         for p in plugin_manager.list_plugins():
             print(f"  - {p['name']}: {p['domain']} - {p['description']}")
         sys.exit(1)
-    
+
     print(f"[AutoTestGen Kernel] Loaded: {plugin.description}")
-    
+
     if cross_domain:
         run_domain_analysis_with_cross_domain(plugin, domain, path, **kwargs)
         return
-    
+
     context = plugin.create_context(path, **kwargs)
-    
+
     perceiver = plugin.get_perceiver()
     print(f"\n[Perceiver] Detecting pain points in {path}...")
-    
+
     pain_points = perceiver.detect(context)
     print(f"[Perceiver] Found {len(pain_points)} issue(s):")
     for pp in pain_points:
         print(f"  [{pp.severity}] {pp.type}: {pp.message}")
         if pp.location:
             print(f"      Location: {pp.location}")
-    
+
     if not pain_points:
         print("[Perceiver] No issues detected.")
         return
-    
+
     sage = plugin.get_sage()
-    
+
     for pain_point in pain_points[:2]:
         print(f"\n[Sage] Generating patch for: {pain_point.message}")
-        
+
         patch_plan = sage.generate_patch(context, pain_point)
         print(f"[Sage] Patch plan: {patch_plan.description}")
         for op in patch_plan.operations:
             print(f"  - {op['type']}: {op.get('description', op.get('command', ''))}")
-        
+
         knight = plugin.get_knight()
-        
-        print(f"\n[Knight] Executing patch...")
+
+        print("\n[Knight] Executing patch...")
         exec_result = knight.execute(context, patch_plan)
         print(f"[Knight] Execution: {'SUCCESS' if exec_result.success else 'FAILED'}")
         for result in exec_result.verification_results:
             print(f"  - {result.get('operation', result.get('test', ''))}: {result['status']}")
-        
-        print(f"\n[Knight] Verifying...")
+
+        print("\n[Knight] Verifying...")
         verify_result = knight.verify(context, patch_plan)
         print(f"[Knight] Verification: {'SUCCESS' if verify_result.success else 'FAILED'}")
         for result in verify_result.verification_results:
             print(f"  - {result.get('test', result.get('operation', ''))}: {result['status']}")
-    
+
     print(f"\n[Kernel] Domain analysis complete for {domain}")
 
 
 def run_domain_analysis_with_cross_domain(plugin, domain: str, path: str, **kwargs):
     """Run domain analysis with cross-domain knowledge distillation fallback."""
     from hermes.core.orchestrator import CrossDomainOrchestrator
-    from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
-    from hermes.cross_domain.cross_domain_translator import CrossDomainTranslator
-    from hermes.cross_domain.pattern_similarity_engine import PatternSimilarityEngine
     from hermes.cross_domain.abstract_pattern_extractor import AbstractPatternExtractor
+    from hermes.cross_domain.cross_domain_translator import CrossDomainTranslator
+    from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
+    from hermes.cross_domain.pattern_similarity_engine import PatternSimilarityEngine
 
     print(f"\n[Orchestrator] Cross-domain mode enabled for domain: {domain}")
 
@@ -130,22 +132,24 @@ def run_domain_analysis_with_cross_domain(plugin, domain: str, path: str, **kwar
         print(f"\n[Perceiver] Found: {pp.message}")
 
         if result.direct_fix:
-            print(f"[Sage] Direct fix template found.")
+            print("[Sage] Direct fix template found.")
         else:
-            print(f"[Sage] No direct fix template found.")
+            print("[Sage] No direct fix template found.")
 
         if result.cross_domain_used:
-            print(f"[CrossDomain] Querying knowledge graph...")
-            print(f"[CrossDomain] Found similar pattern '{result.pattern_type}' "
-                  f"in {result.source_domain} plugin (sim: {result.similarity:.2f})")
+            print("[CrossDomain] Querying knowledge graph...")
+            print(
+                f"[CrossDomain] Found similar pattern '{result.pattern_type}' "
+                f"in {result.source_domain} plugin (sim: {result.similarity:.2f})"
+            )
             print(f"[CrossDomain] Translating fix from {result.source_domain} to {domain}...")
 
         if result.success:
-            print(f"[Knight] Applying patch... Tests passed!")
+            print("[Knight] Applying patch... Tests passed!")
             if result.cross_domain_used:
-                print(f"[CrossDomain] New cross-domain link added.")
+                print("[CrossDomain] New cross-domain link added.")
         else:
-            print(f"[Knight] Patch failed or no patch available.")
+            print("[Knight] Patch failed or no patch available.")
 
         if result.duration_ms > 0:
             print(f"  (completed in {result.duration_ms:.0f}ms)")
@@ -156,10 +160,10 @@ def run_domain_analysis_with_cross_domain(plugin, domain: str, path: str, **kwar
 
 def list_plugins():
     from hermes.core.plugin_manager import PluginManager
-    
+
     plugin_manager = PluginManager()
     plugins = plugin_manager.list_plugins()
-    
+
     print("Available domain plugins:")
     print("-" * 60)
     for plugin in plugins:
@@ -169,14 +173,14 @@ def list_plugins():
 
 
 def run_cross_domain_knowledge(demo: bool = False):
+    from hermes.core.plugin_manager import PluginManager
     from hermes.cross_domain import (
         AbstractPatternExtractor,
-        PatternSimilarityEngine,
+        AbstractPatternType,
         CrossDomainTranslator,
         KnowledgeAmalgamator,
-        AbstractPatternType
+        PatternSimilarityEngine,
     )
-    from hermes.core.plugin_manager import PluginManager
 
     print("[CrossDomain] Initializing Cross-Domain Knowledge Distillation Engine...")
 
@@ -193,7 +197,7 @@ def run_cross_domain_knowledge(demo: bool = False):
                 "severity": "high",
                 "message": "missing bounds check before array index access",
                 "location": "test.mlir",
-                "context": {"operation": "memref.load", "index": "%idx", "bound": "%size"}
+                "context": {"operation": "memref.load", "index": "%idx", "bound": "%size"},
             }
         ]
         k8s_pain_points = [
@@ -203,7 +207,7 @@ def run_cross_domain_knowledge(demo: bool = False):
                 "severity": "medium",
                 "message": "missing resource boundary limits and bounds checking",
                 "location": "deployment.yaml",
-                "context": {"deployment": "api-service", "missing_fields": ["limits.cpu", "limits.memory"]}
+                "context": {"deployment": "api-service", "missing_fields": ["limits.cpu", "limits.memory"]},
             }
         ]
         python_pain_points = [
@@ -213,7 +217,7 @@ def run_cross_domain_knowledge(demo: bool = False):
                 "severity": "high",
                 "message": "missing null check and boundary validation before access",
                 "location": "handler.py",
-                "context": {"function": "process_data", "line": 42}
+                "context": {"function": "process_data", "line": 42},
             }
         ]
 
@@ -223,18 +227,18 @@ def run_cross_domain_knowledge(demo: bool = False):
     else:
         plugin_manager = PluginManager()
         domains = ["mlir", "k8s", "default"]
-        
+
         mlir_pain_points = []
         k8s_pain_points = []
         python_pain_points = []
-        
+
         for domain in domains:
             plugin = plugin_manager.get_plugin(domain)
             if plugin:
                 context = plugin.create_context(".")
                 perceiver = plugin.get_perceiver()
                 pain_points = perceiver.detect(context)
-                
+
                 if domain == "mlir":
                     mlir_pain_points = [pp.to_dict() for pp in pain_points]
                 elif domain == "k8s":
@@ -253,13 +257,16 @@ def run_cross_domain_knowledge(demo: bool = False):
 
     if similarities:
         sim = similarities[0]
-        print(f"\n[AbstractPattern] Both contain '{sim.pattern_a.pattern_type.value}' abstraction (similarity: {sim.similarity:.2f})")
+        print(
+            f"\n[AbstractPattern] Both contain '{sim.pattern_a.pattern_type.value}' abstraction "
+            f"(similarity: {sim.similarity:.2f})"
+        )
 
-    clusters = similarity_engine.cluster_patterns()
+    similarity_engine.cluster_patterns()
 
     print("\n[CrossDomain] Generating universal fix template:")
     template = translator.generate_universal_fix(AbstractPatternType.BOUNDARY_CHECK_MISSING)
-    
+
     for fix in template.domain_fixes:
         domain_name = "Python" if fix.domain == "default" else fix.domain.upper()
         print(f"  - {domain_name}: {fix.fix_description}")
@@ -268,7 +275,7 @@ def run_cross_domain_knowledge(demo: bool = False):
         print(f"\n[CrossDomain] Insight: {template.cross_domain_insight}")
 
     new_patterns = amalgamator.amalgamate_patterns(all_patterns)
-    new_edges = amalgamator.amalgamate_similarities(similarities)
+    amalgamator.amalgamate_similarities(similarities)
     amalgamator.save()
 
     print(f"\n[CrossDomain] Knowledge amalgamated. {new_patterns} new abstract patterns added.")
@@ -276,11 +283,11 @@ def run_cross_domain_knowledge(demo: bool = False):
 
 def run_self_experiment(demo: bool = False):
     from hermes.cross_domain import (
-        ExperimentDesigner,
         CapabilityBenchmark,
+        ExperimentDesigner,
         GapAnalyzer,
-        SelfImprovementPolicy,
         KnowledgeAmalgamator,
+        SelfImprovementPolicy,
     )
 
     print("[SelfExperiment] Initializing Self-Experiment & Capability Validation Engine...")
@@ -298,13 +305,14 @@ def run_self_experiment(demo: bool = False):
     test_cases = designer.generate_all_cases()
     summary = designer.summary()
 
-    print(f"\n[ExperimentDesigner] Generated {summary['total']} test cases "
-          f"({summary['by_domain'].get('default', 0)} Python, "
-          f"{summary['by_domain'].get('mlir', 0)} MLIR, "
-          f"{summary['by_domain'].get('k8s', 0)} K8s)")
+    print(
+        f"\n[ExperimentDesigner] Generated {summary['total']} test cases "
+        f"({summary['by_domain'].get('default', 0)} Python, "
+        f"{summary['by_domain'].get('mlir', 0)} MLIR, "
+        f"{summary['by_domain'].get('k8s', 0)} K8s)"
+    )
     print(f"  Pattern types covered: {', '.join(sorted(summary['by_pattern'].keys()))}")
-    print(f"  Known patterns: {summary['known_patterns']}, "
-          f"Unknown patterns: {summary['unknown_patterns']}")
+    print(f"  Known patterns: {summary['known_patterns']}, " f"Unknown patterns: {summary['unknown_patterns']}")
 
     print("\n[CapabilityBenchmark] Running...")
     report = benchmark.run_batch(test_cases, amalgamator)
@@ -315,37 +323,41 @@ def run_self_experiment(demo: bool = False):
         rate = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
         print(f"  - {domain_label}: {stats['passed']}/{stats['total']} passed ({rate:.0f}%)")
 
-    print(f"  - Cross-domain transfer success: {domain_pass['cross_domain_transfers']}"
-          f"/{domain_pass['total']} ({domain_pass['pass_rate']:.0f}%)")
+    print(
+        f"  - Cross-domain transfer success: {domain_pass['cross_domain_transfers']}"
+        f"/{domain_pass['total']} ({domain_pass['pass_rate']:.0f}%)"
+    )
 
-    print(f"\n[GapAnalyzer] Analyzing gaps...")
+    print("\n[GapAnalyzer] Analyzing gaps...")
     gap_report = gap_analyzer.analyze(report)
 
     if gap_report.weakest_pattern:
-        print(f"[GapAnalyzer] Weakest pattern: \"{gap_report.weakest_pattern}\" "
-              f"(success rate {gap_report.weakest_rate:.0f}%)")
+        print(
+            f'[GapAnalyzer] Weakest pattern: "{gap_report.weakest_pattern}" '
+            f"(success rate {gap_report.weakest_rate:.0f}%)"
+        )
 
     for analysis in gap_report.analyses:
         if analysis.success_rate < 80:
             print(f"[GapAnalyzer] Suggestion: {analysis.recommendation}")
 
-    print(f"\n[SelfImprovementPolicy] Updating policy...")
+    print("\n[SelfImprovementPolicy] Updating policy...")
     updated_policy = policy.update_from_gap_report(gap_report)
     print(policy.get_policy_summary(updated_policy))
     print(f"\n[SelfImprovementPolicy] Next action: {policy.recommend_next_action(updated_policy, gap_report)}")
 
-    print(f"\n[SelfExperiment] Self-experiment complete. Report saved to loop_output/.")
+    print("\n[SelfExperiment] Self-experiment complete. Report saved to loop_output/.")
 
 
 def run_evolution_monitor(demo: bool = False):
     from hermes.cross_domain import (
-        EvolutionTracker,
-        TrendDetector,
-        RootCauseAnalyzer,
         AutoCorrectionEngine,
-        KnowledgeAmalgamator,
-        ExperimentDesigner,
         CapabilityBenchmark,
+        EvolutionTracker,
+        ExperimentDesigner,
+        KnowledgeAmalgamator,
+        RootCauseAnalyzer,
+        TrendDetector,
     )
 
     print("[EvolutionMonitor] Initializing Long-Term Evolution Monitoring Engine...")
@@ -360,9 +372,9 @@ def run_evolution_monitor(demo: bool = False):
     root_cause_analyzer = RootCauseAnalyzer(amalgamator)
     correction_engine = AutoCorrectionEngine(amalgamator, tracker=tracker)
     designer = ExperimentDesigner()
-    benchmark = CapabilityBenchmark()
+    CapabilityBenchmark()
 
-    test_cases = designer.generate_all_cases()
+    designer.generate_all_cases()
 
     # Simulate 5 snapshots with declining metrics to trigger degradation detection
     metrics_series = [
@@ -387,11 +399,13 @@ def run_evolution_monitor(demo: bool = False):
             cross_domain_success=cd,
             pattern_coverage=pc,
             knowledge_amalgamator=amalgamator,
-            metadata={"iteration": i + 1, "pattern_success_rates": pattern_success_rates}
+            metadata={"iteration": i + 1, "pattern_success_rates": pattern_success_rates},
         )
         snapshot_indices.append(snapshot.snapshot_index)
-        print(f"[EvolutionTracker] Snapshot #{snapshot.snapshot_index} recorded: "
-              f"success_rate={sr}, cross_domain_success={cd}, pattern_coverage={pc}")
+        print(
+            f"[EvolutionTracker] Snapshot #{snapshot.snapshot_index} recorded: "
+            f"success_rate={sr}, cross_domain_success={cd}, pattern_coverage={pc}"
+        )
 
     # Detect trends
     snapshots = tracker.get_recent_snapshots(10)
@@ -420,7 +434,7 @@ def run_evolution_monitor(demo: bool = False):
                     print(f"[RootCauseAnalyzer] {rc.description}")
 
             # Apply corrections
-            print(f"\n[AutoCorrectionEngine] Applying corrections...")
+            print("\n[AutoCorrectionEngine] Applying corrections...")
             correction_report = correction_engine.apply_corrections(root_causes)
 
             for action in correction_report.actions:
@@ -441,18 +455,20 @@ def run_evolution_monitor(demo: bool = False):
                 knowledge_amalgamator=amalgamator,
                 metadata={"iteration": 6, "corrected": True, "correction_id": correction_report.correction_id},
             )
-            print(f"\n[EvolutionTracker] Snapshot #{corrected_snapshot.snapshot_index} recorded (corrected): "
-                  f"success_rate=0.81, cross_domain_success=0.59, pattern_coverage=0.74")
+            print(
+                f"\n[EvolutionTracker] Snapshot #{corrected_snapshot.snapshot_index} recorded (corrected): "
+                f"success_rate=0.81, cross_domain_success=0.59, pattern_coverage=0.74"
+            )
 
-    print(f"\n[EvolutionMonitor] Long-term monitoring cycle complete.")
+    print("\n[EvolutionMonitor] Long-term monitoring cycle complete.")
 
 
 def run_dashboard():
     from hermes.cross_domain import (
-        render_dashboard,
         EvolutionTracker,
         KnowledgeAmalgamator,
         SelfImprovementPolicy,
+        render_dashboard,
     )
 
     tracker = EvolutionTracker("loop_output/evolution_tracker.db")
@@ -469,13 +485,13 @@ def run_dashboard():
 
 def run_report(output_path: str = "evolution_report.md"):
     from hermes.cross_domain import (
-        ReportGenerator,
         EvolutionTracker,
         KnowledgeAmalgamator,
+        ReportGenerator,
         SelfImprovementPolicy,
     )
 
-    print(f"[ReportGenerator] Generating evolution report...")
+    print("[ReportGenerator] Generating evolution report...")
 
     tracker = EvolutionTracker("loop_output/evolution_tracker.db")
     amalgamator = KnowledgeAmalgamator("loop_output/knowledge_graph.json")
@@ -511,20 +527,21 @@ def run_story():
 
     story_path = "loop_output/evolution_story.md"
     import os
+
     directory = os.path.dirname(story_path)
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
-    with open(story_path, 'w', encoding='utf-8') as f:
+    with open(story_path, "w", encoding="utf-8") as f:
         f.write(story_text)
     print(f"\n故事已保存到: {story_path}")
 
 
 def run_reflect():
     from hermes.cross_domain import (
-        ReportGenerator,
         CognitiveLoopEngine,
         EvolutionTracker,
         KnowledgeAmalgamator,
+        ReportGenerator,
         SelfImprovementPolicy,
     )
 
@@ -545,19 +562,21 @@ def run_reflect():
     engine = CognitiveLoopEngine(tracker, amalgamator, policy, report_gen)
 
     print(f"\n[ReportInterpreter] Parsing report {report_path}...")
-    interpreter = __import__("hermes.cross_domain.report_interpreter",
-                             fromlist=["ReportInterpreter"]).ReportInterpreter()
+    interpreter = __import__(
+        "hermes.cross_domain.report_interpreter", fromlist=["ReportInterpreter"]
+    ).ReportInterpreter()
     signal_report = interpreter.interpret_path(report_path)
 
-    print(f"  -> Key signals: {signal_report.up_signals} up, "
-          f"{signal_report.down_signals} down, {signal_report.anomalies} anomalies")
+    print(
+        f"  -> Key signals: {signal_report.up_signals} up, "
+        f"{signal_report.down_signals} down, {signal_report.anomalies} anomalies"
+    )
 
     for sig in signal_report.signals[:5]:
         if sig.magnitude > 0.1 and sig.direction == "down":
-            print(f"  -> Anomaly: '{sig.pattern_type or sig.metric}' "
-                  f"{sig.metric} declining ({sig.magnitude:.0%})")
+            print(f"  -> Anomaly: '{sig.pattern_type or sig.metric}' " f"{sig.metric} declining ({sig.magnitude:.0%})")
 
-    print(f"\n[InsightExtractor] Extracting insights...")
+    print("\n[InsightExtractor] Extracting insights...")
     result = engine.run_loop(report_path, auto_apply=True)
 
     for i, insight in enumerate(result.insights[:3]):
@@ -565,30 +584,28 @@ def run_reflect():
         if insight.suggested_action:
             print(f"     Action: {insight.suggested_action}")
 
-    print(f"\n[SelfImprovementProposal] Generating proposals...")
+    print("\n[SelfImprovementProposal] Generating proposals...")
     for prop in result.proposals[:3]:
         print(f"  -> {prop.title}")
-        print(f"     (expected benefit: +{prop.expected_benefit:.0%}, "
-              f"risk: {prop.risk})")
+        print(f"     (expected benefit: +{prop.expected_benefit:.0%}, " f"risk: {prop.risk})")
 
     if result.applied_proposals:
-        print(f"\n[CognitiveLoopEngine] Applying proposals...")
+        print("\n[CognitiveLoopEngine] Applying proposals...")
         for prop in result.applied_proposals:
             print(f"  -> Applied: {prop.title}")
             print(f"     Current: {prop.current_value:.2f} -> Proposed: {prop.proposed_value:.2f}")
-        print(f"  -> Policy updated. Next experiment round will verify.")
+        print("  -> Policy updated. Next experiment round will verify.")
     else:
-        print(f"\n[CognitiveLoopEngine] No proposals to apply. System appears stable.")
+        print("\n[CognitiveLoopEngine] No proposals to apply. System appears stable.")
 
-    print(f"\n[CognitiveLoopEngine] Reflection complete. "
-          f"Summary: {result.loop_summary}")
+    print(f"\n[CognitiveLoopEngine] Reflection complete. " f"Summary: {result.loop_summary}")
 
 
 def run_value_driven():
     from hermes.cross_domain import (
-        SelfGuidedEvolver,
         EvolutionTracker,
         KnowledgeAmalgamator,
+        SelfGuidedEvolver,
         SelfImprovementPolicy,
     )
 
@@ -607,36 +624,43 @@ def run_value_driven():
 
     print(f"\n[ValueTracker] Analyzed {result['changes_analyzed']} historical changes...")
 
-    print(f"\n[StrategyEvaluator] Evaluated {result['strategy_report']['total_strategies_analyzed']} strategy adjustments:")
-    for eval_item in result['strategy_report']['evaluations'][:5]:
-        benefit = eval_item['avg_benefit']
+    print(
+        f"\n[StrategyEvaluator] Evaluated {result['strategy_report']['total_strategies_analyzed']} "
+        f"strategy adjustments:"
+    )
+    for eval_item in result["strategy_report"]["evaluations"][:5]:
+        benefit = eval_item["avg_benefit"]
         tag = "有效" if benefit > 0.02 else "轻微有效" if benefit > 0 else "无效"
-        print(f"  {'+' if benefit > 0 else ''}{benefit:+.0%} {eval_item['strategy_type']} -> "
-              f"{eval_item['target']} ({tag})")
+        print(
+            f"  {'+' if benefit > 0 else ''}{benefit:+.0%} {eval_item['strategy_type']} -> "
+            f"{eval_item['target']} ({tag})"
+        )
 
     print(f"\n[ValueDiscovery] Discovered {len(result['principles'])} value principles:")
-    for i, principle in enumerate(result['principles'][:5]):
+    for i, principle in enumerate(result["principles"][:5]):
         print(f"  {i + 1}. {principle['title']} (置信度: {principle['confidence']:.0%})")
         print(f"     {principle['description'][:80]}...")
 
-    print(f"\n[SelfGuidedEvolver] Based on value principles, actively selecting next targets:")
-    for target in result['targets'][:3]:
+    print("\n[SelfGuidedEvolver] Based on value principles, actively selecting next targets:")
+    for target in result["targets"][:3]:
         print(f"  -> {target['action']}")
         print(f"     (expected benefit: +{target['expected_benefit']:.0%})")
 
-    print(f"\n[SelfGuidedEvolver] Value-driven cycle complete. "
-          f"Policy updated with {len(result['targets'])} new priorities.")
+    print(
+        f"\n[SelfGuidedEvolver] Value-driven cycle complete. "
+        f"Policy updated with {len(result['targets'])} new priorities."
+    )
 
 
 def run_mental_simulation():
     from hermes.cross_domain import (
-        MentalModelTrainer,
-        MentalSimulator,
-        StrategySandbox,
         CognitivePlanner,
         EvolutionTracker,
         KnowledgeAmalgamator,
+        MentalModelTrainer,
+        MentalSimulator,
         SelfImprovementPolicy,
+        StrategySandbox,
     )
     from hermes.cross_domain.mental_simulator import CANDIDATE_STRATEGIES
 
@@ -653,9 +677,8 @@ def run_mental_simulation():
     trainer = MentalModelTrainer(tracker)
     model = trainer.train()
 
-    print(f"\n[MentalModelTrainer] Training prediction model...")
-    print(f"   Features: success_rate, coverage, cross_domain_success, "
-          f"pattern_type, domain")
+    print("\n[MentalModelTrainer] Training prediction model...")
+    print("   Features: success_rate, coverage, cross_domain_success, " "pattern_type, domain")
     print(f"   Training samples: {model.training_samples} historical snapshots")
     print(f"   Model accuracy: {model.accuracy:.2f} (leave-one-out validation)")
 
@@ -673,22 +696,20 @@ def run_mental_simulation():
 
     sandbox_report = sandbox.evaluate_all()
 
-    print(f"\n[StrategySandbox] Simulation results ranking:")
+    print("\n[StrategySandbox] Simulation results ranking:")
     for rank, result in enumerate(sandbox_report.rankings[:5]):
         label = chr(65 + rank)
         delta_str = f"+{result.predicted_delta:.0%}" if result.predicted_delta >= 0 else f"{result.predicted_delta:.0%}"
-        print(f"   {rank + 1}. Strategy {label} (expected gain {delta_str}, "
-              f"confidence {result.confidence:.0%})")
+        print(f"   {rank + 1}. Strategy {label} (expected gain {delta_str}, " f"confidence {result.confidence:.0%})")
 
-    print(f"\n[CognitivePlanner] Selecting best strategy as next target...")
+    print("\n[CognitivePlanner] Selecting best strategy as next target...")
     plan = planner.plan()
 
     if plan.executed:
         print(f"   Selected: {plan.selected_strategy} -> {plan.target}")
-        print(f"   After execution, predicted success rate: "
-              f"{plan.predicted_success_rate:.2f}")
+        print(f"   After execution, predicted success rate: " f"{plan.predicted_success_rate:.2f}")
     else:
-        print(f"   No strategy selected (all gains negligible or negative).")
+        print("   No strategy selected (all gains negligible or negative).")
 
     print(f"\n[系统] Executing {plan.selected_strategy}...")
 
@@ -696,9 +717,6 @@ def run_mental_simulation():
 def run_learn_from(repo_url: str):
     from hermes.cross_domain import (
         CrossEntityLearner,
-        RepositoryMiner,
-        EventPatternLearner,
-        ExternalInsightMapper,
         EvolutionTracker,
         KnowledgeAmalgamator,
         SelfImprovementPolicy,
@@ -719,41 +737,41 @@ def run_learn_from(repo_url: str):
 
     print(f"[RepositoryMiner] Analyzed events: {result.report.total_events} events")
     type_summary = ", ".join(
-        f"{k}: {v}" for k, v in sorted(result.report.events_by_type.items(), key=lambda x: x[1], reverse=True))
+        f"{k}: {v}" for k, v in sorted(result.report.events_by_type.items(), key=lambda x: x[1], reverse=True)
+    )
     print(f"  Event types: {type_summary}")
 
     print(f"\n[EventPatternLearner] Extracted {len(result.patterns)} key patterns:")
     for i, pattern in enumerate(result.patterns):
-        print(f"  Pattern {chr(65 + i)}: \"{pattern.description[:60]}...\"")
+        print(f'  Pattern {chr(65 + i)}: "{pattern.description[:60]}..."')
         print(f"    Trend: {pattern.trend}")
 
-    print(f"\n[ExternalInsightMapper] Mapped to AutoTestGen:")
+    print("\n[ExternalInsightMapper] Mapped to AutoTestGen:")
     for insight in result.insights[:3]:
         print(f"  Suggestion: {insight.suggestion}")
-        print(f"    (estimated impact: +{insight.estimated_impact:.0%}, "
-              f"confidence: {insight.confidence:.0%})")
+        print(f"    (estimated impact: +{insight.estimated_impact:.0%}, " f"confidence: {insight.confidence:.0%})")
 
-    print(f"\n[CrossEntityLearner] Fusing external insights:")
+    print("\n[CrossEntityLearner] Fusing external insights:")
     sr_delta = result.predicted_boost
     print(f"  Current success rate prediction: +{sr_delta:.0%} (based on external experience)")
     if result.applied_insights > 0:
-        print(f"  Adjusted strategy: prioritized {result.applied_insights} patterns from "
-              f"P2 to P1 priority")
-    print(f"  Policy updated. Next round will apply external insights.")
+        print(f"  Adjusted strategy: prioritized {result.applied_insights} patterns from " f"P2 to P1 priority")
+    print("  Policy updated. Next round will apply external insights.")
 
-    print(f"\n[系统] Strategy configuration updated.")
+    print("\n[系统] Strategy configuration updated.")
 
 
 def run_introspect():
     import os
+
     from hermes.cross_domain import (
-        SelfRepositoryMiner,
-        MentalModelTrainer,
-        EvolutionTracker,
         EvolutionCompareEngine,
+        EvolutionTracker,
         GapCalibrator,
+        MentalModelTrainer,
         RecursiveInsightInjector,
         SelfImprovementPolicy,
+        SelfRepositoryMiner,
     )
 
     repo_path = os.path.dirname(os.path.abspath(__file__))
@@ -769,22 +787,30 @@ def run_introspect():
 
     tracker = EvolutionTracker("loop_output/evolution_tracker.db")
     trainer = MentalModelTrainer(tracker)
-    model = trainer.train()
+    trainer.train()
 
-    print(f"\n[EvolutionCompareEngine] Comparing mental model predictions vs actual history...")
+    print("\n[EvolutionCompareEngine] Comparing mental model predictions vs actual history...")
     comparator = EvolutionCompareEngine(tracker, trainer)
     report = comparator.compare(stages)
 
     for comp in report.comparisons:
-        label = "overestimated" if comp.over_under == "overestimated" else "underestimated" if comp.over_under == "underestimated" else "accurate"
+        label = (
+            "overestimated"
+            if comp.over_under == "overestimated"
+            else "underestimated" if comp.over_under == "underestimated" else "accurate"
+        )
         print(f"  - {comp.stage_name} ({comp.stage_id}):")
-        print(f"    Mental model predicted: cross-domain transfer should peak in stage "
-              f"{comp.stage_id} (accuracy {comp.accuracy:.0%})")
-        print(f"    Actual history: cross-domain transfer matured in stage "
-              f"{comp.stage_id} (accuracy {comp.accuracy:.0%})")
+        print(
+            f"    Mental model predicted: cross-domain transfer should peak in stage "
+            f"{comp.stage_id} (accuracy {comp.accuracy:.0%})"
+        )
+        print(
+            f"    Actual history: cross-domain transfer matured in stage "
+            f"{comp.stage_id} (accuracy {comp.accuracy:.0%})"
+        )
         print(f"    Gap: model {label} (delta: {comp.delta:+.0%})")
 
-    print(f"\n[GapCalibrator] Calibration suggestions:")
+    print("\n[GapCalibrator] Calibration suggestions:")
     calibrator = GapCalibrator(trainer)
     suggestions = calibrator.analyze(report)
 
@@ -792,107 +818,154 @@ def run_introspect():
         print(f"  - {sug.description}")
         print(f"    Estimated accuracy gain: +{sug.expected_accuracy_gain:.0%}")
 
-    print(f"\n[RecursiveInsightInjector] Calibrating mental model...")
+    print("\n[RecursiveInsightInjector] Calibrating mental model...")
     injector = RecursiveInsightInjector(tracker, trainer, SelfImprovementPolicy())
     result = injector.inject(report)
 
     print(f"  {result.message}")
-    print(f"  Next simulation round will reflect corrected predictions.")
+    print("  Next simulation round will reflect corrected predictions.")
 
-    print(f"\n[Introspect] Self-recursive introspection complete.")
+    print("\n[Introspect] Self-recursive introspection complete.")
+
+
+def _resolve_paper_formats(paper_format: str, output_path):
+    """把 --format 选项翻译成渲染格式列表（auto 时按输出扩展名推断）。"""
+    from hermes.self_research import LatexCompiler
+
+    if paper_format == "both":
+        return ["markdown", "latex"]
+    if paper_format in ("markdown", "latex", "pdf"):
+        return [paper_format]
+    return [LatexCompiler.resolve_format(output_path, "auto")]
+
+
+def run_self_research(output_path=None, paper_format: str = "auto", paper_dir: str = "papers"):
+    """让系统分析自身演化历史，自动撰写一篇学术论文。"""
+    from hermes.self_research import (
+        SelfResearchConfig,
+        SelfResearcher,
+    )
+
+    formats = _resolve_paper_formats(paper_format, output_path)
+    config = SelfResearchConfig(
+        output_dir=paper_dir,
+        paper_path=output_path,
+        formats=formats,
+        compile_pdf="pdf" in formats,
+    )
+
+    report = SelfResearcher(config).run()
+
+    print(f"  {len(report.findings)} findings, {len(report.figure_paths)} figures")
+    print(f"  Dataset: {report.dataset_path}")
+    print(f"  Analysis: {report.analysis_path}")
+    print(f"\n[系统] Self-research complete in {report.duration_seconds:.2f}s.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
-    parser.add_argument('--domain', '-d',
-                        help='Target domain (default, mlir, k8s, cross_knowledge, self_experiment, evolution_monitor)')
-    parser.add_argument('--path', '-p', help='Path to repository or files')
-    parser.add_argument('--list-plugins', action='store_true', help='List available plugins')
-    parser.add_argument('--repo', help='Alias for --path')
-    parser.add_argument('--gitops-repo', help='GitOps repository path (for k8s domain)')
-    parser.add_argument('--demo', action='store_true', help='Run demo mode')
-    parser.add_argument('--cross-domain', action='store_true',
-                        help='Enable cross-domain knowledge distillation fallback')
-    parser.add_argument('--dashboard', action='store_true',
-                        help='Show evolution dashboard')
-    parser.add_argument('--report', action='store_true',
-                        help='Generate evolution report')
-    parser.add_argument('--story', action='store_true',
-                        help='Tell evolution story')
-    parser.add_argument('--reflect', action='store_true',
-                        help='Run self-understanding cognitive loop')
-    parser.add_argument('--value-driven', action='store_true',
-                        help='Run value-driven evolution cycle')
-    parser.add_argument('--mental-sim', action='store_true',
-                        help='Run mental simulation and cognitive planning')
-    parser.add_argument('--learn-from', type=str, default=None,
-                        help='Learn from external repository (URL or local path)')
-    parser.add_argument('--introspect', action='store_true',
-                        help='Run self-recursive introspection')
-    parser.add_argument('--output', '-o', default='evolution_report.md',
-                        help='Output file path for report')
-    
+    parser.add_argument(
+        "--domain", "-d", help="Target domain (default, mlir, k8s, cross_knowledge, self_experiment, evolution_monitor)"
+    )
+    parser.add_argument("--path", "-p", help="Path to repository or files")
+    parser.add_argument("--list-plugins", action="store_true", help="List available plugins")
+    parser.add_argument("--repo", help="Alias for --path")
+    parser.add_argument("--gitops-repo", help="GitOps repository path (for k8s domain)")
+    parser.add_argument("--demo", action="store_true", help="Run demo mode")
+    parser.add_argument(
+        "--cross-domain", action="store_true", help="Enable cross-domain knowledge distillation fallback"
+    )
+    parser.add_argument("--dashboard", action="store_true", help="Show evolution dashboard")
+    parser.add_argument("--report", action="store_true", help="Generate evolution report")
+    parser.add_argument("--story", action="store_true", help="Tell evolution story")
+    parser.add_argument("--reflect", action="store_true", help="Run self-understanding cognitive loop")
+    parser.add_argument("--value-driven", action="store_true", help="Run value-driven evolution cycle")
+    parser.add_argument("--mental-sim", action="store_true", help="Run mental simulation and cognitive planning")
+    parser.add_argument(
+        "--learn-from", type=str, default=None, help="Learn from external repository (URL or local path)"
+    )
+    parser.add_argument("--introspect", action="store_true", help="Run self-recursive introspection")
+    parser.add_argument("--self-research", action="store_true", help="Write an academic paper about the system itself")
+    parser.add_argument(
+        "--format",
+        dest="paper_format",
+        default="auto",
+        choices=["auto", "markdown", "latex", "pdf", "both"],
+        help="Output format for --self-research (default: infer from --output)",
+    )
+    parser.add_argument("--paper-dir", default="papers", help="Directory for paper artifacts (dataset, figures)")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Output file path (default: evolution_report.md; for " "--self-research: <paper-dir>/paper.md)",
+    )
+
     args = parser.parse_args()
-    
+
     if args.list_plugins:
         list_plugins()
         return
-    
+
     if args.dashboard:
         run_dashboard()
         return
-    
+
     if args.report:
-        run_report(args.output)
+        run_report(args.output or "evolution_report.md")
         return
-    
+
     if args.story:
         run_story()
         return
-    
+
     if args.reflect:
         run_reflect()
         return
-    
+
     if args.value_driven:
         run_value_driven()
         return
-    
+
     if args.mental_sim:
         run_mental_simulation()
         return
-    
+
     if args.learn_from:
         run_learn_from(args.learn_from)
         return
-    
+
     if args.introspect:
         run_introspect()
         return
-    
+
+    if args.self_research:
+        run_self_research(args.output, args.paper_format, args.paper_dir)
+        return
+
     if not args.domain:
         print("Error: --domain is required")
         parser.print_help()
         sys.exit(1)
-    
+
     if args.domain == "cross_knowledge":
         run_cross_domain_knowledge(demo=args.demo)
         return
-    
+
     if args.domain == "self_experiment":
         run_self_experiment(demo=args.demo)
         return
-    
+
     if args.domain == "evolution_monitor":
         run_evolution_monitor(demo=args.demo)
         return
-    
+
     path = args.path or args.repo or args.gitops_repo or "."
-    
+
     kwargs = {}
     if args.gitops_repo:
-        kwargs['gitops'] = True
-    
+        kwargs["gitops"] = True
+
     run_domain_analysis(args.domain, path, cross_domain=args.cross_domain, **kwargs)
 
 
