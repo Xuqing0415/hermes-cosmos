@@ -303,6 +303,58 @@ class GitRepo:
                 records.append((parts[0], parts[1], parts[2]))
         return records
 
+    def count_commits(self) -> int:
+        """非 merge 提交的总数。取一次整表（不带 ``-p``，很便宜），避免用 ``-n`` 瞎猜窗口。"""
+
+        output = self.run("log", "--no-merges", "--format=%H").stdout
+        return len([line for line in output.splitlines() if line.strip()])
+
+    def log_with_patches(self, limit: int, skip: int = 0) -> List[Tuple[str, str, str, str]]:
+        """一次 rev walk 拿到 ``[(sha, date, subject, patch)]``。
+
+        比「每个提交单独 ``git show``」快一个数量级，也避免了 ``-G`` 在受限 shell 下的
+        崩溃（本项目亲眼见到 cygwin 的 ``sh`` 起不来）。测试总是用手动构造的仓库。
+
+        ``skip`` 让调用方分块取，避免一次把整个窗口的补丁都留在内存里。
+        """
+
+        fmt = "%H%x1f%ad%x1f%s"
+        window = [f"-n{limit}"] if skip == 0 else [f"-n{limit}", f"--skip={skip}"]
+        output = self.run(
+            "log",
+            "--no-merges",
+            "--date=short",
+            f"--format={fmt}",
+            "-p",
+            "--unified=0",
+            *window,
+        ).stdout
+
+        records: List[Tuple[str, str, str, str]] = []
+        sha = date = subject = ""
+        patch: List[str] = []
+        for line in output.splitlines():
+            parts = line.split("\x1f")
+            if len(parts) == 3 and len(parts[0]) == 40 and all(c in "0123456789abcdef" for c in parts[0]):
+                if sha:
+                    records.append((sha, date, subject, "\n".join(patch)))
+                sha, date, subject = parts
+                patch = []
+                continue
+            if sha:
+                patch.append(line)
+        if sha:
+            records.append((sha, date, subject, "\n".join(patch)))
+        return records
+
+    def file_at(self, revision: str, relative: str) -> Optional[str]:
+        """``revision:relative`` 的文件内容；不存在（新增文件、二进制等）时返回 None。"""
+
+        completed = self.run("show", f"{revision}:{relative}", check=False)
+        if completed.returncode != 0:
+            return None
+        return completed.stdout
+
     def changed_files(self, sha: str) -> List[str]:
         output = self.run("show", "--name-only", "--pretty=format:", sha).stdout
         return [line.strip() for line in output.splitlines() if line.strip()]

@@ -35,6 +35,8 @@ from .data_provenance import (
 from .evidence_grader import EvidenceGrade, EvidenceGrader
 from .figure_generator import Figure, FigureGenerator
 from .finding_extractor import Finding, FindingExtractor
+from .import_fix_benchmark import ImportFixReport, PairOutcome, evaluate_repository
+from .import_fix_miner import ImportFixCase, MineReport, import_bindings, mine_repository
 from .integrity_checker import Disclaimer, IntegrityChecker, IntegrityReport
 from .latex_compiler import CompileResult, LatexCompiler
 from .paper_revision_engine import (
@@ -99,6 +101,13 @@ __all__ = [
     "StatisticalAnalyzer",
     "Finding",
     "FindingExtractor",
+    "ImportFixCase",
+    "ImportFixReport",
+    "MineReport",
+    "PairOutcome",
+    "evaluate_repository",
+    "import_bindings",
+    "mine_repository",
     "Figure",
     "FigureGenerator",
     "Paper",

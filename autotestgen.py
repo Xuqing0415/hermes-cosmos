@@ -1011,6 +1011,42 @@ def run_real_benchmark(repo_path=None, cases: int = 5, output_path=None, work_di
     return 0
 
 
+def run_import_fix_benchmark(repo_path=None, cases: int = 150, output_path=None, work_dir=None):
+    """挖出「人类当年补了 import」的真实配对，再拿 oracle 逐条对答案。
+
+    这一类不考「能不能检出」（AST 扫描谁都会），考的是**判断得对不对**：
+    来源一致率、放弃率、假阳性率。
+    """
+    from hermes.self_research import evaluate_repository
+
+    if not repo_path:
+        print("Error: --import-fix-benchmark requires --repo (a local clone of a real project)")
+        return 1
+
+    work_root = work_dir or os.path.join(".tmp_test", "import_fix")
+    print(f"[ImportFixBenchmark] repo={repo_path} max_pairs={cases} worktree={work_root}")
+    report = evaluate_repository(repo_path, max_pairs=cases, work_root=work_root)
+
+    print(f"\n[ImportFixBenchmark] {report.report_line()}")
+    for item in report.outcomes:
+        if item.decision == "patch":
+            print(
+                f"  - {item.file} {item.name}：系统={item.system_statement} / 人类={item.human_statement}"
+                f" → {item.agreement}" + ("（引入新的未定义名）" if item.false_positive else "")
+            )
+        else:
+            print(f"  - {item.file} {item.name}：放弃（{item.reason}）")
+    for note in report.notes:
+        print(f"  [说明] {note}")
+
+    destination = output_path or os.path.join("papers", "import_fix_benchmark.json")
+    os.makedirs(os.path.dirname(destination) or ".", exist_ok=True)
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(report.to_dict(), handle, ensure_ascii=False, indent=2)
+    print(f"  基准结果：{destination}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
     parser.add_argument(
@@ -1060,6 +1096,20 @@ def main():
         help="Measure the system on real historical defects from a local clone of a real project",
     )
     parser.add_argument("--cases", type=int, default=5, help="Defect cases to sample for --real-benchmark")
+    parser.add_argument(
+        "--import-fix-benchmark",
+        action="store_true",
+        help=(
+            "Mine real 'human added a missing import' pairs from a repo's history and score the "
+            "oracle on source agreement / abstention / false positives"
+        ),
+    )
+    parser.add_argument(
+        "--max-pairs",
+        type=int,
+        default=150,
+        help="How many mined import-fix pairs to score for --import-fix-benchmark",
+    )
     parser.add_argument(
         "--case-timeout",
         type=int,
@@ -1137,6 +1187,17 @@ def main():
             output_path=args.output,
             work_dir=args.benchmark_work_dir,
             timeout=args.case_timeout,
+        )
+        if code:
+            sys.exit(code)
+        return
+
+    if args.import_fix_benchmark:
+        code = run_import_fix_benchmark(
+            args.repo or args.path,
+            cases=args.max_pairs,
+            output_path=args.output,
+            work_dir=args.benchmark_work_dir,
         )
         if code:
             sys.exit(code)
