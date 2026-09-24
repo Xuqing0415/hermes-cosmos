@@ -31,6 +31,9 @@ DEFAULT_CASE_TIMEOUT = 300
 DEFAULT_SCAN = 600
 TAIL_LINES = 12
 
+#: 工作区指纹要忽略的目录：这些是跑测试的副产物，不是系统改动过的源码
+CACHE_DIRECTORIES = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+
 
 @dataclass
 class DefectCase:
@@ -561,11 +564,15 @@ class RealDefectBenchmark:
 
 
 def _snapshot(root: str) -> Dict[str, str]:
-    """给工作区拍指纹，用来判断“系统到底有没有改到文件”。"""
+    """给工作区拍指纹，用来判断“系统到底有没有改到文件”。
+
+    缓存目录（``__pycache__``、``.pytest_cache``）不算：跑测试本来就会生成它们，
+    把它们算成“系统改动的文件”会让检出率虚高。
+    """
 
     snapshot: Dict[str, str] = {}
     for base, directories, files in os.walk(root):
-        directories[:] = [name for name in directories if name != ".git"]
+        directories[:] = [name for name in directories if name not in CACHE_DIRECTORIES]
         for name in files:
             path = os.path.join(base, name)
             relative = os.path.relpath(path, root).replace("\\", "/")

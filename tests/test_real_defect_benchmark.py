@@ -138,21 +138,34 @@ class TestRealDefectBenchmark:
         assert result.reproduced is True
         assert result.confirmed is True
         assert result.inconclusive is False
-        # 系统的感知器报的是固定假位置，也从未改到文件
-        assert result.detected is False
+        # 真实感知器按证据说话：这个仓库里没有它能证明的静态问题，于是它什么都不报。
+        # 不报比乱报强——旧假桩正是在这里报出写死的 api/handler.py。
+        assert result.claimed_locations == []
+        assert result.claimed_pain_points == 0
         assert result.files_touched == []
-        assert result.claimed_locations == ["api/handler.py", "utils/processor.py"]
-        # 自称执行与验证都成功，但测试仍然失败
-        assert result.claimed_success is True
+        assert result.detected is False
+        # 没有操作可执行、也没有测试通过：系统不再自称成功，于是也没有虚假声称
+        assert result.claimed_success is False
         assert result.repaired is False
-        assert result.false_claim is True
+        assert result.false_claim is False
 
         payload = report.to_dict()
         assert payload["conclusive"] == 1
         assert payload["detection_rate"] == 0.0
         assert payload["repair_rate"] == 0.0
-        assert payload["false_claim_rate"] == 1.0
+        assert payload["false_claim_rate"] == 0.0
         assert report.summary_line().startswith("真实缺陷 1 例")
+
+    def test_benchmark_measures_the_real_plugin_not_the_stub(self, work_dir):
+        """基准必须测真实实现：假桩才会报 api/handler.py 并自称成功。"""
+
+        repo = _buggy_then_fixed_repo(work_dir)
+        benchmark = RealDefectBenchmark(str(repo), str(work_dir / "wt6"), cases=1)
+
+        claims = benchmark._run_system(str(repo))
+
+        assert claims["locations"] == []
+        assert claims["success"] is False
 
     def test_control_failure_marks_the_case_inconclusive_and_excludes_it(self, work_dir):
         repo = work_dir / "always_red"
