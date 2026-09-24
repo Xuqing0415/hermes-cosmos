@@ -18,9 +18,11 @@ from hermes.self_research.unused_import_miner import (
     WEAK_PACKAGE_INIT,
     WEAK_REDEFINITION,
     WEAK_STAR_IMPORT,
+    WEAK_VERSION_BRANCH,
     dunder_all_names,
     mine_repository,
     unused_import_names,
+    version_branch_imports,
 )
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -113,6 +115,46 @@ class TestDunderAll:
 
     def test_unparsable_source_yields_nothing(self):
         assert dunder_all_names("def (:\n") == set()
+
+
+class TestVersionBranch:
+    def test_sys_version_info_conditional(self):
+        source = "import sys\n\nif sys.version_info < (3,):\n    import Queue as queue\nelse:\n    import queue\n"
+        assert version_branch_imports(source) == {"queue"}
+
+    def test_flag_variable_conditional(self):
+        source = "PY2 = sys.version_info[0] == 2\n\nif PY2:\n    import Queue\nelse:\n    import queue\n"
+        assert version_branch_imports(source) == {"Queue", "queue"}
+
+    def test_flag_derived_from_another_flag_is_recognized(self):
+        # requests/flask 的真实写法：先把 sys.version_info 存进 _ver，再由 _ver 派生 is_py2。
+        # 只认第一手会整个漏掉这一类 —— 而这些项目的分支变量几乎全是第二手。
+        source = (
+            "_ver = sys.version_info\n\n"
+            "is_py2 = (_ver[0] == 2)\n\n"
+            "if is_py2:\n    from urlparse import urlparse\nelse:\n    from urllib.parse import urlparse\n"
+        )
+        assert version_branch_imports(source) == {"urlparse"}
+
+    def test_platform_flags_are_not_version_flags(self):
+        # 同一段代码里往往混着平台判断，它们跟版本无关，不能顺着同一个闭包被吸进来
+        source = (
+            "_ver = sys.version_info\n\n"
+            "is_py2 = (_ver[0] == 2)\n\n"
+            "is_windows = 'win32' in str(sys.platform).lower()\n\n"
+            "if is_windows:\n    import msvcrt\n"
+        )
+        assert version_branch_imports(source) == set()
+
+    def test_nested_import_inside_a_branch_is_found(self):
+        source = "if sys.version_info >= (3,):\n    if True:\n        import json\n"
+        assert version_branch_imports(source) == {"json"}
+
+    def test_plain_conditional_is_not_version_gated(self):
+        assert version_branch_imports("if DEBUG:\n    import json\n") == set()
+
+    def test_unparsable_source_yields_nothing(self):
+        assert version_branch_imports("def (:\n") == set()
 
 
 class TestMiner:
@@ -224,3 +266,22 @@ class TestMiner:
         _commit(repo, "refactor: drop the export")
 
         assert _cases(repo) == []
+
+    def test_one_name_imported_in_both_version_branches_is_ambiguous(self, work_dir):
+        # 同名导入出现在版本判断的两个分支里 —— 删除是安全的，但「该删哪一支」要看项目的
+        # 目标版本，静态判不了，所以单列成 ambiguous 而不是当成「同一个名字出现两次」。
+        repo = _repo(work_dir)
+        _write(
+            repo,
+            "app.py",
+            "import sys\n\nif sys.version_info < (3,):\n    import Queue as queue\nelse:\n"
+            "    import queue\n\n\ndef go():\n    return 1\n",
+        )
+        _commit(repo, "feat: queue shim")
+        _write(repo, "app.py", "def go():\n    return 1\n")
+        _commit(repo, "cleanup: drop the queue shim")
+
+        cases = _cases(repo)
+        assert cases, "这条配对应该被挖出来"
+        assert all(WEAK_VERSION_BRANCH in case.weak for case in cases)
+        assert not any(case.is_clean for case in cases)

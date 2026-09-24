@@ -73,6 +73,38 @@ class TestRealPerceiver:
         assert issues[0].context["line"] == 1
         assert issues[0].severity == "low"
 
+    def test_same_name_imported_twice_is_reported_at_both_lines(self, work_dir):
+        # 同一个名字在两个地方各导入一次（py2/py3 分支、或历史上挪过位置）是那个年代最常见的
+        # 写法。按名字去重只会报第一处，第二处在结构上永远报不出来。
+        _write(
+            work_dir,
+            "mod.py",
+            "import os\n\n\ndef a():\n    return 1\n\n\nimport os\n\n\ndef b():\n    return 1\n",
+        )
+
+        issues = RealPerceiver().detect(_context(work_dir))
+
+        assert [issue.context["line"] for issue in issues] == [1, 8]
+        assert [issue.context["name"] for issue in issues] == ["os", "os"]
+
+    def test_every_unused_import_hands_its_name_to_the_oracle(self, work_dir):
+        # 删 import 的 oracle 靠 context["name"] 决定动哪个名字（按规矩不解析 message）。
+        # 少了它，感知器报得再多，oracle 也无从下手。
+        from hermes.plugins.default_autotestgen import RealSage
+
+        _write(work_dir, "a.py", "import json\n\n\ndef f():\n    return 1\n")
+        _write(work_dir, "b.py", "from typing import Dict\n\n\ndef g():\n    return 1\n")
+        context = _context(work_dir)
+
+        issues = [issue for issue in RealPerceiver().detect(context) if issue.type == "unused_import"]
+
+        assert len(issues) == 2
+        for issue in issues:
+            assert issue.context.get("name"), f"{issue.location} 没把名字交出来"
+            # 这一条才是真正的耦合点：oracle 读的就是它
+            assert RealSage._name_of(issue) == issue.context["name"]
+        assert {issue.context["name"] for issue in issues} == {"json", "Dict"}
+
     def test_clean_module_produces_no_claims_at_all(self, work_dir):
         _write(work_dir, "clean.py", "import json\n\n\ndef dump(x):\n    return json.dumps(x)\n")
 

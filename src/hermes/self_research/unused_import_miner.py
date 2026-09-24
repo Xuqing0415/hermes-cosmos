@@ -28,6 +28,8 @@ dynamic_usage 文件里有 ``eval``/``getattr``/``globals``/``setattr``：名字
 star_import   文件里有 ``from x import *``：unused 判断不可靠
 dotted_side_effect ``import a.b``（没有 ``as``）：可能靠导入触发副作用
 redefinition  人类删的是重复导入里的第一条（pyflakes 报的是 "redefinition of unused"）
+version_branch 同名导入出现在 ``if sys.version_info`` 的两个分支里：删哪一支要看目标版本，
+              静态判不了，所以按 ambiguous 处理（删是安全的，但不知道该删哪一处）
 ============ ================================================================
 """
 
@@ -46,6 +48,7 @@ WEAK_DYNAMIC_USAGE = "dynamic_usage"
 WEAK_STAR_IMPORT = "star_import"
 WEAK_DOTTED_SIDE_EFFECT = "dotted_side_effect"
 WEAK_REDEFINITION = "redefinition"
+WEAK_VERSION_BRANCH = "version_branch"
 
 UNUSED = "unused"
 REDEFINITION = "redefinition"
@@ -259,8 +262,12 @@ def _weaknesses(
     statement: str,
     kind: str,
     exports: Set[str],
+    branch_names: Set[str],
 ) -> List[str]:
     weak: List[str] = []
+    if any(name in branch_names for name in names):
+        # 同名导入出现在版本判断的两个分支里：删哪一支要看项目的目标版本，不能靠猜
+        weak.append(WEAK_VERSION_BRANCH)
     if relative.endswith("__init__.py"):
         # 删掉 __init__ 里的 import 等于改包的公开 API，不是「清理未使用导入」
         weak.append(WEAK_PACKAGE_INIT)
@@ -284,6 +291,97 @@ def _is_dotted_side_effect(statement: str) -> bool:
     if tree is None or len(tree.body) != 1 or not isinstance(tree.body[0], ast.Import):
         return False
     return any(alias.asname is None and "." in alias.name for alias in tree.body[0].names)
+
+
+def _mentions_version_info(node: ast.AST) -> bool:
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Attribute) and sub.attr == "version_info":
+            return True
+        if isinstance(sub, ast.Name) and sub.id == "version_info":
+            return True
+    return False
+
+
+def _assigned_names(node: ast.stmt) -> Tuple[List[ast.expr], Optional[ast.expr]]:
+    if isinstance(node, ast.Assign):
+        return list(node.targets), node.value
+    if isinstance(node, ast.AnnAssign) and node.value is not None:
+        return [node.target], node.value
+    return [], None
+
+
+def _referenced_names(node: ast.AST) -> Set[str]:
+    return {sub.id for sub in ast.walk(node) if isinstance(sub, ast.Name)}
+
+
+def _version_flag_names(tree: ast.Module) -> Set[str]:
+    """模块级赋值里（直接或间接）从 ``sys.version_info`` 推出来的名字。
+
+    ``is_py2 = sys.version_info[0] == 2`` 是第一手，``is_py27 = (is_py2 and ...)`` 是
+    第二手。只认第一手会漏掉 requests/flask 那类项目真正在用的分支变量 —— 它们几乎都写成
+    第二手（``_ver = sys.version_info`` / ``is_py2 = (_ver[0] == 2)``），所以要做到不动点。
+    """
+
+    assignments: List[Tuple[Set[str], ast.expr]] = []
+    for node in tree.body:
+        targets, value = _assigned_names(node)
+        if value is None:
+            continue
+        names = {target.id for target in targets if isinstance(target, ast.Name)}
+        if names:
+            assignments.append((names, value))
+
+    flags: Set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for names, value in assignments:
+            if names <= flags:
+                continue
+            if _mentions_version_info(value) or _referenced_names(value) & flags:
+                flags |= names
+                changed = True
+    return flags
+
+
+def _is_version_test(test: ast.expr, flags: Set[str]) -> bool:
+    if _mentions_version_info(test):
+        return True
+    return any(isinstance(sub, ast.Name) and sub.id in flags for sub in ast.walk(test))
+
+
+def _bound_import_names(node: ast.AST) -> List[str]:
+    if isinstance(node, ast.Import):
+        return [alias.asname or alias.name.split(".")[0] for alias in node.names]
+    if isinstance(node, ast.ImportFrom):
+        return [alias.asname or alias.name for alias in node.names if alias.name != "*"]
+    return []
+
+
+def version_branch_imports(source: str, filename: str = "<unknown>") -> Set[str]:
+    """在 ``if sys.version_info ...``（或 ``if PY2``）分支里被导入的名字。
+
+    那个年代最常见的写法是同一个名字在两个分支里各 import 一次，只有在目标版本上才知道
+    哪一支是活代码。静态层面判不了这件事，所以这一类标成 ``version_branch``：
+    删除是安全的，但「该删哪一支」需要项目声明的目标版本，不能靠猜。
+
+    顺带说明：``RealPerceiver`` 刻意不看版本判断里的导入（它把那种导入当成「未使用的判断
+    不可靠」），所以这一类配对在检出率上天生拿不到分 —— 这不是感知器失手。
+    """
+
+    tree = _parse_quiet(source, filename)
+    if tree is None:
+        return set()
+    flags = _version_flag_names(tree)
+    names: Set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If) or not _is_version_test(node.test, flags):
+            continue
+        for branch in (node.body, node.orelse):
+            for statement in branch:
+                for sub in ast.walk(statement):
+                    names.update(_bound_import_names(sub))
+    return names
 
 
 def _removed_imports_and_files(diff: str) -> Tuple[List[Tuple[str, str, int]], List[str]]:
@@ -346,6 +444,7 @@ def _cases_in_commit(repo, sha: str, date: str, subject: str, diff: str) -> List
         if not reports:
             continue
         exports = dunder_all_names(parent_source, relative)
+        branch_names = version_branch_imports(parent_source, relative)
         for statement, statement_file, statement_line in removed:
             if statement_file and statement_file != relative:
                 # import 删在另一个文件里 —— 不是这条缺陷的修法
@@ -371,7 +470,7 @@ def _cases_in_commit(repo, sha: str, date: str, subject: str, diff: str) -> List
                     line=statement_line,
                     names=sorted(unused),
                     statement=statement,
-                    weak=_weaknesses(relative, parent_source, unused, statement, kind, exports),
+                    weak=_weaknesses(relative, parent_source, unused, statement, kind, exports, branch_names),
                 )
             )
     return cases

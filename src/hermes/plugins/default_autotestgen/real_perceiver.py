@@ -259,6 +259,16 @@ class RealPerceiver(Perceiver):
         return issues
 
     def _unused_imports(self, tree: ast.Module, relative: str) -> List[PainPoint]:
+        """每个导入绑定各报一条，位置用它自己那一行。
+
+        去重键是 ``(名字, 行号)`` 而**不是名字**：同一个名字在同一个文件里被导入两次
+        （``import os`` 写在两处，或 py2/py3 两个分支各写一次）是那个年代最常见的写法，
+        按名字去重只会报出第一处，第二处在结构上永远报不出来。
+
+        名字要放进 ``context["name"]``：删 import 的 oracle 得知道动哪个名字，而它按
+        上一轮定下的规矩不去解析 message。
+        """
+
         imports = _module_imports(tree)
         if not imports:
             return []
@@ -269,11 +279,11 @@ class RealPerceiver(Perceiver):
         used = set(collector.loaded) | collector.string_constants
 
         issues: List[PainPoint] = []
-        seen: Set[str] = set()
+        seen: Set[Tuple[str, int]] = set()
         for name, source, lineno in imports:
-            if name in used or name in seen:
+            if name in used or (name, lineno) in seen:
                 continue
-            seen.add(name)
+            seen.add((name, lineno))
             issues.append(
                 self._pain_point(
                     relative,
@@ -282,6 +292,7 @@ class RealPerceiver(Perceiver):
                     "unused_import",
                     SEVERITY_UNUSED_IMPORT,
                     f"导入了 {source}，但模块里从未用到 {name!r}",
+                    name=name,
                 )
             )
         return issues
