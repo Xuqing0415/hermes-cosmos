@@ -253,6 +253,7 @@ class RealPerceiver(Perceiver):
                     "undefined_name",
                     SEVERITY_UNDEFINED,
                     f"使用了从未定义的名字 {name!r}",
+                    name=name,
                 )
             )
         return issues
@@ -293,12 +294,17 @@ class RealPerceiver(Perceiver):
         kind: str,
         severity: str,
         message: str,
+        name: Optional[str] = None,
     ) -> PainPoint:
+        context = {"line": lineno, "column": column, "file": relative, "check": kind}
+        if name is not None:
+            # 把名字结构化地带上：Sage 需要它来解析该导入什么，不该去解析 message
+            context["name"] = name
         return PainPoint(
             id=f"{relative}:{lineno}:{kind}",
             type=kind,
             severity=severity,
             message=f"{message}（{relative}:{lineno}）",
             location=relative,
-            context={"line": lineno, "column": column, "file": relative, "check": kind},
+            context=context,
         )

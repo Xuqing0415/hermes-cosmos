@@ -7,8 +7,8 @@
 它只用于对比与回归测试，**不参与任何结论**：真实缺陷基准测到的 ``false_claim_rate``
 就是这类假桩造成的。
 
-Sage 目前只有模板桩 ``StubSage``：它只认得演示用的 pain point 类型，对真实 pain point
-会生成 0 个操作。与其编造操作，不如让 Knight 如实拒绝。
+真实 Sage 只在能证明「import 什么」时才出补丁（见 ``real_sage.py`` 的四层 oracle），
+其余情况返回空 operations 并写明理由，由 Knight 如实拒绝执行。
 """
 
 import hashlib
@@ -28,6 +28,7 @@ from hermes.core.interfaces import (
 
 from .real_knight import RealKnight
 from .real_perceiver import RealPerceiver
+from .real_sage import RealSage
 
 MODE_REAL = "real"
 MODE_STUB = "stub"
@@ -187,7 +188,7 @@ class DefaultAutotestGenPlugin(DomainPlugin):
         return RealPerceiver() if self.mode == MODE_REAL else StubPerceiver()
 
     def get_sage(self) -> Sage:
-        return StubSage()
+        return RealSage() if self.mode == MODE_REAL else StubSage()
 
     def get_knight(self) -> Knight:
         return RealKnight() if self.mode == MODE_REAL else StubKnight()

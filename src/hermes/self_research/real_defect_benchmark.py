@@ -34,6 +34,9 @@ TAIL_LINES = 12
 #: 工作区指纹要忽略的目录：这些是跑测试的副产物，不是系统改动过的源码
 CACHE_DIRECTORIES = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 
+#: Sage 给补丁标注的可信度里，只有这一档表示「依赖关系已被证明」
+PROVEN_CONFIDENCE = "proven"
+
 
 @dataclass
 class DefectCase:
@@ -97,6 +100,7 @@ class CaseResult:
     claimed_locations: List[str] = field(default_factory=list)
     claimed_success: bool = False
     claimed_verifications: List[str] = field(default_factory=list)
+    claimed_confidences: List[str] = field(default_factory=list)
     files_touched: List[str] = field(default_factory=list)
     detected: bool = False
     repaired: bool = False
@@ -117,6 +121,7 @@ class CaseResult:
             "claimed_locations": self.claimed_locations,
             "claimed_success": self.claimed_success,
             "claimed_verifications": self.claimed_verifications,
+            "claimed_confidences": self.claimed_confidences,
             "files_touched": self.files_touched,
             "parent_outcome": self.parent_outcome.to_dict() if self.parent_outcome else None,
             "control_outcome": self.control_outcome.to_dict() if self.control_outcome else None,
@@ -170,6 +175,20 @@ class BenchmarkReport:
     def false_claims(self) -> int:
         return self.count("false_claim")
 
+    @property
+    def unproven_repairs(self) -> int:
+        """修好了、但补丁里有未经证明的猜测的用例数。单独报告，不混进修复率。"""
+
+        return sum(
+            1
+            for item in self.cases
+            if item.repaired and any(value != PROVEN_CONFIDENCE for value in item.claimed_confidences)
+        )
+
+    @property
+    def proven_repairs(self) -> int:
+        return self.repaired - self.unproven_repairs
+
     @staticmethod
     def _rate(part: int, whole: int) -> float:
         return round(part / whole, 4) if whole else 0.0
@@ -187,22 +206,29 @@ class BenchmarkReport:
             "inconclusive": self.inconclusive,
             "detected": self.detected,
             "repaired": self.repaired,
+            "proven_repairs": self.proven_repairs,
+            "unproven_repairs": self.unproven_repairs,
             "false_claims": self.false_claims,
             "reproduction_rate": self._rate(self.reproduced, self.total),
             # 检出率/修复率只在“有结论”的用例上算：把环境问题算进成功率是编数据
             "detection_rate": self._rate(self.detected, conclusive),
             "repair_rate": self._rate(self.repaired, conclusive),
+            # 另一条更严的口径：只算「依赖关系被证明过」的成功修复
+            "proven_repair_rate": self._rate(self.proven_repairs, conclusive),
             "false_claim_rate": self._rate(self.false_claims, conclusive),
             "results": [item.to_dict() for item in self.cases],
             "notes": self.notes,
         }
 
     def summary_line(self) -> str:
-        return (
+        line = (
             f"真实缺陷 {self.total} 例：可复现 {self.reproduced}、有结论 {self.conclusive}"
             f"（对照组也失败的 {self.inconclusive} 例不计入）、系统检出 {self.detected}、"
             f"真正修好 {self.repaired}、自称成功但没修好 {self.false_claims}"
         )
+        if self.unproven_repairs:
+            line += f"（其中 {self.unproven_repairs} 例靠未经证明的猜测修好，可信修复 {self.proven_repairs} 例）"
+        return line
 
     def markdown(self) -> str:
         lines = ["## 真实缺陷基准（来自真实项目 git 历史）", ""]
@@ -224,6 +250,10 @@ class BenchmarkReport:
             "“可复现”指把修复提交带的测试放到父提交上跑确实失败；"
             "“对照组”指同一测试在修复提交上通过；"
             "“真正修好”指系统跑完之后这些测试通过。"
+        )
+        lines.append(
+            f"修复里依据被证明过的有 {self.proven_repairs} 例、依据未经证明（靠猜）的有 "
+            f"{self.unproven_repairs} 例；后者即便测试通过，也不能算作可信修复。"
         )
         for note in self.notes:
             lines.append(f"- 说明：{note}")
@@ -478,6 +508,7 @@ class RealDefectBenchmark:
             result.claimed_locations = claims["locations"]
             result.claimed_success = claims["success"]
             result.claimed_verifications = claims["verifications"]
+            result.claimed_confidences = claims["confidences"]
             result.files_touched = sorted(set(before) ^ set(after)) + sorted(
                 path for path in set(before) & set(after) if before[path] != after[path]
             )
@@ -510,28 +541,43 @@ class RealDefectBenchmark:
                 result.notes.append(f"系统报出的位置是 {claims['locations']}，与缺陷文件无关")
             if not claims["locations"] and claims["pain_points"] == 0:
                 result.notes.append("系统的 Perceiver 没有报出任何问题")
+            unproven = sorted({value for value in claims["confidences"] if value != PROVEN_CONFIDENCE})
+            if unproven:
+                result.notes.append(
+                    f"补丁的依据未经证明（{', '.join(unproven)}）：即便测试通过，也只是猜对了，" "不能算作可信修复"
+                )
         finally:
             self._cleanup(repo, parent_wt, fixed_wt)
         return result
 
     def _run_system(self, worktree: str) -> Dict[str, Any]:
-        """跑一遍系统的 感知->提议->执行/验证 流程，只记录它声称了什么。"""
+        """跑一遍系统的 感知->提议->执行/验证 流程，只记录它声称了什么。
+
+        补丁落在基准自己创建的一次性 worktree 里（``apply_to``）：系统不会碰别的地方，
+        随后由基准**独立地**重跑测试来判定到底修好没有——那个判据不经过系统自己。
+
+        一次只应用第一个 pain point 的补丁：多个补丁同时落地时，测试失败无法归因，
+        会把不是它的账算到它头上。
+        """
 
         from hermes.core.plugin_manager import PluginManager
 
         plugin = PluginManager().get_plugin("default")
         if plugin is None:
-            return {"pain_points": 0, "locations": [], "success": False, "verifications": []}
+            return {"pain_points": 0, "locations": [], "success": False, "verifications": [], "confidences": []}
 
-        context = plugin.create_context(worktree)
+        # 把可写的临时目录交给系统：本机 %TEMP% 不可写，一碰 tempfile 的测试会假失败
+        context = plugin.create_context(worktree, pytest_tmpdir=os.path.join(self._work_root, "_tmp"))
         perceiver, sage, knight = plugin.get_perceiver(), plugin.get_sage(), plugin.get_knight()
         pain_points = perceiver.detect(context)
         locations = sorted({str(item.location) for item in pain_points if item.location})
         success = False
         verifications: List[str] = []
-        for pain_point in list(pain_points)[:2]:
+        confidences: List[str] = []
+        for pain_point in list(pain_points)[:1]:
             plan = sage.generate_patch(context, pain_point)
-            execution = knight.execute(context, plan)
+            confidences.extend(str(operation.get("confidence", "unknown")) for operation in plan.operations)
+            execution = knight.execute(context, plan, apply_to=worktree)
             verification = knight.verify(context, plan)
             success = success or bool(execution.success) or bool(verification.success)
             verifications.extend(
@@ -543,6 +589,7 @@ class RealDefectBenchmark:
             "locations": locations,
             "success": success,
             "verifications": verifications,
+            "confidences": confidences,
         }
 
     @staticmethod

@@ -203,6 +203,35 @@ python autotestgen.py --domain default --path <项目目录>   # 默认 mode=rea
 - **`StubPerceiver` / `StubKnight`（mode="stub"）**：旧的演示行为（固定报 `api/handler.py`、
   无条件 `success=True`）被完整保留，但只用于对比与回归测试，不参与任何结论。
 
+#### 真实 Sage：只在能证明「import 什么」时才出补丁
+
+写一行 `from X import Y` 是 trivial 的，难的是决定 X 和 Y：同一个未定义名可能来自项目内部、
+第三方依赖、标准库，也可能是 `globals()` 动态注入。猜错的结果是补丁应用成功、测试却失败。
+所以 `real_sage.py` 是一个 oracle 而不是生成器——逐层收集**可证明**的候选，只有唯一候选才落笔：
+
+| 层 | 判据 | 产出 | 可信度 |
+| --- | --- | --- | --- |
+| 1 标准库模块 | `name in sys.stdlib_module_names` | `import os` | proven |
+| 2 标准库符号 | 各模块的**公开名**（`__all__`，或非下划线非子模块）+ 唯一 | `from collections import Counter` | unproven |
+| 3 项目内符号 | 扫描项目 `.py` 顶层 def/class/赋值，唯一匹配 | `from pkg.utils import helper` | proven |
+| 4 已声明依赖 | 读 pyproject/requirements + `find_spec` | `import click` | unproven |
+
+两条硬约束：**唯一匹配**（多于一个就拒绝，不猜、不投票）、**宁缺毋滥**（没有候选就返回空
+operations 并写明理由）。第 2、4 层的绑定语法上一定成立，但「想用的是它」没被证明，因此标为
+unproven——基准会把这类补丁单独报告，不混进主修复率。
+
+自查时抓到的两个真实坑：`hasattr(contextlib, "os")` 为真（那是模块内部的 import，不是导出），
+`typing.Counter` 是泛型别名（真身在 `__origin__`）——两个都会把明明唯一的答案变成「多个来源」。
+
+**Knight 只写隔离副本**：`execute()` 默认把目标复制到隔离目录、在副本里应用并跑测试、然后删掉
+副本（`artifacts["isolated"]`）；建不出隔离目录就直接失败，**绝不退化成原地修改**。基准测试用
+`apply_to=` 明确把补丁交给它自己的一次性 worktree，然后再**独立**重跑测试判定是否真的修好。
+
+验证（`tests/test_real_sage.py`，13 项）：四条合成用例（`os` / `Counter` / 项目内 `helper` /
+无法证明的 `foo`）都在真实 pytest 下验证「补丁前红、补丁后绿且没有新失败」；两个真实历史用例
+（本仓库提交 `22c0503e` 修 `List` 未定义）中，oracle 给出的 `from typing import List` 与人类当年
+补的完全一致。
+
 ## 架构
 
 ### 组件
