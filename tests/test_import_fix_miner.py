@@ -20,6 +20,7 @@ from hermes.self_research.import_fix_miner import (
     WEAK_NOT_RESOLVED,
     WEAK_PY2,
     WEAK_TYPE_CHECKING,
+    GraderUnavailable,
     import_bindings,
     mine_repository,
 )
@@ -80,6 +81,25 @@ def _repo(root: pathlib.Path) -> pathlib.Path:
 
 def _cases(repo: pathlib.Path) -> list:
     return mine_repository(str(repo), limit=None, max_cases=50).cases
+
+
+class TestGraderIsRequired:
+    def test_missing_pyflakes_raises_instead_of_reporting_no_defects(self, work_dir, monkeypatch):
+        # 悄悄返回空会被读成「这个项目从没修过未定义名」—— 由环境缺失编出来的结论。
+        import hermes.self_research.import_fix_miner as miner
+
+        repo = _repo(work_dir)
+        _write(repo, "app.py", "def go():\n    return os.getcwd()\n")
+        _commit(repo, "feat: go")
+        _write(repo, "app.py", "import os\n\n\ndef go():\n    return os.getcwd()\n")
+        _commit(repo, "fix: missing import")
+
+        def _fail():
+            raise GraderUnavailable("没有 pyflakes")
+
+        monkeypatch.setattr(miner, "_load_grader", _fail)
+        with pytest.raises(GraderUnavailable):
+            mine_repository(str(repo), limit=None, max_cases=10)
 
 
 class TestImportBindings:

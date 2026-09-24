@@ -17,3 +17,5 @@ httpx>=0.24
 prometheus-client>=0.20
 onnxruntime>=1.16
 PyYAML>=6.0
+# 未定义名基准的第三方判据（import_fix_miner 用它判定父状态缺哪个名字）
+pyflakes>=3.0

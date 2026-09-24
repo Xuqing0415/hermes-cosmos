@@ -166,12 +166,7 @@ class MineReport:
 def undefined_names(source: str, filename: str) -> List[Tuple[int, str]]:
     """用 pyflakes 找出未定义名，返回 ``[(行号, 名字)]``（第三方判据，不是自己的感知器）。"""
 
-    try:
-        from pyflakes.api import check
-        from pyflakes.reporter import Reporter
-    except ImportError:  # pragma: no cover - 环境缺 pyflakes
-        return []
-
+    check, Reporter = _load_grader()
     found: List[Tuple[int, str]] = []
 
     class _Collector(Reporter):
@@ -191,6 +186,28 @@ def undefined_names(source: str, filename: str) -> List[Tuple[int, str]]:
     with _quiet():
         check(source, filename, _Collector(io.StringIO(), io.StringIO()))
     return sorted(set(found))
+
+
+def _load_grader():
+    """取第三方判据（pyflakes）。缺了它**必须炸**，不能悄悄返回空。
+
+    悄悄返回空会被读成「这个项目从没修过未定义名」—— 一个由环境缺失编出来的结论，
+    正是本项目最该避免的那类假报告。
+    """
+
+    try:
+        from pyflakes.api import check
+        from pyflakes.reporter import Reporter
+    except ImportError as error:
+        raise GraderUnavailable(
+            "挖未定义名需要 pyflakes 当第三方判据（flake8 会把它一起装上）；"
+            "装了才能挖，因为「判不出来」和「没有缺陷」是两件事。"
+        ) from error
+    return check, Reporter
+
+
+class GraderUnavailable(RuntimeError):
+    """缺少第三方判据。与「没有找到缺陷」严格区分。"""
 
 
 @contextlib.contextmanager
