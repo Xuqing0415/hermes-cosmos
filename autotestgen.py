@@ -1047,6 +1047,45 @@ def run_import_fix_benchmark(repo_path=None, cases: int = 150, output_path=None,
     return 0
 
 
+def run_unused_import_benchmark(repo_path=None, pairs: int = 150, output_path=None, work_dir=None, mine_only=False):
+    """减法那一侧：挖「人类删掉没用到的 import」的配对，再看系统能不能动手。
+
+    目前预期是「看得见、但动不了」—— RealSage 只有补 import 的模板。这个数字要如实跑出来，
+    它是下一步该做什么的依据。
+    """
+    from hermes.self_research import evaluate_unused_imports, mine_unused_imports
+
+    if not repo_path:
+        print("Error: --unused-import-benchmark requires --repo (a local clone of a real project)")
+        return 1
+
+    if mine_only:
+        mined = mine_unused_imports(repo_path, max_cases=pairs * 3)
+        print(f"[UnusedImportMiner] {mined.summary_line()}")
+        print(f"  weak 分类：{mined.weak_reasons}")
+        payload = mined.to_dict()
+    else:
+        work_root = work_dir or os.path.join(".tmp_test", "unused_import")
+        print(f"[UnusedImportBenchmark] repo={repo_path} max_pairs={pairs} worktree={work_root}")
+        report = evaluate_unused_imports(repo_path, max_pairs=pairs, work_root=work_root)
+        print(f"\n[UnusedImportBenchmark] {report.report_line()}")
+        for item in report.outcomes[:20]:
+            print(
+                f"  - {item.file}:{item.line} {item.names} 检出={item.detected} "
+                f"名字交出={item.name_exposed} 决策={item.decision} {item.reason[:80]}"
+            )
+        for note in report.notes:
+            print(f"  [说明] {note}")
+        payload = report.to_dict()
+
+    destination = output_path or os.path.join("papers", "unused_import_benchmark.json")
+    os.makedirs(os.path.dirname(destination) or ".", exist_ok=True)
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    print(f"  结果：{destination}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
     parser.add_argument(
@@ -1109,6 +1148,19 @@ def main():
         type=int,
         default=150,
         help="How many mined import-fix pairs to score for --import-fix-benchmark",
+    )
+    parser.add_argument(
+        "--unused-import-benchmark",
+        action="store_true",
+        help=(
+            "Mine real 'human deleted an unused import' pairs and measure whether the system can "
+            "act on them (the subtractive side)"
+        ),
+    )
+    parser.add_argument(
+        "--mine-only",
+        action="store_true",
+        help="Only mine the pairs for --unused-import-benchmark, skip running the oracle",
     )
     parser.add_argument(
         "--case-timeout",
@@ -1198,6 +1250,18 @@ def main():
             cases=args.max_pairs,
             output_path=args.output,
             work_dir=args.benchmark_work_dir,
+        )
+        if code:
+            sys.exit(code)
+        return
+
+    if args.unused_import_benchmark:
+        code = run_unused_import_benchmark(
+            args.repo or args.path,
+            pairs=args.max_pairs,
+            output_path=args.output,
+            work_dir=args.benchmark_work_dir,
+            mine_only=args.mine_only,
         )
         if code:
             sys.exit(code)
