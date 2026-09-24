@@ -1053,7 +1053,8 @@ def run_unused_import_benchmark(repo_path=None, pairs: int = 150, output_path=No
     目前预期是「看得见、但动不了」—— RealSage 只有补 import 的模板。这个数字要如实跑出来，
     它是下一步该做什么的依据。
     """
-    from hermes.self_research import evaluate_unused_imports, mine_unused_imports
+    from hermes.self_research.unused_import_benchmark import evaluate_repository as evaluate_unused_imports
+    from hermes.self_research.unused_import_miner import mine_repository as mine_unused_imports
 
     if not repo_path:
         print("Error: --unused-import-benchmark requires --repo (a local clone of a real project)")

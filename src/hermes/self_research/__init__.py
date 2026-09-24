@@ -78,20 +78,8 @@ from .statistical_analyzer import (
     StrategyStat,
     TrendResult,
 )
-from .unused_import_benchmark import (
-    RemovalOutcome,
-    UnusedBenchmarkReport,
-)
-from .unused_import_benchmark import evaluate_repository as evaluate_unused_imports
-from .unused_import_miner import (
-    RemovedImportCase,
-    UnusedImportReport,
-    dunder_all_names,
-)
-from .unused_import_miner import mine_repository as mine_unused_imports
-from .unused_import_miner import (
-    unused_import_names,
-)
+from .unused_import_benchmark import RemovalOutcome, UnusedBenchmarkReport
+from .unused_import_miner import RemovedImportCase, UnusedImportReport, dunder_all_names, unused_import_names
 from .weakness_ranker import RankedWeakness, WeaknessRanker, WeaknessRanking
 
 __all__ = [
@@ -180,7 +168,5 @@ __all__ = [
     "UnusedBenchmarkReport",
     "RemovalOutcome",
     "dunder_all_names",
-    "mine_unused_imports",
     "unused_import_names",
-    "evaluate_unused_imports",
 ]
