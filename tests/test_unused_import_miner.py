@@ -15,10 +15,12 @@ from hermes.self_research.unused_import_miner import (
     UNUSED,
     WEAK_DOTTED_SIDE_EFFECT,
     WEAK_DYNAMIC_USAGE,
+    WEAK_NOT_A_DELETION,
     WEAK_PACKAGE_INIT,
     WEAK_REDEFINITION,
     WEAK_STAR_IMPORT,
     WEAK_VERSION_BRANCH,
+    child_import_bindings,
     dunder_all_names,
     mine_repository,
     unused_import_names,
@@ -285,3 +287,97 @@ class TestMiner:
         assert cases, "这条配对应该被挖出来"
         assert all(WEAK_VERSION_BRANCH in case.weak for case in cases)
         assert not any(case.is_clean for case in cases)
+
+
+class TestChildImportBindings:
+    def test_module_level_import_is_bound(self):
+        assert child_import_bindings("from os import path\n") == {"path": ("os", "path")}
+
+    def test_plain_import_binds_the_top_level_name(self):
+        assert child_import_bindings("import os.path\n") == {"os": ("", "os.path")}
+
+    def test_branches_are_walked(self):
+        # python2/3 的两个分支都算：人类只删了一支时，名字仍在另一支上绑着
+        source = (
+            "import sys\n\n"
+            "if sys.version_info[0] == 3:\n"
+            "    from urllib.parse import urlparse\n"
+            "else:\n"
+            "    from urlparse import urlparse\n"
+        )
+        assert "urlparse" in child_import_bindings(source)
+
+    def test_function_local_import_does_not_count(self):
+        # 函数体里的同名绑定不能证明「这条模块级 import 还在」
+        assert child_import_bindings("def f():\n    from os import path\n    return path\n") == {}
+
+    def test_unparsable_source_binds_nothing(self):
+        assert child_import_bindings("def (:\n") == {}
+
+
+class TestNotADeletion:
+    """diff 说「这行被删了」，可子状态里这些名字还是一次 import 绑定。
+
+    这一类根本不是删除，测不出「删除安不安全」，必须踢出分母 —— 否则基准的分母里混着
+    一堆「人类其实没删」的样本，算出来的删除能力就是假的。
+    """
+
+    def test_black_wrapping_is_not_a_deletion(self, work_dir):
+        repo = _repo(work_dir)
+        _write(repo, "app.py", "from os import path\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "feat: go")
+        _write(repo, "app.py", "from os import (\n    path,\n)\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "style: black")
+
+        cases = _cases(repo)
+        assert len(cases) == 1
+        assert WEAK_NOT_A_DELETION in cases[0].weak
+        assert not cases[0].is_clean
+
+    def test_moving_the_import_to_another_module_is_not_a_deletion(self, work_dir):
+        # requests 的 vendoring：from poster.encode import multipart_encode
+        #                      -> from packages.poster.encode import multipart_encode
+        repo = _repo(work_dir)
+        _write(repo, "app.py", "from poster.encode import multipart_encode\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "feat: go")
+        _write(repo, "app.py", "from packages.poster.encode import multipart_encode\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "vendor: poster")
+
+        cases = _cases(repo)
+        assert len(cases) == 1
+        assert WEAK_NOT_A_DELETION in cases[0].weak
+
+    def test_dropping_only_one_version_branch_is_not_a_deletion(self, work_dir):
+        # python2/3 兼容写法：同名 import 分在两个分支里，人类只删了其中一支
+        repo = _repo(work_dir)
+        _write(
+            repo,
+            "app.py",
+            "import sys\n\nif sys.version_info >= (3,):\n    from json import dumps\nelse:\n"
+            "    from simplejson import dumps\n\n\ndef go():\n    return 1\n",
+        )
+        _commit(repo, "feat: queue shim")
+        _write(
+            repo,
+            "app.py",
+            "import sys\n\nif sys.version_info >= (3,):\n    from json import dumps\nelse:\n"
+            "    pass\n\n\ndef go():\n    return 1\n",
+        )
+        _commit(repo, "cleanup: drop the py2 shim")
+
+        cases = _cases(repo)
+        assert cases, "这条配对应该被挖出来"
+        assert all(WEAK_NOT_A_DELETION in case.weak for case in cases)
+        assert not any(case.is_clean for case in cases)
+
+    def test_partly_removed_statement_is_still_a_deletion(self, work_dir):
+        # 一条语句删掉一半：sep 真的没了，这条配对没被误伤
+        repo = _repo(work_dir)
+        _write(repo, "app.py", "from os import path, sep\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "feat: go")
+        _write(repo, "app.py", "from os import path\n\n\ndef go():\n    return 1\n")
+        _commit(repo, "cleanup: drop sep")
+
+        cases = _cases(repo)
+        assert len(cases) == 1
+        assert WEAK_NOT_A_DELETION not in cases[0].weak

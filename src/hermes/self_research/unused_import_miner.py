@@ -22,6 +22,9 @@
 ============ ================================================================
 weak 原因      含义
 ============ ================================================================
+not_a_deletion diff 里那行「被删了」，但子状态里这些名字还是一条模块级 import 绑定：black
+              折行、括号重排、python2/3 两个分支只删了一支、把 import 换个来源模块重绑、
+              或删掉的是重复导入里的一条。这一类根本不是删除，测不出「删除安不安全」。
 package_init  被删的文件是 ``__init__.py``：删掉等于改包的公开 API
 in_dunder_all 名字在该文件的 ``__all__`` 里（``__all__`` 是拼出来的才会被 pyflakes 漏掉）
 dynamic_usage 文件里有 ``eval``/``getattr``/``globals``/``setattr``：名字可能被字符串拼出来
@@ -49,6 +52,7 @@ WEAK_STAR_IMPORT = "star_import"
 WEAK_DOTTED_SIDE_EFFECT = "dotted_side_effect"
 WEAK_REDEFINITION = "redefinition"
 WEAK_VERSION_BRANCH = "version_branch"
+WEAK_NOT_A_DELETION = "not_a_deletion"
 
 UNUSED = "unused"
 REDEFINITION = "redefinition"
@@ -255,6 +259,38 @@ def uses_dynamic_lookup(source: str, filename: str = "<unknown>") -> bool:
     return False
 
 
+def child_import_bindings(source: str, filename: str = "<unknown>") -> Dict[str, Tuple[str, str]]:
+    """子状态里模块级 import 还绑着哪些名字 -> ``名字: (来源模块, 原始名字)``。
+
+    只看模块级（含 ``if``/``try``/``with`` 分支）：删的是一条模块级 import，函数体里的同名
+    局部绑定不能证明「这条 import 还在」。但分支必须看 —— python2/3 兼容写法把同名 import
+    写在 ``if sys.version_info`` 的两个分支里，人类常常只删掉其中一支。
+    """
+
+    tree = _parse_quiet(source, filename)
+    if tree is None:
+        return {}
+
+    bound: Dict[str, Tuple[str, str]] = {}
+    stack: List[ast.stmt] = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound.update(import_bindings(ast.unparse(node)))
+        elif isinstance(node, ast.If):
+            stack.extend(node.body)
+            stack.extend(node.orelse)
+        elif isinstance(node, ast.Try):
+            stack.extend(node.body)
+            stack.extend(node.orelse)
+            stack.extend(node.finalbody)
+            for handler in node.handlers:
+                stack.extend(handler.body)
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            stack.extend(node.body)
+    return bound
+
+
 def _weaknesses(
     relative: str,
     parent_source: str,
@@ -263,8 +299,13 @@ def _weaknesses(
     kind: str,
     exports: Set[str],
     branch_names: Set[str],
+    still_bound: Sequence[str] = (),
 ) -> List[str]:
     weak: List[str] = []
+    if names and len(still_bound) == len(names):
+        # 子状态里这些名字还是一条模块级 import 绑定：diff 说「删了」，文件里它还在。
+        # 格式化折行、python2/3 只删一支、换个来源模块重绑，都会长成这样 —— 是搬家，不是删除。
+        weak.append(WEAK_NOT_A_DELETION)
     if any(name in branch_names for name in names):
         # 同名导入出现在版本判断的两个分支里：删哪一支要看项目的目标版本，不能靠猜
         weak.append(WEAK_VERSION_BRANCH)
@@ -445,6 +486,8 @@ def _cases_in_commit(repo, sha: str, date: str, subject: str, diff: str) -> List
             continue
         exports = dunder_all_names(parent_source, relative)
         branch_names = version_branch_imports(parent_source, relative)
+        child_source = repo.file_at(sha, relative)
+        child_bindings = child_import_bindings(child_source, relative) if child_source else {}
         for statement, statement_file, statement_line in removed:
             if statement_file and statement_file != relative:
                 # import 删在另一个文件里 —— 不是这条缺陷的修法
@@ -460,6 +503,7 @@ def _cases_in_commit(repo, sha: str, date: str, subject: str, diff: str) -> List
             if not unused:
                 continue
             kind = REDEFINITION if REDEFINITION in kinds else UNUSED
+            survived = [name for name in unused if name in child_bindings]
             cases.append(
                 RemovedImportCase(
                     sha=sha,
@@ -470,7 +514,16 @@ def _cases_in_commit(repo, sha: str, date: str, subject: str, diff: str) -> List
                     line=statement_line,
                     names=sorted(unused),
                     statement=statement,
-                    weak=_weaknesses(relative, parent_source, unused, statement, kind, exports, branch_names),
+                    weak=_weaknesses(
+                        relative,
+                        parent_source,
+                        unused,
+                        statement,
+                        kind,
+                        exports,
+                        branch_names,
+                        survived,
+                    ),
                 )
             )
     return cases
