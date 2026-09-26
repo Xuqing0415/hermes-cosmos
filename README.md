@@ -232,6 +232,40 @@ unproven——基准会把这类补丁单独报告，不混进主修复率。
 （本仓库提交 `22c0503e` 修 `List` 未定义）中，oracle 给出的 `from typing import List` 与人类当年
 补的完全一致。
 
+### 减法那一侧：人类删掉的 unused import
+
+补 import 是加法，删 import 是减法。挖矿判据从「人类加了 import」换成「人类删了 import」，
+配对逻辑复用；`not_a_deletion` 是一类新增的弱样本——diff 说「删了这一行」，但文件里这个名字
+仍然绑在模块上（black 折行、括号重排、注释保留），它不能算干净配对。
+
+```bash
+# 只挖配对、不跑 oracle：先看分母有多少是干净的
+python autotestgen.py --unused-import-benchmark --mine-only \
+    --repo .tmp_test/real_bench/requests
+```
+
+四个真实仓库，同一默认参数（`--max-pairs 150`）下 `not_a_deletion` 判据上线前后的对比：
+
+| 仓库 | 候选配对 | 干净配对（修复前） | 干净配对（当前） | `not_a_deletion`（当前） |
+| --- | --- | --- | --- | --- |
+| `psf/requests` | 229 | 74 | **50** | 99 |
+| `pallets/flask` | 185 | 59 | **55** | 80 |
+| `python-attrs/attrs` | 17 | 7 | **5** | 11 |
+| `pallets/click` | 6 | 0 | **0** | 0 |
+| 合计 | 437 | 140 | **110** | 190 |
+
+分母缩水 30 条不是退步：那 30 条落进了上面那列弱分类里（绝大多数是 `not_a_deletion`，
+即「diff 删了、文件里名字还在」的假配对），留着只会把来源一致率算得偏高。
+这里要的是**干净的分母**，不是好看的分母。
+
+同一个仓库里剩下的弱样本也逐类列了出来（`package_init` / `dynamic_usage` / `version_branch` /
+`star_import` / `redefinition` / `dotted_side_effect`），每一类都注明了它为什么不算干净配对——
+它们不是「暂时没实现」，而是「用当前判据无法证明」，按同一套口径排除出分母。
+
+**还没测的**：删掉一条 import 之后，「测试还绿」只说明它没被本仓库的测试用到，不等于删对了——
+`package_init` 那类再导出、`dotted_side_effect` 那类副作用导入，下游可能坏掉而本仓库测不出来。
+运行期假阳性率因此仍标记为**未测**，不使用删 import 的自动补丁。
+
 ## 架构
 
 ### 组件
