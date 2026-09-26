@@ -306,6 +306,18 @@ def run_cross_domain_knowledge(demo: bool = False):
     print(f"\n[CrossDomain] Knowledge amalgamated. {new_patterns} new abstract patterns added.")
 
 
+def format_cross_domain_line(transfers: int, total: int) -> str:
+    """跨域迁移那一行的三个数字必须自洽。
+
+    原来打印的是 ``{迁移次数}/{全部用例数} ({整体通过率}%)``：分子是迁移次数、分母是全部
+    用例、括号里却是另一个比例，三个数字互不相干，读起来像「15 次迁移一次都没成」。
+    现在分子、分母、百分比说的是同一件事：有多少用例是靠跨域知识修好的。
+    """
+
+    rate = (transfers / total * 100) if total else 0.0
+    return f"  - Cross-domain transfer: {transfers}/{total} cases ({rate:.0f}%)"
+
+
 def run_self_experiment(demo: bool = False):
     from hermes.cross_domain import (
         CapabilityBenchmark,
@@ -348,10 +360,7 @@ def run_self_experiment(demo: bool = False):
         rate = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
         print(f"  - {domain_label}: {stats['passed']}/{stats['total']} passed ({rate:.0f}%)")
 
-    print(
-        f"  - Cross-domain transfer success: {domain_pass['cross_domain_transfers']}"
-        f"/{domain_pass['total']} ({domain_pass['pass_rate']:.0f}%)"
-    )
+    print(format_cross_domain_line(domain_pass["cross_domain_transfers"], domain_pass["total"]))
 
     print("\n[GapAnalyzer] Analyzing gaps...")
     gap_report = gap_analyzer.analyze(report)
