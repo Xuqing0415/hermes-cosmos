@@ -258,7 +258,7 @@ class SelfEvolvingFederatedLearning:
 
             # Check time limit
             if time.time() - start_time > max_time_seconds:
-                logger.warning("⏰ Time limit reached, stopping evolution")
+                logger.warning("[TIME] Time limit reached, stopping evolution")
                 break
 
             logger.info(f"\n{'='*60}")

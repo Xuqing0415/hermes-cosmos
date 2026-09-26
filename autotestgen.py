@@ -33,26 +33,52 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 
-def _use_utf8_console() -> None:
+def _use_utf8_console():
     """让 Windows 控制台按 UTF-8 输出，避免 GBK 编码下打印中文/符号直接抛异常。
 
     Python 在 Windows 上默认用控制台的 ANSI 代码页（简体中文环境通常是 GBK），
     一旦输出 GBK 覆盖不到的字符就会 `UnicodeEncodeError`，整个流水线中断。
     这里把标准输出/错误换成 UTF-8 且 `errors="replace"`——最坏情况是显示成
     问号，而不是让程序崩掉。
+
+    返回一个还原回调，调用方必须在结束时调用它；本函数刻意**不在 import 时执行**，
+    否则任何 `import autotestgen` 都会悄悄换掉 `sys.stdout`——pytest 的 capsys
+    会因此抓不到输出，而且结果取决于谁先导入（flaky 的根源）。
     """
 
     if sys.platform != "win32":
-        return
+        return lambda: None
+
+    originals = {}
+    wrappers = []
     for stream_name in ("stdout", "stderr"):
         stream = getattr(sys, stream_name, None)
         buffer = getattr(stream, "buffer", None)
         if buffer is None:
             continue
-        setattr(sys, stream_name, io.TextIOWrapper(buffer, encoding="utf-8", errors="replace"))
+        wrapper = io.TextIOWrapper(buffer, encoding="utf-8", errors="replace")
+        originals[stream_name] = stream
+        wrappers.append(wrapper)
+        setattr(sys, stream_name, wrapper)
 
+    def restore() -> None:
+        for wrapper in wrappers:
+            try:
+                wrapper.flush()
+            except Exception:
+                pass
+            # TextIOWrapper 被回收时会顺手关掉底层 buffer，而那个 buffer 通常是别人的
+            # （pytest 的 capsys、日志 handler 都可能）——先 detach 再放手，否则
+            # 「还原」这一步本身就会把别人的流关掉。
+            try:
+                wrapper.detach()
+            except Exception:
+                pass
+        wrappers.clear()
+        for stream_name, original in originals.items():
+            setattr(sys, stream_name, original)
 
-_use_utf8_console()
+    return restore
 
 
 def run_domain_analysis(domain: str, path: str, cross_domain: bool = False, **kwargs):
@@ -1097,6 +1123,16 @@ def run_unused_import_benchmark(repo_path=None, pairs: int = 150, output_path=No
 
 
 def main():
+    """CLI 入口。编码切换只在这里发生，退出时（含 sys.exit / 异常）一定还原。"""
+
+    restore_console = _use_utf8_console()
+    try:
+        _main_impl()
+    finally:
+        restore_console()
+
+
+def _main_impl():
     parser = argparse.ArgumentParser(description="AutoTestGen 3.0 - Plugin-based Domain Adaptation")
     parser.add_argument(
         "--domain", "-d", help="Target domain (default, mlir, k8s, cross_knowledge, self_experiment, evolution_monitor)"
