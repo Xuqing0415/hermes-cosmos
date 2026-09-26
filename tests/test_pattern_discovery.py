@@ -80,7 +80,8 @@ class TestKnownInputsProduceExpectedClusters:
 
         discovered = _engine(nodes).discover_new_patterns()
 
-        assert discovered[0].domains == ["k8s", "python"]
+        # domains 在实现里是 set 转出来的，顺序不保证；这里只钉住内容。
+        assert sorted(discovered[0].domains) == ["k8s", "python"]
 
     def test_edges_alone_can_join_two_nodes_with_different_keywords(self):
         nodes = [
