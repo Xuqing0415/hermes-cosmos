@@ -588,6 +588,22 @@ class PaperWriter:
         else:
             lines.append("未计算置信度。")
 
+        lines.extend(["", "### 6.6 成功声明审计", ""])
+        audit = integrity.get("claim_audit") or {}
+        if audit:
+            claims = audit.get("claims") or []
+            lines.append(f"扫描 {audit.get('scanned_files', 0)} 个源文件。{audit.get('summary', '')}")
+            for item in claims:
+                verdict = "已证成" if item.get("verdict") == "VERIFIED" else "未经证成"
+                lines.append(
+                    f"- [{verdict}] {item.get('file')}:{item.get('line')} {item.get('function')}() "
+                    f"判据 {item.get('criteria_count', 0)} 条 —— {item.get('statement')}"
+                )
+            if audit.get("note"):
+                lines.append(f"- {audit['note']}")
+        else:
+            lines.append("- 本次运行未执行成功声明审计。")
+
         return "\n".join(lines)
 
     def _discussion(self, context: Dict[str, Any], findings: List[Dict[str, Any]]) -> str:

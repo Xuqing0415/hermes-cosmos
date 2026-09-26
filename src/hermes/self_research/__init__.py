@@ -78,6 +78,12 @@ from .statistical_analyzer import (
     StrategyStat,
     TrendResult,
 )
+from .success_claim_auditor import (
+    ClaimAuditReport,
+    ClaimCriterion,
+    SuccessClaim,
+    SuccessClaimAuditor,
+)
 from .unused_import_benchmark import RemovalOutcome, UnusedBenchmarkReport
 from .unused_import_miner import RemovedImportCase, UnusedImportReport, dunder_all_names, unused_import_names
 from .weakness_ranker import RankedWeakness, WeaknessRanker, WeaknessRanking
@@ -128,6 +134,10 @@ __all__ = [
     "ProvenanceReport",
     "EvidenceGrade",
     "EvidenceGrader",
+    "ClaimAuditReport",
+    "ClaimCriterion",
+    "SuccessClaim",
+    "SuccessClaimAuditor",
     "Disclaimer",
     "IntegrityChecker",
     "IntegrityReport",

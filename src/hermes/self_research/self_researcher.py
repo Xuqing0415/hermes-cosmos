@@ -17,6 +17,7 @@ from hermes.self_research.latex_compiler import CompileResult, LatexCompiler
 from hermes.self_research.paper_writer import Paper, PaperWriter
 from hermes.self_research.research_data_collector import ResearchDataCollector, ResearchDataset
 from hermes.self_research.statistical_analyzer import StatisticalAnalysis, StatisticalAnalyzer
+from hermes.self_research.success_claim_auditor import ClaimAuditReport, SuccessClaimAuditor
 
 FORMAT_EXTENSIONS = {"markdown": ".md", "latex": ".tex", "pdf": ".pdf"}
 
@@ -29,6 +30,8 @@ class SelfResearchConfig:
     prefer_png: bool = True
     compile_pdf: bool = False
     integrity_report: bool = False
+    claim_audit: bool = True
+    repo_root: Optional[str] = None
     alpha: float = 0.05
     verbose: bool = True
 
@@ -40,6 +43,8 @@ class SelfResearchConfig:
             "prefer_png": self.prefer_png,
             "compile_pdf": self.compile_pdf,
             "integrity_report": self.integrity_report,
+            "claim_audit": self.claim_audit,
+            "repo_root": self.repo_root,
             "alpha": self.alpha,
         }
 
@@ -58,6 +63,8 @@ class SelfResearchReport:
     grades: List[Dict[str, Any]] = field(default_factory=list)
     grade_mix: Dict[str, int] = field(default_factory=dict)
     disclaimers: List[Dict[str, Any]] = field(default_factory=list)
+    claim_audit: Dict[str, Any] = field(default_factory=dict)
+    unverified_claims: List[str] = field(default_factory=list)
     confidence: float = 0.0
     integrity_path: str = ""
     integrity_clean: bool = True
@@ -78,6 +85,8 @@ class SelfResearchReport:
             "grades": self.grades,
             "grade_mix": self.grade_mix,
             "disclaimers": self.disclaimers,
+            "claim_audit": self.claim_audit,
+            "unverified_claims": self.unverified_claims,
             "confidence": round(self.confidence, 4),
             "integrity_path": self.integrity_path,
             "integrity_clean": self.integrity_clean,
@@ -104,6 +113,7 @@ class SelfResearcher:
         grader: Optional[EvidenceGrader] = None,
         checker: Optional[IntegrityChecker] = None,
         scorer: Optional[ConfidenceScorer] = None,
+        claim_auditor: Optional[SuccessClaimAuditor] = None,
     ):
         self._config = config or SelfResearchConfig()
         self._collector = collector or ResearchDataCollector()
@@ -113,6 +123,8 @@ class SelfResearcher:
         self._grader = grader or EvidenceGrader()
         self._checker = checker or IntegrityChecker()
         self._scorer = scorer or ConfidenceScorer()
+        roots = [self._config.repo_root] if self._config.repo_root else None
+        self._claim_auditor = claim_auditor or SuccessClaimAuditor(roots=roots)
         self._figures = figure_generator or FigureGenerator(
             output_dir=os.path.join(self._config.output_dir, "figures"),
             prefer_png=self._config.prefer_png,
@@ -165,6 +177,8 @@ class SelfResearcher:
             grades=[grade.to_dict() for grade in grades],
             grade_mix=EvidenceGrader.summarise(grades),
             disclaimers=[item.to_dict() for item in integrity.disclaimers],
+            claim_audit=integrity.claim_audit,
+            unverified_claims=list(integrity.unverified_claims),
             confidence=confidence.score,
             integrity_path=integrity_path,
             integrity_clean=integrity.is_clean,
@@ -202,12 +216,31 @@ class SelfResearcher:
         grades: List[EvidenceGrade],
         provenance: ProvenanceReport,
     ) -> IntegrityReport:
-        report = self._checker.check(grades, provenance)
+        report = self._checker.check(grades, provenance, claim_audit=self._audit_claims())
         self._log(f"[IntegrityChecker] {IntegrityChecker.summary_line(report)}")
         for disclaimer in report.disclaimers:
             # 用 ASCII 标记：终端字体/宽度差异下，ASCII 永远比 emoji 可靠
             mark = "[!] " if disclaimer.severity == "critical" else ""
             self._log(f"  {mark}{disclaimer.text}")
+        return report
+
+    def _audit_claims(self) -> Optional[ClaimAuditReport]:
+        """静态审计本仓库的成功声明：判据不足的，一律写进免责声明。"""
+
+        if not self._config.claim_audit:
+            self._log("[ClaimAuditor] 已按配置跳过成功声明审计。")
+            return None
+        try:
+            report = self._claim_auditor.audit_paths()
+        except OSError as error:
+            self._log(f"[ClaimAuditor] 跳过成功声明审计：{error}")
+            return None
+        self._log(f"[ClaimAuditor] {report.summary_line()}")
+        for claim in report.unverified:
+            self._log(
+                f"  [!] {claim.file}:{claim.line} {claim.function}() 只有 {len(claim.criteria)} 条判据："
+                f"{claim.statement}"
+            )
         return report
 
     def _score_confidence(
@@ -239,6 +272,9 @@ class SelfResearcher:
             "critical_count": integrity.critical_count,
             "missing_sources": list(integrity.missing_sources),
             "is_clean": integrity.is_clean,
+            "claim_audit": integrity.claim_audit,
+            "unverified_claims": list(integrity.unverified_claims),
+            "claim_summary": integrity.claim_summary,
             "confidence": confidence.to_dict(),
             "summary": IntegrityChecker.summary_line(integrity),
             "grade_a": EvidenceGrader.summarise(grades).get(GRADE_A, 0),
