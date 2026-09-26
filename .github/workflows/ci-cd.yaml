@@ -47,9 +47,14 @@ jobs:
             BASE="HEAD~1"
           fi
           FILES=$(git diff --name-only "$BASE"...HEAD -- '*.py' || true)
-          echo "changed=$(echo "$FILES" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          # 没有任何 .py 变更时，`tr '\n' ' '` 会留下一个空格；那个空格能骗过
+          # `[ -n "$FILES" ]`，于是 black 收到一个空白参数、报 "One of 'SRC' or 'code'
+          # is required" 并以 1 退出 —— 只改 README 的提交因此会红。这里把列表规整成
+          # 「要么是干净的文件名序列，要么是空串」。
+          CHANGED=$(echo "$FILES" | tr '\n' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Changed Python files:"
-          echo "$FILES"
+          echo "$CHANGED"
 
       - name: Check formatting (black)
         run: |
