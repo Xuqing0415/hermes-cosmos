@@ -409,6 +409,54 @@ def run_self_experiment(demo: bool = False):
     print("\n[SelfExperiment] Self-experiment complete. Report saved to loop_output/.")
 
 
+def record_simulated_snapshots(tracker, amalgamator):
+    """把演示用的「虚构」指标写进快照库，并如实自报来源。
+
+    这 5 组指标是硬编码的，不是任何一次真实运行的结果。所以每条快照的 metadata
+    都带 ``source="simulation"``：采集层（``ResearchDataCollector``）据此把它们
+    标成 SYNTHETIC。少了这个标记，一份演示数据就会被论文当成 REAL 的真实快照。
+    """
+
+    from hermes.cross_domain import SIMULATED_SOURCE, SOURCE_METADATA_KEY
+
+    # Simulate 5 snapshots with declining metrics to trigger degradation detection
+    metrics_series = [
+        (0.82, 0.60, 0.75),
+        (0.80, 0.58, 0.75),
+        (0.77, 0.55, 0.73),
+        (0.73, 0.52, 0.70),
+        (0.70, 0.48, 0.68),
+    ]
+
+    snapshot_indices = []
+    for i, (sr, cd, pc) in enumerate(metrics_series):
+        # Include per-pattern success rates in metadata for root cause analysis
+        pattern_success_rates = {
+            "boundary_check_missing": max(0.50, 0.85 - i * 0.05),
+            "resource_limit_missing": max(0.30, 0.60 - i * 0.03),
+            "input_validation_missing": max(0.40, 0.70 - i * 0.04),
+            "type_mismatch": max(0.20, 0.50 - i * 0.05),
+        }
+        snapshot = tracker.record_snapshot(
+            success_rate=sr,
+            cross_domain_success=cd,
+            pattern_coverage=pc,
+            knowledge_amalgamator=amalgamator,
+            metadata={
+                SOURCE_METADATA_KEY: SIMULATED_SOURCE,
+                "iteration": i + 1,
+                "pattern_success_rates": pattern_success_rates,
+            },
+        )
+        snapshot_indices.append(snapshot.snapshot_index)
+        print(
+            f"[EvolutionTracker] Snapshot #{snapshot.snapshot_index} recorded: "
+            f"success_rate={sr}, cross_domain_success={cd}, pattern_coverage={pc}"
+        )
+
+    return snapshot_indices
+
+
 def run_evolution_monitor(demo: bool = False):
     from hermes.cross_domain import (
         AutoCorrectionEngine,
@@ -436,36 +484,7 @@ def run_evolution_monitor(demo: bool = False):
 
     designer.generate_all_cases()
 
-    # Simulate 5 snapshots with declining metrics to trigger degradation detection
-    metrics_series = [
-        (0.82, 0.60, 0.75),
-        (0.80, 0.58, 0.75),
-        (0.77, 0.55, 0.73),
-        (0.73, 0.52, 0.70),
-        (0.70, 0.48, 0.68),
-    ]
-
-    snapshot_indices = []
-    for i, (sr, cd, pc) in enumerate(metrics_series):
-        # Include per-pattern success rates in metadata for root cause analysis
-        pattern_success_rates = {
-            "boundary_check_missing": max(0.50, 0.85 - i * 0.05),
-            "resource_limit_missing": max(0.30, 0.60 - i * 0.03),
-            "input_validation_missing": max(0.40, 0.70 - i * 0.04),
-            "type_mismatch": max(0.20, 0.50 - i * 0.05),
-        }
-        snapshot = tracker.record_snapshot(
-            success_rate=sr,
-            cross_domain_success=cd,
-            pattern_coverage=pc,
-            knowledge_amalgamator=amalgamator,
-            metadata={"iteration": i + 1, "pattern_success_rates": pattern_success_rates},
-        )
-        snapshot_indices.append(snapshot.snapshot_index)
-        print(
-            f"[EvolutionTracker] Snapshot #{snapshot.snapshot_index} recorded: "
-            f"success_rate={sr}, cross_domain_success={cd}, pattern_coverage={pc}"
-        )
+    record_simulated_snapshots(tracker, amalgamator)
 
     # Detect trends
     snapshots = tracker.get_recent_snapshots(10)
@@ -508,12 +527,19 @@ def run_evolution_monitor(demo: bool = False):
                     print(f"[AutoCorrectionEngine]   -> completed{detail_str}")
 
             # Record corrected snapshot
+            from hermes.cross_domain import SIMULATED_SOURCE, SOURCE_METADATA_KEY
+
             corrected_snapshot = tracker.record_snapshot(
                 success_rate=0.81,
                 cross_domain_success=0.59,
                 pattern_coverage=0.74,
                 knowledge_amalgamator=amalgamator,
-                metadata={"iteration": 6, "corrected": True, "correction_id": correction_report.correction_id},
+                metadata={
+                    SOURCE_METADATA_KEY: SIMULATED_SOURCE,
+                    "iteration": 6,
+                    "corrected": True,
+                    "correction_id": correction_report.correction_id,
+                },
             )
             print(
                 f"\n[EvolutionTracker] Snapshot #{corrected_snapshot.snapshot_index} recorded (corrected): "

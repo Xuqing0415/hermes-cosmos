@@ -51,6 +51,8 @@ from .evolution_storyteller import (
     StoryChapter,
 )
 from .evolution_tracker import (
+    SIMULATED_SOURCE,
+    SOURCE_METADATA_KEY,
     EvolutionSnapshot,
     EvolutionTracker,
 )
@@ -91,6 +93,7 @@ from .knowledge_amalgamator import (
     KnowledgeGraph,
     KnowledgeNode,
 )
+from .knowledge_self_evolver import KnowledgeSelfEvolver
 from .mental_model_trainer import (
     MentalModelTrainer,
     PredictionModel,
@@ -214,6 +217,8 @@ __all__ = [
     "GapAnalyzer",
     "EvolutionSnapshot",
     "EvolutionTracker",
+    "SIMULATED_SOURCE",
+    "SOURCE_METADATA_KEY",
     "TrendAlert",
     "TrendReport",
     "TrendDetector",

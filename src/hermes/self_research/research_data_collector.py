@@ -22,12 +22,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from hermes.cross_domain.evolution_tracker import EvolutionSnapshot, EvolutionTracker
+from hermes.cross_domain.evolution_tracker import (
+    SIMULATED_SOURCE,
+    SOURCE_METADATA_KEY,
+    EvolutionSnapshot,
+    EvolutionTracker,
+)
 from hermes.cross_domain.git_phase_detector import GitPhaseDetector, PhaseDetectionResult
 from hermes.cross_domain.knowledge_amalgamator import KnowledgeAmalgamator
 from hermes.cross_domain.mental_model_trainer import MentalModelTrainer
 from hermes.cross_domain.self_improvement_policy import SelfImprovementPolicy
-from hermes.self_research.data_provenance import REAL, UNVERIFIED
+from hermes.self_research.data_provenance import REAL, SYNTHETIC, UNVERIFIED
 
 DEFAULT_SNAPSHOT_DB = "loop_output/evolution_tracker.db"
 DEFAULT_POLICY_PATH = "loop_output/self_improvement_policy.json"
@@ -238,6 +243,7 @@ class ResearchDataCollector:
             phase_result=phase_result,
             counts=counts,
             mental_model=mental_model,
+            simulated_snapshots=sum(1 for snapshot in snapshots if snapshot.is_simulated),
         )
 
         return ResearchDataset(
@@ -266,12 +272,18 @@ class ResearchDataCollector:
         phase_result: PhaseDetectionResult,
         counts: Dict[str, int],
         mental_model: Dict[str, Any],
+        simulated_snapshots: int = 0,
     ) -> Tuple[Dict[str, str], Dict[str, str]]:
         """给每个字段盖上来源标签。
 
         原则：`REAL` 只能用在“数据确实来自可外部核对的来源”上。数据源不可用时字段是
         空的，标签必须是 `UNVERIFIED`（来源不可核对）并写明“无数据、未做任何推断”：
         给空数据盖 `REAL`，等于宣称一份并不存在的数据来自真实来源。
+
+        另一条：数据源**存在**也不等于数据是真实的。快照的行级 metadata 一旦自报
+        `source="simulation"`（见 `evolution_tracker.SOURCE_METADATA_KEY`），依赖这些
+        快照的字段一律降级为 `SYNTHETIC` ——「能打开一份文件」和「文件里是真实运行
+        结果」是两件事。
         """
 
         provenance: Dict[str, str] = {}
@@ -300,6 +312,19 @@ class ResearchDataCollector:
         else:
             provenance["similarity_pairs"] = UNVERIFIED
             notes["similarity_pairs"] = "无数据：知识图谱或快照库不可用，未做任何推断"
+
+        if simulated_snapshots:
+            total_snapshots = counts.get("snapshots", simulated_snapshots)
+            warning = (
+                f"{simulated_snapshots}/{total_snapshots} 条快照在行级 metadata 里自报来源为「模拟」"
+                f"（{SOURCE_METADATA_KEY}={SIMULATED_SOURCE}），不是真实运行结果"
+            )
+            for field_name in ("snapshots", "pattern_success_rates", "mental_model", "similarity_pairs"):
+                if provenance.get(field_name) == UNVERIFIED:
+                    continue
+                provenance[field_name] = SYNTHETIC
+                existing = notes.get(field_name, "")
+                notes[field_name] = f"{existing}；{warning}" if existing else warning
 
         if sources.get("git_history"):
             provenance["phases"] = REAL

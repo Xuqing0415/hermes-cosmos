@@ -1,10 +1,17 @@
-from typing import List, Dict, Any, Optional
+import hashlib
+import json
+import os
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import sqlite3
-import os
-import json
-import hashlib
+from typing import Any, Dict, List, Optional
+
+# 快照 metadata 里的「来源」约定：生产者如果明知自己写进去的是模拟/演示数据，
+# 必须在 metadata 里写上 SOURCE_METADATA_KEY=SIMULATED_SOURCE。
+# 采集层（hermes.self_research.research_data_collector）据此把这些快照标成
+# SYNTHETIC 而不是 REAL —— 没有标注不等于真实，但没有标注也**不能**被当成真实。
+SOURCE_METADATA_KEY = "source"
+SIMULATED_SOURCE = "simulation"
 
 
 @dataclass
@@ -36,7 +43,14 @@ class EvolutionSnapshot:
             "policy_exploration_factor": self.policy_exploration_factor,
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
+            "is_simulated": self.is_simulated,
         }
+
+    @property
+    def is_simulated(self) -> bool:
+        """行级自报：这条快照是模拟/演示产物，不是真实运行结果。"""
+
+        return self.metadata.get(SOURCE_METADATA_KEY) == SIMULATED_SOURCE
 
 
 DB_SCHEMA = """
@@ -60,17 +74,16 @@ CREATE INDEX IF NOT EXISTS idx_snapshot_index ON evolution_snapshots(snapshot_in
 
 def compute_graph_hash(knowledge_amalgamator) -> str:
     """Compute a hash of the knowledge graph for change detection."""
-    graph = knowledge_amalgamator.get_graph() if hasattr(knowledge_amalgamator, 'get_graph') else None
+    graph = knowledge_amalgamator.get_graph() if hasattr(knowledge_amalgamator, "get_graph") else None
     if graph is None:
         return "empty"
 
-    node_data = [(n.id, n.pattern_type.value, sorted(n.domains),
-                  round(n.confidence, 2), n.occurrences) for n in graph.nodes]
-    edge_data = [(e.source_id, e.target_id, round(e.similarity, 2),
-                  e.relationship_type) for e in graph.edges]
+    node_data = [
+        (n.id, n.pattern_type.value, sorted(n.domains), round(n.confidence, 2), n.occurrences) for n in graph.nodes
+    ]
+    edge_data = [(e.source_id, e.target_id, round(e.similarity, 2), e.relationship_type) for e in graph.edges]
 
-    combined = json.dumps({"nodes": sorted(node_data), "edges": sorted(edge_data)},
-                          sort_keys=True)
+    combined = json.dumps({"nodes": sorted(node_data), "edges": sorted(edge_data)}, sort_keys=True)
     return hashlib.sha256(combined.encode()).hexdigest()[:16]
 
 
@@ -89,14 +102,18 @@ class EvolutionTracker:
         finally:
             conn.close()
 
-    def record_snapshot(self, success_rate: float, cross_domain_success: float,
-                        pattern_coverage: float, knowledge_amalgamator=None,
-                        policy=None, metadata: Optional[Dict[str, Any]] = None) -> EvolutionSnapshot:
+    def record_snapshot(
+        self,
+        success_rate: float,
+        cross_domain_success: float,
+        pattern_coverage: float,
+        knowledge_amalgamator=None,
+        policy=None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> EvolutionSnapshot:
         conn = sqlite3.connect(self._db_path)
         try:
-            cursor = conn.execute(
-                "SELECT COALESCE(MAX(snapshot_index), 0) FROM evolution_snapshots"
-            )
+            cursor = conn.execute("SELECT COALESCE(MAX(snapshot_index), 0) FROM evolution_snapshots")
             last_index = cursor.fetchone()[0]
             snapshot_index = last_index + 1
 
@@ -105,14 +122,22 @@ class EvolutionTracker:
             total_patterns = 0
             total_relationships = 0
             if knowledge_amalgamator:
-                total_patterns = knowledge_amalgamator.get_pattern_count() if hasattr(knowledge_amalgamator, 'get_pattern_count') else 0
-                total_relationships = knowledge_amalgamator.get_relationship_count() if hasattr(knowledge_amalgamator, 'get_relationship_count') else 0
+                total_patterns = (
+                    knowledge_amalgamator.get_pattern_count()
+                    if hasattr(knowledge_amalgamator, "get_pattern_count")
+                    else 0
+                )
+                total_relationships = (
+                    knowledge_amalgamator.get_relationship_count()
+                    if hasattr(knowledge_amalgamator, "get_relationship_count")
+                    else 0
+                )
 
             mutation_rate = 0.1
             exploration_factor = 0.15
             if policy:
-                mutation_rate = getattr(policy, 'mutation_rate', 0.1)
-                exploration_factor = getattr(policy, 'exploration_factor', 0.15)
+                mutation_rate = getattr(policy, "mutation_rate", 0.1)
+                exploration_factor = getattr(policy, "exploration_factor", 0.15)
 
             now = datetime.now(timezone.utc)
             meta_json = json.dumps(metadata or {})
@@ -123,9 +148,19 @@ class EvolutionTracker:
                     knowledge_graph_hash, total_patterns, total_relationships,
                     policy_mutation_rate, policy_exploration_factor, timestamp, metadata)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (snapshot_index, success_rate, cross_domain_success, pattern_coverage,
-                 kg_hash, total_patterns, total_relationships,
-                 mutation_rate, exploration_factor, now.isoformat(), meta_json)
+                (
+                    snapshot_index,
+                    success_rate,
+                    cross_domain_success,
+                    pattern_coverage,
+                    kg_hash,
+                    total_patterns,
+                    total_relationships,
+                    mutation_rate,
+                    exploration_factor,
+                    now.isoformat(),
+                    meta_json,
+                ),
             )
             conn.commit()
 
@@ -157,24 +192,26 @@ class EvolutionTracker:
                    FROM evolution_snapshots
                    ORDER BY snapshot_index DESC
                    LIMIT ? OFFSET ?""",
-                (limit, offset)
+                (limit, offset),
             )
             snapshots = []
             for row in cursor.fetchall():
-                snapshots.append(EvolutionSnapshot(
-                    id=row[0],
-                    snapshot_index=row[1],
-                    success_rate=row[2],
-                    cross_domain_success=row[3],
-                    pattern_coverage=row[4],
-                    knowledge_graph_hash=row[5],
-                    total_patterns=row[6],
-                    total_relationships=row[7],
-                    policy_mutation_rate=row[8],
-                    policy_exploration_factor=row[9],
-                    timestamp=datetime.fromisoformat(row[10]),
-                    metadata=json.loads(row[11]) if row[11] else {},
-                ))
+                snapshots.append(
+                    EvolutionSnapshot(
+                        id=row[0],
+                        snapshot_index=row[1],
+                        success_rate=row[2],
+                        cross_domain_success=row[3],
+                        pattern_coverage=row[4],
+                        knowledge_graph_hash=row[5],
+                        total_patterns=row[6],
+                        total_relationships=row[7],
+                        policy_mutation_rate=row[8],
+                        policy_exploration_factor=row[9],
+                        timestamp=datetime.fromisoformat(row[10]),
+                        metadata=json.loads(row[11]) if row[11] else {},
+                    )
+                )
             return snapshots
         finally:
             conn.close()
